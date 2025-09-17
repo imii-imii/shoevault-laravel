@@ -1,0 +1,263 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+/* Custom inventory management styles */
+
+/* Size-stock management styling */
+.sizes-container {
+    margin: 15px 0;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+}
+
+.size-stock-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.size-group {
+    display: none;
+}
+
+.size-group.active {
+    display: block;
+}
+
+.size-stock-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+}
+
+.size-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 80px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.size-toggle input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.size-label {
+    font-weight: 500;
+    font-size: 14px;
+    color: #333;
+}
+
+.stock-input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    min-width: 80px;
+}
+
+.stock-input:disabled {
+    background: #f5f5f5;
+    color: #999;
+    cursor: not-allowed;
+}
+
+.stock-input:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.price-adjustment {
+    flex: 0 0 80px;
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+    text-align: center;
+}
+
+.price-adjustment:disabled {
+    background: #f5f5f5;
+    color: #999;
+    cursor: not-allowed;
+}
+
+.price-adjustment:focus {
+    outline: none;
+    border-color: #28a745;
+    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
+}
+
+/* Product ID display */
+.product-id {
+    background: #f8f9fa;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: #495057;
+    border: 1px solid #dee2e6;
+}
+
+/* Sizes display in table */
+.sizes-display {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: 200px;
+    align-items: center;
+}
+
+.size-badge {
+    background: #d1ecf1;
+    color: #0c5460;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    display: inline-block;
+    white-space: nowrap;
+    margin: 1px;
+    border: 1px solid #bee5eb;
+    text-align: center;
+    min-width: 24px;
+}
+
+.no-sizes {
+    color: #6c757d;
+    font-style: italic;
+    font-size: 11px;
+}
+
+/* Additional table styling for new columns */
+.category-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: capitalize;
+}
+
+.color-display {
+    font-weight: 500;
+    color: #333;
+    text-transform: capitalize;
+}
+
+.size-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 10px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.category-badge.men {
+    background: #d4edda;
+    color: #155724;
+}
+
+.category-badge.women {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.category-badge.accessories {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.stock-count.low {
+    color: #dc3545;
+    font-weight: 600;
+}
+
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.status-badge.in-stock {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-badge.low-stock {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-badge.out-of-stock {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 5px;
+}
+
+.btn-icon {
+    background: none;
+    border: 1px solid #ddd;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #666;
+}
+
+.btn-icon:hover {
+    background: #f8f9fa;
+    border-color: #007bff;
+    color: #007bff;
+}
+
+.btn-icon.delete:hover {
+    border-color: #dc3545;
+    color: #dc3545;
+}
+
+.product-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.product-image img {
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    object-fit: cover;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+}
+
+/* Placeholder image styling */
+.product-image img[src*="No_image_available"] {
+    opacity: 0.6;
+    background: #f8f9fa;
+}
