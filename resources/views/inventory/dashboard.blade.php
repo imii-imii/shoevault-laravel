@@ -4,6 +4,8 @@
 
 @push('styles')
 <link rel="stylesheet" href="{{ asset('assets/css/inventory.css') }}">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;600;700;800&family=Roboto+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
 @endpush
 
 @section('content')
@@ -20,14 +22,20 @@
     <ul class="sidebar-nav">
         <li class="nav-item active">
             <a href="{{ route('inventory.dashboard') }}" class="nav-link">
-                <i class="fas fa-chart-pie"></i>
-                <span>Dashboard</span>
+                <i class="fas fa-box-open"></i>
+                <span>Add Inventory</span>
             </a>
         </li>
         <li class="nav-item">
             <a href="{{ route('inventory.suppliers') }}" class="nav-link">
-                <i class="fas fa-user-tie"></i>
-                <span>Suppliers</span>
+                <i class="fas fa-people-carry-box"></i>
+                <span>Supplier</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="{{ route('inventory.reservation-reports') }}" class="nav-link">
+                <i class="fas fa-chart-line"></i>
+                <span>Reservation Reports</span>
             </a>
         </li>
         <li class="nav-item">
@@ -48,9 +56,9 @@
                 <span>{{ ucfirst(auth()->user()->role) }}</span>
             </div>
         </div>
-        <form method="POST" action="{{ route('logout') }}" class="logout-form">
+        <form id="logout-form" method="POST" action="{{ route('logout') }}" style="display: inline;">
             @csrf
-            <button type="submit" class="logout-btn">
+            <button type="submit" class="logout-btn" style="background: none; border: none; color: inherit; width: 100%; text-align: left;">
                 <i class="fas fa-sign-out-alt"></i>
                 <span>Logout</span>
             </button>
@@ -63,7 +71,7 @@
     <!-- Header -->
     <header class="header">
         <div class="header-left">
-            <h1 class="main-title">Inventory Management</h1>
+            <h1 class="main-title" id="page-title">Add Inventory</h1>
         </div>
         <div class="header-right">
             <div class="time-display">
@@ -79,18 +87,76 @@
 
     <!-- Content Grid -->
     <div class="content-grid">
-        <!-- Inventory Dashboard Section -->
-        <section class="content-section">
-            <div class="dash-filter">
-                <div class="filter-left">
-                    <h2>Dashboard Overview</h2>
-                </div>
-                <div class="filter-right">
-                    <button class="btn btn-primary" onclick="openAddProductModal()">
-                        <i class="fas fa-plus"></i> Add Product
-                    </button>
+        <!-- Add Inventory Section -->
+        <section id="add-inventory" class="content-section active">
+            <!-- Product Details Modal -->
+            <div id="product-details-modal" class="modal" style="max-width: 600px; display:none;">
+                <div class="modal-content" style="max-width:100%; min-height:400px; display:flex; flex-direction:column;">
+                    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between; border-bottom:1px solid #e2e8f0; padding:24px 32px 12px 32px;">
+                        <h3 style="margin:0; font-size:1.28rem; font-weight:700;">Product Details</h3>
+                        <button class="close-btn" style="font-size:1.2rem; color:#718096; background:none; border:none; cursor:pointer;" onclick="closeProductDetailsModal()">&times;</button>
+                    </div>
+                    <div id="product-details-content" style="display:flex; flex-direction:row; gap:40px; margin:32px; align-items:center; justify-content:flex-start; min-height:320px;font-size: 1.2rem;">
+                        <!-- Details will be injected by JS -->
+                    </div>
                 </div>
             </div>
+            <div id="modal-overlay" class="modal-overlay" style="display:none;"></div>
+            
+            <div class="section-header">
+                <h2 style="display:flex;align-items:center;gap:12px;"><i class="fas fa-box-open"></i> Add Inventory</h2>
+                <div style="margin-left:auto;display:flex;align-items:center;gap:16px;">
+                    <select id="inventory-type-switcher" style="height:40px;min-width:160px;background:#2a6aff;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:600;padding:0 18px;cursor:pointer;box-shadow:0 2px 8px rgba(67,56,202,0.08);">
+                        <option value="pos" {{ isset($inventoryType) && $inventoryType === 'pos' ? 'selected' : '' }}>POS Inventory</option>
+                        <option value="reservation" {{ isset($inventoryType) && $inventoryType === 'reservation' ? 'selected' : '' }}>Reservation Inventory</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="toggle">
+                <button id="toggle-card-view" style="position:absolute;right: 20px; bottom: 20px; z-index:10;background:#2a6aff;color:#fff;border:none;border-radius:50%;width:48px;height:48px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(67,56,202,0.18);font-size:1.2rem;cursor:pointer;">
+                    <i class="fas fa-th-large" id="toggle-card-icon"></i>
+                </button>
+            </div>
+            
+            <div class="add-inventory-list" style="position:relative; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; justify-content: flex-start;">
+                <!-- Add Product Card/Button -->
+                <div class="add-product-card" style="min-width:220px;max-width:220px;height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed #a3bffa;border-radius:16px;cursor:pointer;background:#f7fafc;box-shadow:0 2px 8px rgba(67,56,202,0.08);" onclick="openAddProductModal()">
+                    <i class="fas fa-plus" style="font-size:2rem;color:#2a6aff;"></i>
+                    <span style="margin-top:12px;font-size:1.2rem;color:#2a6aff;font-weight:600;">Add Product</span>
+                </div>
+                
+                @foreach($products as $product)
+                <div class="product-card" 
+                    data-id="{{ $product->id }}"
+                    data-name="{{ $product->name }}" 
+                    data-brand="{{ $product->brand }}" 
+                    data-category="{{ $product->category }}" 
+                    data-price="{{ $product->price }}" 
+                    data-stock="{{ $product->sizes->sum('stock') }}" 
+                    data-sizes="{{ $product->sizes->pluck('size')->implode(', ') }}" 
+                    data-color="{{ $product->color }}"
+                    data-image="{{ $product->image_url }}"
+                    style="min-width:220px;max-width:220px;height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(67,56,202,0.08);padding:18px;cursor:pointer;" onclick="openEditProductModal({{ $product->id }})">>
+                    
+                    <div style="width:128px;height:128px;background:#e2e8f0;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;">
+                        @if($product->image_url)
+                            <img src="{{ asset($product->image_url) }}" alt="{{ $product->name }}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;">
+                        @else
+                            <i class="fas fa-image" style="font-size:3.2rem;color:#a0aec0;"></i>
+                        @endif
+                    </div>
+                    
+                    <div style="font-weight:700;font-size:0.88rem;text-align:center;">{{ $product->name }}</div>
+                    <div style="font-size:0.8rem;color:#4a5568;text-align:center;margin-top:4px;">Size: {{ $product->sizes->pluck('size')->implode(', ') }}</div>
+                    <div style="font-size:0.8rem;color:#4a5568;text-align:center;">Brand: {{ $product->brand }}</div>
+                    <div style="font-size:0.8rem;color:#2a6aff;text-align:center;margin-top:4px;">Stock: {{ $product->sizes->sum('stock') }}</div>
+                    
+                    <button type="button" class="btn btn-primary browse-btn" style="display:flex;align-items:center;justify-content:center;min-width:120px;height:36px;border-radius:8px;font-size:0.8rem;margin-top:16px;padding:0;" onclick="event.stopPropagation(); openUpdateProductModal('{{ $product->id }}')">Update</button>
+                </div>
+                @endforeach
+            </div>
+        </section>
 
             <!-- KPI Cards -->
             <div class="kpi-grid">
@@ -201,247 +267,182 @@
                 </div>
             </div>
         </section>
+
+
     </div>
 </main>
 
 <!-- Add Product Modal -->
-<div class="modal" id="add-product-modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3>Add New Product</h3>
-            <button class="modal-close" onclick="closeAddProductModal()">
-                <i class="fas fa-times"></i>
-            </button>
+<div id="add-product-modal" class="modal" style="background: none; border: none; box-shadow: none;">
+    <div class="modal-content" style="max-width:100%; min-height:480px; display:flex; flex-direction:column; justify-content:flex-start; align-items:stretch;">
+        <div class="modal-header" style="padding:24px 32px 12px 32px; border-bottom:1px solid #e2e8f0;">
+            <h3 style="margin:0; font-size:1.6rem; font-weight:700;">Add New Product</h3>
+            <button class="close-btn" style="font-size:1.5rem; color:#718096; background:none; border:none; cursor:pointer;" onclick="closeAddProductModal()">&times;</button>
         </div>
-        <form id="add-product-form" enctype="multipart/form-data">
+        <form id="add-product-form" class="modal-form" style="flex:1; display:flex; flex-direction:row; gap:32px; overflow:hidden; min-height:0;" enctype="multipart/form-data">
             @csrf
-            <div class="modal-body">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="product-name">Product Name</label>
-                        <input type="text" id="product-name" name="name" required>
+            <div class="upload-card" style="flex:0 0 400px; display:flex; flex-direction:column; justify-content:space-between; height:480px;">
+                <div class="upload-box" role="button" tabindex="0" style="flex:1;" onclick="document.getElementById('product-image').click()">
+                    <div class="upload-drop" id="upload-placeholder">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <h4>Drop files here</h4>
+                        <p>Supported format: PNG, JPG</p>
+                        <span class="or-text">OR</span>
+                        <span class="browse-link">Browse files</span>
                     </div>
-                    <div class="form-group">
-                        <label for="product-brand">Brand</label>
-                        <input type="text" id="product-brand" name="brand" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="product-category">Category</label>
-                        <select id="product-category" name="category" required>
-                            <option value="">Select Category</option>
-                            <option value="men">Men's Shoes</option>
-                            <option value="women">Women's Shoes</option>
-                            <option value="accessories">Accessories</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="product-color">Color</label>
-                        <input type="text" id="product-color" name="color" placeholder="e.g., Black, White, Red" required>
-                    </div>
-                    <div class="form-group form-group-full">
-                        <label for="product-sizes">Size & Stock Management <span style="color: red;">*</span></label>
-                        <div class="sizes-container">
-                            <div class="size-stock-inputs" id="size-stock-inputs">
-                                <div class="size-grid">
-                                    <div class="size-stock-row">
-                                        <label class="size-toggle">
-                                            <input type="checkbox" name="size_enabled[]" value="4" onchange="toggleSizeStock(this)">
-                                            <span class="size-label">4</span>
-                                        </label>
-                                        <input type="number" name="sizes[4][stock]" class="stock-input" placeholder="Stock" min="0" disabled>
-                                        <input type="hidden" name="sizes[4][size]" value="4">
-                                    </div>
-                                    <div class="size-stock-row">
-                                        <label class="size-toggle">
-                                            <input type="checkbox" name="size_enabled[]" value="4.5" onchange="toggleSizeStock(this)">
-                                            <span class="size-label">4.5</span>
-                                        </label>
-                                        <input type="number" name="sizes[4.5][stock]" class="stock-input" placeholder="Stock" min="0" disabled>
-                                        <input type="hidden" name="sizes[4.5][size]" value="4.5">
-                                    </div>
-                                    <div class="size-stock-row">
-                                        <label class="size-toggle">
-                                            <input type="checkbox" name="size_enabled[]" value="5" onchange="toggleSizeStock(this)">
-                                            <span class="size-label">5</span>
-                                        </label>
-                                        <input type="number" name="sizes[5][stock]" class="stock-input" placeholder="Stock" min="0" disabled>
-                                        <input type="hidden" name="sizes[5][size]" value="5">
-                                    </div>
-                                    <div class="size-stock-row">
-                                        <label class="size-toggle">
-                                            <input type="checkbox" name="size_enabled[]" value="5.5" onchange="toggleSizeStock(this)">
-                                            <span class="size-label">5.5</span>
-                                        </label>
-                                        <input type="number" name="sizes[5.5][stock]" class="stock-input" placeholder="Stock" min="0" disabled>
-                                        <input type="hidden" name="sizes[5.5][size]" value="5.5">
-                                    </div>
-                                    <div class="size-stock-row">
-                                        <label class="size-toggle">
-                                            <input type="checkbox" name="size_enabled[]" value="6" onchange="toggleSizeStock(this)">
-                                            <span class="size-label">6</span>
-                                        </label>
-                                        <input type="number" name="sizes[6][stock]" class="stock-input" placeholder="Stock" min="0" disabled>
-                                        <input type="hidden" name="sizes[6][size]" value="6">
-                                    </div>
-                                    <div class="size-stock-row">
-                                        <label class="size-toggle">
-                                            <input type="checkbox" name="size_enabled[]" value="6.5" onchange="toggleSizeStock(this)">
-                                            <span class="size-label">6.5</span>
-                                        </label>
-                                        <input type="number" name="sizes[6.5][stock]" class="stock-input" placeholder="Stock" min="0" disabled>
-                                        <input type="hidden" name="sizes[6.5][size]" value="6.5">
-                                    </div>
-                                    <div class="size-stock-row">
-                                        <label class="size-toggle">
-                                            <input type="checkbox" name="size_enabled[]" value="7" onchange="toggleSizeStock(this)">
-                                            <span class="size-label">7</span>
-                                        </label>
-                                        <input type="number" name="sizes[7][stock]" class="stock-input" placeholder="Stock" min="0" disabled>
-                                        <input type="hidden" name="sizes[7][size]" value="7">
-                                    </div>
-                                    <div class="size-stock-row">
-                                        <label class="size-toggle">
-                                            <input type="checkbox" name="size_enabled[]" value="7.5" onchange="toggleSizeStock(this)">
-                                            <span class="size-label">7.5</span>
-                                        </label>
-                                        <input type="number" name="sizes[7.5][stock]" class="stock-input" placeholder="Stock" min="0" disabled>
-                                        <input type="hidden" name="sizes[7.5][size]" value="7.5">
-                                    </div>
-                                    <div class="size-stock-row">
-                                        <label class="size-toggle">
-                                            <input type="checkbox" name="size_enabled[]" value="8" onchange="toggleSizeStock(this)">
-                                            <span class="size-label">8</span>
-                                        </label>
-                                        <input type="number" name="sizes[8][stock]" class="stock-input" placeholder="Stock" min="0" disabled>
-                                        <input type="hidden" name="sizes[8][size]" value="8">
-                                    </div>
-                                    <div class="size-stock-row">
-                                        <label class="size-toggle">
-                                            <input type="checkbox" name="size_enabled[]" value="8.5" onchange="toggleSizeStock(this)">
-                                            <span class="size-label">8.5</span>
-                                        </label>
-                                        <input type="number" name="sizes[8.5][stock]" class="stock-input" placeholder="Stock" min="0" disabled>
-                                        <input type="hidden" name="sizes[8.5][size]" value="8.5">
-                                    </div>
-                                    <div class="size-stock-row">
-                                        <label class="size-toggle">
-                                            <input type="checkbox" name="size_enabled[]" value="9" onchange="toggleSizeStock(this)">
-                                            <span class="size-label">9</span>
-                                        </label>
-                                        <input type="number" name="sizes[9][stock]" class="stock-input" placeholder="Stock" min="0" disabled>
-                                        <input type="hidden" name="sizes[9][size]" value="9">
-                                    </div>
-                                    <div class="size-stock-row">
-                                        <label class="size-toggle">
-                                            <input type="checkbox" name="size_enabled[]" value="9.5" onchange="toggleSizeStock(this)">
-                                            <span class="size-label">9.5</span>
-                                        </label>
-                                        <input type="number" name="sizes[9.5][stock]" class="stock-input" placeholder="Stock" min="0" disabled>
-                                        <input type="hidden" name="sizes[9.5][size]" value="9.5">
-                                    </div>
-                                    <div class="size-stock-row">
-                                        <label class="size-toggle">
-                                            <input type="checkbox" name="size_enabled[]" value="10" onchange="toggleSizeStock(this)">
-                                            <span class="size-label">10</span>
-                                        </label>
-                                        <input type="number" name="sizes[10][stock]" class="stock-input" placeholder="Stock" min="0" disabled>
-                                        <input type="hidden" name="sizes[10][size]" value="10">
-                                    </div>
-                                    <div class="size-stock-row">
-                                        <label class="size-toggle">
-                                            <input type="checkbox" name="size_enabled[]" value="10.5" onchange="toggleSizeStock(this)">
-                                            <span class="size-label">10.5</span>
-                                        </label>
-                                        <input type="number" name="sizes[10.5][stock]" class="stock-input" placeholder="Stock" min="0" disabled>
-                                        <input type="hidden" name="sizes[10.5][size]" value="10.5">
-                                    </div>
-                                    <div class="size-stock-row">
-                                        <label class="size-toggle">
-                                            <input type="checkbox" name="size_enabled[]" value="11" onchange="toggleSizeStock(this)">
-                                            <span class="size-label">11</span>
-                                        </label>
-                                        <input type="number" name="sizes[11][stock]" class="stock-input" placeholder="Stock" min="0" disabled>
-                                        <input type="hidden" name="sizes[11][size]" value="11">
-                                    </div>
-                                    <div class="size-stock-row">
-                                        <label class="size-toggle">
-                                            <input type="checkbox" name="size_enabled[]" value="11.5" onchange="toggleSizeStock(this)">
-                                            <span class="size-label">11.5</span>
-                                        </label>
-                                        <input type="number" name="sizes[11.5][stock]" class="stock-input" placeholder="Stock" min="0" disabled>
-                                        <input type="hidden" name="sizes[11.5][size]" value="11.5">
-                                    </div>
-                                    <div class="size-stock-row">
-                                        <label class="size-toggle">
-                                            <input type="checkbox" name="size_enabled[]" value="12" onchange="toggleSizeStock(this)">
-                                            <span class="size-label">12</span>
-                                        </label>
-                                        <input type="number" name="sizes[12][stock]" class="stock-input" placeholder="Stock" min="0" disabled>
-                                        <input type="hidden" name="sizes[12][size]" value="12">
-                                    </div>
-                                    <div class="size-stock-row">
-                                        <label class="size-toggle">
-                                            <input type="checkbox" name="size_enabled[]" value="12.5" onchange="toggleSizeStock(this)">
-                                            <span class="size-label">12.5</span>
-                                        </label>
-                                        <input type="number" name="sizes[12.5][stock]" class="stock-input" placeholder="Stock" min="0" disabled>
-                                        <input type="hidden" name="sizes[12.5][size]" value="12.5">
-                                    </div>
-                                    <div class="size-stock-row">
-                                        <label class="size-toggle">
-                                            <input type="checkbox" name="size_enabled[]" value="13" onchange="toggleSizeStock(this)">
-                                            <span class="size-label">13</span>
-                                        </label>
-                                        <input type="number" name="sizes[13][stock]" class="stock-input" placeholder="Stock" min="0" disabled>
-                                        <input type="hidden" name="sizes[13][size]" value="13">
-                                    </div>
-                                    <div class="size-stock-row">
-                                        <label class="size-toggle">
-                                            <input type="checkbox" name="size_enabled[]" value="13.5" onchange="toggleSizeStock(this)">
-                                            <span class="size-label">13.5</span>
-                                        </label>
-                                        <input type="number" name="sizes[13.5][stock]" class="stock-input" placeholder="Stock" min="0" disabled>
-                                        <input type="hidden" name="sizes[13.5][size]" value="13.5">
-                                    </div>
-                                    <div class="size-stock-row">
-                                        <label class="size-toggle">
-                                            <input type="checkbox" name="size_enabled[]" value="14" onchange="toggleSizeStock(this)">
-                                            <span class="size-label">14</span>
-                                        </label>
-                                        <input type="number" name="sizes[14][stock]" class="stock-input" placeholder="Stock" min="0" disabled>
-                                        <input type="hidden" name="sizes[14][size]" value="14">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <small style="color: #666; font-size: 0.8rem;">Select sizes and set individual stock levels for each size.</small>
-                    </div>
-                    <div class="form-group">
-                        <label for="product-price">Price (₱)</label>
-                        <input type="number" id="product-price" name="price" step="0.01" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="product-min-stock">Minimum Stock Level</label>
-                        <input type="number" id="product-min-stock" name="min_stock" min="0" required>
-                    </div>
-                    <div class="form-group form-group-full">
-                        <label for="product-image">Product Image <span style="color: red;">*</span></label>
-                        <input type="file" id="product-image" name="image" accept="image/*" class="file-input" required>
-                        <small style="color: #666; font-size: 0.8rem;">Please select an image for the product (JPEG, PNG, JPG, GIF - Max 2MB)</small>
-                        <div class="file-preview" id="image-preview" style="display: none;">
-                            <img id="preview-img" src="" alt="Image preview" style="max-width: 100px; max-height: 100px; border-radius: 4px;">
-                            <button type="button" onclick="removeImage()" class="btn-remove-image">Remove</button>
-                        </div>
-                    </div>
-                    <div class="form-group form-group-full">
-                        <label for="product-description">Description (Optional)</label>
-                        <textarea id="product-description" name="description" rows="3" placeholder="Enter product description..."></textarea>
+                    <div class="image-preview" id="image-preview" style="display: none; width: 100%; height: 100%; position: relative;">
+                        <img id="preview-img" src="" alt="Preview" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+                        <button type="button" class="remove-image" onclick="removeImage(event)" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer;">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
                 </div>
+                <input type="file" id="product-image" name="image" accept="image/*" style="display: none;" required>
+                <div class="upload-actions" style="margin-top:18px; display:flex; gap:12px;">
+                    <button type="button" class="btn btn-secondary" style="height:40px;display:flex;align-items:center;" onclick="closeAddProductModal()">Cancel</button>
+                    <button type="button" class="btn btn-primary browse-btn" style="height:40px;display:flex;align-items:center;margin: 0;">Upload</button>
+                </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeAddProductModal()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Add Product</button>
+            <div class="info-card" style="flex:1; display:flex; flex-direction:column; max-height:480px; overflow-y:auto; padding-right:8px;">
+                <div class="info-title" style="font-weight:600; font-size:1.1rem; margin-bottom:12px;">Inventory item Information</div>
+                <div class="form-group">
+                    <label for="product-name">Product Name</label>
+                    <input type="text" id="product-name" name="name" placeholder="Please enter item name." required style="font-size: 1rem;">
+                </div>
+                <div class="form-group">
+                    <label for="product-brand">Brand</label>
+                    <input type="text" id="product-brand" name="brand" placeholder="Please enter brand name." style="font-size: 1rem;">
+                </div>
+                <div class="form-group">
+                    <label for="product-stock">Stock</label>
+                    <input type="number" id="product-stock" name="stock" min="0" placeholder="Please enter quantity." required style="font-size: 1rem;">
+                </div>
+                <div class="form-group">
+                    <label for="product-category">Category</label>
+                    <select id="product-category" name="category" required style="font-size: 1rem;">
+                        <option value="">Select Category</option>
+                        <option value="men">Men's Shoes</option>
+                        <option value="women">Women's Shoes</option>
+                        <option value="accessories">Accessories</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="product-price">Price</label>
+                    <input type="number" id="product-price" name="price" min="0" step="0.01" placeholder="Please enter item price" required style="font-size: 1rem;">
+                </div>
+                <div class="form-group">
+                    <label for="product-size-tags">Sizes</label>
+                    <div id="product-size-tags" style="font-size:1rem;display:flex;flex-wrap:wrap;gap:8px;padding:6px 0;border:1px solid #e2e8f0;border-radius:6px;background:#f7fafc;min-height:38px;margin-bottom:6px;width:100%;"></div>
+                    <div style="position:relative;display:flex;align-items:center;width:100%;">
+                        <input type="number" id="product-size-input" placeholder="Type size and press Enter" min="1" max="50" style="width:100%;padding-right:36px;font-size:1rem;">
+                        <button type="button" id="product-size-enter" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#2a6aff;padding:0;">
+                            <i class="fas fa-arrow-up"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="product-color-tags">Colors</label>
+                    <div id="product-color-tags" style="font-size:1rem;display:flex;flex-wrap:wrap;gap:8px;padding:6px 0;border:1px solid #e2e8f0;border-radius:6px;background:#f7fafc;min-height:38px;margin-bottom:6px;width:100%;"></div>
+                    <div style="position:relative;display:flex;align-items:center;width:100%;">
+                        <input type="text" id="product-color-input" placeholder="Type color and press Enter" style="width:100%;padding-right:36px;font-size:1rem;">
+                        <button type="button" id="product-color-enter" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#2a6aff;padding:0;">
+                            <i class="fas fa-arrow-up"></i>
+                        </button>
+                    </div>
+                </div>
+                <div style="flex:1;"></div>
+                <div class="modal-create" style="margin-top:18px; display:flex; justify-content:flex-end;">
+                    <button type="submit" class="btn btn-primary browse-btn" style="min-width:220px;max-width:220px;height:40px;font-size:0.88rem;font-weight:600;border-radius:16px;display:flex;align-items:center;justify-content:center;">Add Product</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Product Modal -->
+<div id="edit-product-modal" class="modal" style="background: none; border: none; box-shadow: none; display: none;">
+    <div class="modal-content" style="max-width:100%; min-height:480px; display:flex; flex-direction:column; justify-content:flex-start; align-items:stretch;">
+        <div class="modal-header" style="padding:24px 32px 12px 32px; border-bottom:1px solid #e2e8f0;">
+            <h3 style="margin:0; font-size:1.6rem; font-weight:700;">Edit Product</h3>
+            <button class="close-btn" style="font-size:1.5rem; color:#718096; background:none; border:none; cursor:pointer;" onclick="closeEditProductModal()">&times;</button>
+        </div>
+        <form id="edit-product-form" class="modal-form" style="flex:1; display:flex; flex-direction:row; gap:32px; overflow:hidden; min-height:0;" enctype="multipart/form-data">
+            @csrf
+            @method('PUT')
+            <input type="hidden" id="edit-product-id" name="id">
+            <div class="upload-card" style="flex:0 0 400px; display:flex; flex-direction:column; justify-content:space-between; height:480px;">
+                <div class="upload-box" role="button" tabindex="0" style="flex:1;" onclick="document.getElementById('edit-product-image').click()">
+                    <div class="upload-drop" id="edit-upload-placeholder" style="display: none;">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <h4>Drop files here</h4>
+                        <p>Supported format: PNG, JPG</p>
+                        <span class="or-text">OR</span>
+                        <span class="browse-link">Browse files</span>
+                    </div>
+                    <div class="image-preview" id="edit-image-preview" style="width: 100%; height: 100%; position: relative;">
+                        <img id="edit-preview-img" src="" alt="Preview" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+                        <button type="button" class="remove-image" onclick="removeEditImage(event)" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <input type="file" id="edit-product-image" name="image" accept="image/*" style="display: none;">
+                <div class="upload-actions" style="margin-top:18px; display:flex; gap:12px;">
+                    <button type="button" class="btn btn-secondary" style="height:40px;display:flex;align-items:center;" onclick="closeEditProductModal()">Cancel</button>
+                    <button type="button" class="btn btn-danger" style="height:40px;display:flex;align-items:center;margin: 0;" onclick="deleteCurrentProduct()">Delete Product</button>
+                </div>
+            </div>
+            <div class="info-card" style="flex:1; display:flex; flex-direction:column; max-height:480px; overflow-y:auto; padding-right:8px;">
+                <div class="info-title" style="font-weight:600; font-size:1.1rem; margin-bottom:12px;">Edit Product Information</div>
+                <div class="form-group">
+                    <label for="edit-product-name">Product Name</label>
+                    <input type="text" id="edit-product-name" name="name" placeholder="Please enter item name." required style="font-size: 1rem;">
+                </div>
+                <div class="form-group">
+                    <label for="edit-product-brand">Brand</label>
+                    <input type="text" id="edit-product-brand" name="brand" placeholder="Please enter brand name." style="font-size: 1rem;">
+                </div>
+                <div class="form-group">
+                    <label for="edit-product-stock">Stock</label>
+                    <input type="number" id="edit-product-stock" name="stock" min="0" placeholder="Please enter quantity." required style="font-size: 1rem;">
+                </div>
+                <div class="form-group">
+                    <label for="edit-product-category">Category</label>
+                    <select id="edit-product-category" name="category" required style="font-size: 1rem;">
+                        <option value="">Select Category</option>
+                        <option value="men">Men's Shoes</option>
+                        <option value="women">Women's Shoes</option>
+                        <option value="accessories">Accessories</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="edit-product-price">Price</label>
+                    <input type="number" id="edit-product-price" name="price" min="0" step="0.01" placeholder="Please enter item price" required style="font-size: 1rem;">
+                </div>
+                <div class="form-group">
+                    <label for="edit-product-size-tags">Sizes</label>
+                    <div id="edit-product-size-tags" style="font-size:1rem;display:flex;flex-wrap:wrap;gap:8px;padding:6px 0;border:1px solid #e2e8f0;border-radius:6px;background:#f7fafc;min-height:38px;margin-bottom:6px;width:100%;"></div>
+                    <div style="position:relative;display:flex;align-items:center;width:100%;">
+                        <input type="number" id="edit-product-size-input" placeholder="Type size and press Enter" min="1" max="50" style="width:100%;padding-right:36px;font-size:1rem;">
+                        <button type="button" id="edit-product-size-enter" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#2a6aff;padding:0;">
+                            <i class="fas fa-arrow-up"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="edit-product-color-tags">Colors</label>
+                    <div id="edit-product-color-tags" style="font-size:1rem;display:flex;flex-wrap:wrap;gap:8px;padding:6px 0;border:1px solid #e2e8f0;border-radius:6px;background:#f7fafc;min-height:38px;margin-bottom:6px;width:100%;"></div>
+                    <div style="position:relative;display:flex;align-items:center;width:100%;">
+                        <input type="text" id="edit-product-color-input" placeholder="Type color and press Enter" style="width:100%;padding-right:36px;font-size:1rem;">
+                        <button type="button" id="edit-product-color-enter" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#2a6aff;padding:0;">
+                            <i class="fas fa-arrow-up"></i>
+                        </button>
+                    </div>
+                </div>
+                <div style="flex:1;"></div>
+                <div class="modal-create" style="margin-top:18px; display:flex; justify-content:flex-end;">
+                    <button type="submit" class="btn btn-primary browse-btn" style="min-width:220px;max-width:220px;height:40px;font-size:0.88rem;font-weight:600;border-radius:16px;display:flex;align-items:center;justify-content:center;">Update Product</button>
+                </div>
             </div>
         </form>
     </div>
@@ -450,6 +451,27 @@
 
 @push('scripts')
 <script>
+// Navigation functionality
+// Settings tab functionality
+function initializeSettings() {
+    document.querySelectorAll('.settings-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            const tabId = this.getAttribute('data-tab');
+            
+            // Remove active class from all tabs and panels
+            document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
+            
+            // Add active class to clicked tab and corresponding panel
+            this.classList.add('active');
+            const panel = document.getElementById(`settings-panel-${tabId}`);
+            if (panel) {
+                panel.classList.add('active');
+            }
+        });
+    });
+}
+
 // Time and date display
 function updateDateTime() {
     const now = new Date();
@@ -489,64 +511,16 @@ function loadInventoryData() {
         })
         .catch(error => {
             console.error('Error loading inventory data:', error);
-            // Fallback to sample data
-            loadSampleData();
+            // Show empty state instead of fallback data
+            inventoryData = [];
+            updateKPIs({
+                total_products: 0,
+                low_stock_items: 0,
+                total_categories: 3,
+                inventory_value: 0
+            });
+            renderInventoryTable();
         });
-}
-
-// Fallback sample data
-function loadSampleData() {
-    inventoryData = [
-        {
-            id: 1,
-            product_id: "SV-MEN-ABC123",
-            name: "Nike Air Max 270",
-            brand: "Nike",
-            category: "men",
-            total_stock: 15,
-            min_stock: 5,
-            price: 7500,
-            available_sizes: ["8", "9", "10", "11"],
-            stock_status: "in-stock",
-            image_url: null
-        },
-        {
-            id: 2,
-            product_id: "SV-WOM-XYZ456", 
-            name: "Adidas Ultraboost 22",
-            brand: "Adidas",
-            category: "women", 
-            total_stock: 3,
-            min_stock: 5,
-            price: 8200,
-            available_sizes: ["6", "7", "8"],
-            stock_status: "low-stock",
-            image_url: null
-        },
-        {
-            id: 3,
-            product_id: "SV-ACC-DEF789",
-            name: "Leather Belt",
-            brand: "ShoeVault",
-            category: "accessories",
-            total_stock: 25,
-            min_stock: 10,
-            price: 1200,
-            available_sizes: ["S", "M", "L"],
-            stock_status: "in-stock",
-            image_url: null
-        }
-    ];
-    
-    const stats = {
-        total_products: inventoryData.length,
-        low_stock_items: inventoryData.filter(item => item.total_stock <= item.min_stock).length,
-        total_categories: 3,
-        inventory_value: inventoryData.reduce((sum, item) => sum + (item.price * item.total_stock), 0)
-    };
-    
-    updateKPIs(stats);
-    renderInventoryTable();
 }
 
 // Update KPI cards
@@ -605,13 +579,13 @@ function renderInventoryTable() {
                 </div>
             </td>
             <td>
-                <span class="stock-count ${item.total_stock <= item.min_stock ? 'low' : ''}">${item.total_stock || 0}</span>
+                <span class="stock-count ${item.total_stock <= 5 ? 'low' : ''}">${item.total_stock || 0}</span>
             </td>
             <td>₱${parseFloat(item.price).toLocaleString()}</td>
             <td>
-                <span class="status-badge ${item.stock_status || (item.total_stock <= 0 ? 'out-of-stock' : item.total_stock <= item.min_stock ? 'low-stock' : 'in-stock')}">
+                <span class="status-badge ${item.stock_status || (item.total_stock <= 0 ? 'out-of-stock' : item.total_stock <= 5 ? 'low-stock' : 'in-stock')}">
                     ${item.total_stock <= 0 ? 'Out of Stock' : 
-                      item.total_stock <= item.min_stock ? 'Low Stock' : 'In Stock'}
+                      item.total_stock <= 5 ? 'Low Stock' : 'In Stock'}
                 </span>
             </td>
             <td>
@@ -664,14 +638,14 @@ function addProductToTable(product) {
             </div>
         </td>
         <td>
-            <span class="stock-count ${product.total_stock <= product.min_stock ? 'low' : ''}">${product.total_stock || 0}</span>
+            <span class="stock-count ${product.total_stock <= 5 ? 'low' : ''}">${product.total_stock || 0}</span>
         </td>
         <td>₱${parseFloat(product.price).toLocaleString()}</td>
         <td>
             <span class="status-badge ${product.total_stock <= 0 ? 'out-of-stock' : 
-                  product.total_stock <= product.min_stock ? 'low-stock' : 'in-stock'}">
+                  product.total_stock <= 5 ? 'low-stock' : 'in-stock'}">
                 ${product.total_stock <= 0 ? 'Out of Stock' : 
-                  product.total_stock <= product.min_stock ? 'Low Stock' : 'In Stock'}
+                  product.total_stock <= 5 ? 'Low Stock' : 'In Stock'}
             </span>
         </td>
         <td>
@@ -692,8 +666,89 @@ function addProductToTable(product) {
         loadingRow.remove();
     }
     
-    // Add the new row at the top
-    tbody.insertBefore(newRow, tbody.firstChild);
+    // Add the new row at the end (append to the end)
+    tbody.appendChild(newRow);
+}
+
+// Function to add a single product to the card view
+function addProductToCardView(product) {
+    const cardContainer = document.querySelector('.add-inventory-list');
+    
+    // Create the new product card
+    const newCard = document.createElement('div');
+    newCard.className = 'product-card';
+    newCard.setAttribute('data-id', product.id);
+    newCard.setAttribute('data-name', product.name);
+    newCard.setAttribute('data-brand', product.brand);
+    newCard.setAttribute('data-category', product.category);
+    newCard.setAttribute('data-price', product.price);
+    newCard.setAttribute('data-stock', product.total_stock || 0);
+    newCard.setAttribute('data-sizes', product.available_sizes ? product.available_sizes.join(', ') : '');
+    newCard.setAttribute('data-color', product.color);
+    newCard.setAttribute('data-image', product.image_url);
+    newCard.style.cssText = 'min-width:220px;max-width:220px;height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(67,56,202,0.08);padding:18px;cursor:pointer;';
+    newCard.setAttribute('onclick', `openEditProductModal('${product.id}')`);
+    
+    newCard.innerHTML = `
+        <div style="width:128px;height:128px;background:#e2e8f0;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;">
+            ${product.image_url ? 
+                `<img src="${product.image_url}" alt="${product.name}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;">` : 
+                '<i class="fas fa-image" style="font-size:3.2rem;color:#a0aec0;"></i>'
+            }
+        </div>
+        
+        <div style="font-weight:700;font-size:0.88rem;text-align:center;">${product.name}</div>
+        <div style="font-size:0.8rem;color:#4a5568;text-align:center;margin-top:4px;">Size: ${product.available_sizes ? product.available_sizes.join(', ') : 'N/A'}</div>
+        <div style="font-size:0.8rem;color:#4a5568;text-align:center;">Brand: ${product.brand}</div>
+        <div style="font-size:0.8rem;color:#2a6aff;text-align:center;margin-top:4px;">Stock: ${product.total_stock || 0}</div>
+        
+        <button type="button" class="btn btn-primary browse-btn" style="display:flex;align-items:center;justify-content:center;min-width:120px;height:36px;border-radius:8px;font-size:0.8rem;margin-top:16px;padding:0;" onclick="event.stopPropagation(); openEditProductModal('${product.id}')">Update</button>
+    `;
+    
+    // Add the new card at the end of the container (append to the end)
+    cardContainer.appendChild(newCard);
+}
+
+// Function to update a product in both card and table view
+function updateProductInView(product) {
+    // Update the product card
+    const productCard = document.querySelector(`[data-id="${product.id}"]`);
+    if (productCard) {
+        // Update data attributes
+        productCard.setAttribute('data-name', product.name);
+        productCard.setAttribute('data-brand', product.brand);
+        productCard.setAttribute('data-category', product.category);
+        productCard.setAttribute('data-price', product.price);
+        productCard.setAttribute('data-stock', product.total_stock || 0);
+        productCard.setAttribute('data-sizes', product.available_sizes ? product.available_sizes.join(', ') : '');
+        productCard.setAttribute('data-color', product.color);
+        productCard.setAttribute('data-image', product.image_url);
+        
+        // Update the card content
+        productCard.innerHTML = `
+            <div style="width:128px;height:128px;background:#e2e8f0;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;">
+                ${product.image_url ? 
+                    `<img src="${product.image_url}" alt="${product.name}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;">` : 
+                    '<i class="fas fa-image" style="font-size:3.2rem;color:#a0aec0;"></i>'
+                }
+            </div>
+            
+            <div style="font-weight:700;font-size:0.88rem;text-align:center;">${product.name}</div>
+            <div style="font-size:0.8rem;color:#4a5568;text-align:center;margin-top:4px;">Size: ${product.available_sizes ? product.available_sizes.join(', ') : 'N/A'}</div>
+            <div style="font-size:0.8rem;color:#4a5568;text-align:center;">Brand: ${product.brand}</div>
+            <div style="font-size:0.8rem;color:#2a6aff;text-align:center;margin-top:4px;">Stock: ${product.total_stock || 0}</div>
+            
+            <button type="button" class="btn btn-primary browse-btn" style="display:flex;align-items:center;justify-content:center;min-width:120px;height:36px;border-radius:8px;font-size:0.8rem;margin-top:16px;padding:0;" onclick="event.stopPropagation(); openEditProductModal('${product.id}')">Update</button>
+        `;
+    }
+    
+    // Update the inventory data array
+    const inventoryIndex = inventoryData.findIndex(item => item.id === product.id);
+    if (inventoryIndex !== -1) {
+        inventoryData[inventoryIndex] = product;
+        // Re-render the table to show updated data
+        renderInventoryTable();
+    }
 }
 
 // Modal functions
@@ -779,7 +834,7 @@ function toggleSizeStock(checkbox) {
 
 // Category change handler - removed since we show all sizes regardless of category
 
-// Image preview functionality
+// Enhanced image upload functionality
 document.getElementById('product-image').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (file) {
@@ -801,16 +856,400 @@ document.getElementById('product-image').addEventListener('change', function(e) 
         const reader = new FileReader();
         reader.onload = function(e) {
             document.getElementById('preview-img').src = e.target.result;
+            document.getElementById('upload-placeholder').style.display = 'none';
             document.getElementById('image-preview').style.display = 'block';
         }
         reader.readAsDataURL(file);
     }
 });
 
-function removeImage() {
+// Edit product image upload functionality
+document.getElementById('edit-product-image').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        // Validate file size (2MB = 2048KB)
+        if (file.size > 2048 * 1024) {
+            alert('File size must be less than 2MB');
+            this.value = '';
+            return;
+        }
+        
+        // Validate file type
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif'];
+        if (!allowedTypes.includes(file.type)) {
+            alert('Please select a valid image file (JPEG, PNG, JPG, GIF)');
+            this.value = '';
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('edit-preview-img').src = e.target.result;
+            document.getElementById('edit-upload-placeholder').style.display = 'none';
+            document.getElementById('edit-image-preview').style.display = 'block';
+        }
+        reader.readAsDataURL(file);
+    }
+});
+
+// Enhanced remove image function
+function removeImage(event) {
+    event.stopPropagation();
     document.getElementById('product-image').value = '';
     document.getElementById('image-preview').style.display = 'none';
+    document.getElementById('upload-placeholder').style.display = 'flex';
+}
+
+// Size and Color Tag Functionality
+let sizeArray = [];
+let colorArray = [];
+let editSizeArray = [];
+let editColorArray = [];
+
+function addSizeTag(size) {
+    if (size && !sizeArray.includes(size)) {
+        sizeArray.push(size);
+        renderSizeTags();
+    }
+}
+
+function removeSizeTag(size) {
+    sizeArray = sizeArray.filter(s => s !== size);
+    renderSizeTags();
+}
+
+function renderSizeTags() {
+    const container = document.getElementById('product-size-tags');
+    container.innerHTML = sizeArray.map(size => `
+        <span style="display:inline-flex;align-items:center;background:#2a6aff;color:white;padding:4px 8px;border-radius:4px;font-size:0.9rem;">
+            ${size}
+            <button type="button" onclick="removeSizeTag('${size}')" style="background:none;border:none;color:white;margin-left:6px;cursor:pointer;font-size:0.8rem;">&times;</button>
+        </span>
+    `).join('');
+}
+
+function addColorTag(color) {
+    if (color && !colorArray.includes(color)) {
+        colorArray.push(color);
+        renderColorTags();
+    }
+}
+
+function removeColorTag(color) {
+    colorArray = colorArray.filter(c => c !== color);
+    renderColorTags();
+}
+
+function renderColorTags() {
+    const container = document.getElementById('product-color-tags');
+    container.innerHTML = colorArray.map(color => `
+        <span style="display:inline-flex;align-items:center;background:#2a6aff;color:white;padding:4px 8px;border-radius:4px;font-size:0.9rem;">
+            ${color}
+            <button type="button" onclick="removeColorTag('${color}')" style="background:none;border:none;color:white;margin-left:6px;cursor:pointer;font-size:0.8rem;">&times;</button>
+        </span>
+    `).join('');
+}
+
+// Edit modal tag functions
+function addEditSizeTag(size) {
+    if (size && !editSizeArray.includes(size)) {
+        editSizeArray.push(size);
+        renderEditSizeTags();
+    }
+}
+
+function removeEditSizeTag(size) {
+    editSizeArray = editSizeArray.filter(s => s !== size);
+    renderEditSizeTags();
+}
+
+function renderEditSizeTags() {
+    const container = document.getElementById('edit-product-size-tags');
+    container.innerHTML = editSizeArray.map(size => `
+        <span style="display:inline-flex;align-items:center;background:#2a6aff;color:white;padding:4px 8px;border-radius:4px;font-size:0.9rem;">
+            ${size}
+            <button type="button" onclick="removeEditSizeTag('${size}')" style="background:none;border:none;color:white;margin-left:6px;cursor:pointer;font-size:0.8rem;">&times;</button>
+        </span>
+    `).join('');
+}
+
+function addEditColorTag(color) {
+    if (color && !editColorArray.includes(color)) {
+        editColorArray.push(color);
+        renderEditColorTags();
+    }
+}
+
+function removeEditColorTag(color) {
+    editColorArray = editColorArray.filter(c => c !== color);
+    renderEditColorTags();
+}
+
+function renderEditColorTags() {
+    const container = document.getElementById('edit-product-color-tags');
+    container.innerHTML = editColorArray.map(color => `
+        <span style="display:inline-flex;align-items:center;background:#2a6aff;color:white;padding:4px 8px;border-radius:4px;font-size:0.9rem;">
+            ${color}
+            <button type="button" onclick="removeEditColorTag('${color}')" style="background:none;border:none;color:white;margin-left:6px;cursor:pointer;font-size:0.8rem;">&times;</button>
+        </span>
+    `).join('');
+}
+
+// Add event listeners for size and color inputs
+document.addEventListener('DOMContentLoaded', function() {
+    // Size input functionality (Add Modal)
+    const sizeInput = document.getElementById('product-size-input');
+    const sizeEnterBtn = document.getElementById('product-size-enter');
+    
+    function addSizeFromInput() {
+        const size = sizeInput.value.trim();
+        if (size) {
+            addSizeTag(size);
+            sizeInput.value = '';
+        }
+    }
+    
+    sizeInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addSizeFromInput();
+        }
+    });
+    
+    sizeEnterBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        addSizeFromInput();
+    });
+    
+    // Color input functionality (Add Modal)
+    const colorInput = document.getElementById('product-color-input');
+    const colorEnterBtn = document.getElementById('product-color-enter');
+    
+    function addColorFromInput() {
+        const color = colorInput.value.trim();
+        if (color) {
+            addColorTag(color);
+            colorInput.value = '';
+        }
+    }
+    
+    colorInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addColorFromInput();
+        }
+    });
+    
+    colorEnterBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        addColorFromInput();
+    });
+
+    // Size input functionality (Edit Modal)
+    const editSizeInput = document.getElementById('edit-product-size-input');
+    const editSizeEnterBtn = document.getElementById('edit-product-size-enter');
+    
+    function addEditSizeFromInput() {
+        const size = editSizeInput.value.trim();
+        if (size) {
+            addEditSizeTag(size);
+            editSizeInput.value = '';
+        }
+    }
+    
+    editSizeInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addEditSizeFromInput();
+        }
+    });
+    
+    editSizeEnterBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        addEditSizeFromInput();
+    });
+    
+    // Color input functionality (Edit Modal)
+    const editColorInput = document.getElementById('edit-product-color-input');
+    const editColorEnterBtn = document.getElementById('edit-product-color-enter');
+    
+    function addEditColorFromInput() {
+        const color = editColorInput.value.trim();
+        if (color) {
+            addEditColorTag(color);
+            editColorInput.value = '';
+        }
+    }
+    
+    editColorInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addEditColorFromInput();
+        }
+    });
+    
+    editColorEnterBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        addEditColorFromInput();
+    });
+});
+
+// Enhanced modal functions
+function openAddProductModal() {
+    document.getElementById('add-product-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeAddProductModal() {
+    document.getElementById('add-product-modal').style.display = 'none';
+    document.body.style.overflow = 'auto';
+    document.getElementById('add-product-form').reset();
+    
+    // Reset image preview
+    document.getElementById('image-preview').style.display = 'none';
+    document.getElementById('upload-placeholder').style.display = 'flex';
     document.getElementById('preview-img').src = '';
+    
+    // Reset size and color arrays
+    sizeArray = [];
+    colorArray = [];
+    renderSizeTags();
+    renderColorTags();
+    
+    // Reset size selections
+    document.querySelectorAll('input[name="size_enabled[]"]').forEach(checkbox => {
+        checkbox.checked = false;
+        toggleSizeStock(checkbox);
+    });
+}
+
+// Edit Product Modal Functions
+function openEditProductModal(productId) {
+    // Get product data from the card or fetch from server
+    const productCard = document.querySelector(`[data-id="${productId}"]`);
+    
+    if (productCard) {
+        // Populate the edit form with existing data
+        document.getElementById('edit-product-id').value = productId;
+        document.getElementById('edit-product-name').value = productCard.dataset.name;
+        document.getElementById('edit-product-brand').value = productCard.dataset.brand;
+        document.getElementById('edit-product-category').value = productCard.dataset.category;
+        document.getElementById('edit-product-price').value = productCard.dataset.price;
+        document.getElementById('edit-product-stock').value = productCard.dataset.stock;
+        
+        // Set image preview
+        const imageUrl = productCard.dataset.image;
+        if (imageUrl) {
+            document.getElementById('edit-preview-img').src = imageUrl;
+            document.getElementById('edit-image-preview').style.display = 'block';
+            document.getElementById('edit-upload-placeholder').style.display = 'none';
+        } else {
+            document.getElementById('edit-image-preview').style.display = 'none';
+            document.getElementById('edit-upload-placeholder').style.display = 'flex';
+        }
+        
+        // Set sizes
+        editSizeArray = productCard.dataset.sizes ? productCard.dataset.sizes.split(', ').filter(s => s.trim()) : [];
+        renderEditSizeTags();
+        
+        // Set colors
+        editColorArray = productCard.dataset.color ? productCard.dataset.color.split(', ').filter(c => c.trim()) : [];
+        renderEditColorTags();
+        
+        // Show the modal
+        document.getElementById('edit-product-modal').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    } else {
+        // Fetch product data from server if not available in the card
+        fetch(`{{ url('inventory/products') }}/${productId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const product = data.product;
+                    document.getElementById('edit-product-id').value = product.id;
+                    document.getElementById('edit-product-name').value = product.name;
+                    document.getElementById('edit-product-brand').value = product.brand;
+                    document.getElementById('edit-product-category').value = product.category;
+                    document.getElementById('edit-product-price').value = product.price;
+                    document.getElementById('edit-product-stock').value = product.total_stock;
+                    
+                    // Set image preview
+                    if (product.image_url) {
+                        document.getElementById('edit-preview-img').src = product.image_url;
+                        document.getElementById('edit-image-preview').style.display = 'block';
+                        document.getElementById('edit-upload-placeholder').style.display = 'none';
+                    }
+                    
+                    // Set sizes and colors
+                    editSizeArray = product.available_sizes || [];
+                    editColorArray = product.color ? product.color.split(', ') : [];
+                    renderEditSizeTags();
+                    renderEditColorTags();
+                    
+                    // Show the modal
+                    document.getElementById('edit-product-modal').style.display = 'flex';
+                    document.body.style.overflow = 'hidden';
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching product data:', error);
+                alert('Error loading product data');
+            });
+    }
+}
+
+function closeEditProductModal() {
+    document.getElementById('edit-product-modal').style.display = 'none';
+    document.body.style.overflow = 'auto';
+    document.getElementById('edit-product-form').reset();
+    
+    // Reset image preview
+    document.getElementById('edit-image-preview').style.display = 'none';
+    document.getElementById('edit-upload-placeholder').style.display = 'flex';
+    document.getElementById('edit-preview-img').src = '';
+    
+    // Reset size and color arrays
+    editSizeArray = [];
+    editColorArray = [];
+    renderEditSizeTags();
+    renderEditColorTags();
+}
+
+// Enhanced remove image function for edit modal
+function removeEditImage(event) {
+    event.stopPropagation();
+    document.getElementById('edit-product-image').value = '';
+    document.getElementById('edit-image-preview').style.display = 'none';
+    document.getElementById('edit-upload-placeholder').style.display = 'flex';
+}
+
+// Delete current product function
+function deleteCurrentProduct() {
+    const productId = document.getElementById('edit-product-id').value;
+    if (confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
+        deleteProduct(productId);
+        closeEditProductModal();
+    }
+}
+
+// Enhanced toggle size stock function
+function toggleSizeStock(checkbox) {
+    const sizeItem = checkbox.closest('.size-item');
+    const stockInput = sizeItem.querySelector('.stock-input');
+    
+    if (checkbox.checked) {
+        stockInput.disabled = false;
+        stockInput.required = true;
+        stockInput.focus();
+        sizeItem.classList.add('active');
+        sizeItem.style.opacity = '1';
+    } else {
+        stockInput.disabled = true;
+        stockInput.required = false;
+        stockInput.value = '';
+        sizeItem.classList.remove('active');
+        sizeItem.style.opacity = '0.6';
+    }
 }
 
 // Add product form submission
@@ -824,26 +1263,22 @@ document.getElementById('add-product-form').addEventListener('submit', function(
         return;
     }
     
-    // Validate that at least one size is selected
-    const selectedSizes = document.querySelectorAll('input[name="size_enabled[]"]:checked');
-    if (selectedSizes.length === 0) {
-        alert('Please select at least one size for the product.');
+    // Validate that at least one size is entered
+    if (sizeArray.length === 0) {
+        alert('Please enter at least one size for the product.');
         return;
     }
     
-    // Validate stock inputs for selected sizes
-    let hasValidStock = false;
-    for (let checkbox of selectedSizes) {
-        const sizeRow = checkbox.closest('.size-stock-row');
-        const stockInput = sizeRow.querySelector('.stock-input');
-        if (stockInput.value && parseInt(stockInput.value) >= 0) {
-            hasValidStock = true;
-            break;
-        }
+    // Validate that at least one color is entered
+    if (colorArray.length === 0) {
+        alert('Please enter at least one color for the product.');
+        return;
     }
     
-    if (!hasValidStock) {
-        alert('Please enter stock quantities for selected sizes.');
+    // Get stock value
+    const stockValue = document.getElementById('product-stock').value;
+    if (!stockValue || parseInt(stockValue) < 0) {
+        alert('Please enter a valid stock quantity.');
         return;
     }
     
@@ -854,25 +1289,21 @@ document.getElementById('add-product-form').addEventListener('submit', function(
     formData.append('name', document.getElementById('product-name').value);
     formData.append('brand', document.getElementById('product-brand').value);
     formData.append('category', document.getElementById('product-category').value);
-    formData.append('color', document.getElementById('product-color').value);
     formData.append('price', document.getElementById('product-price').value);
-    formData.append('min_stock', document.getElementById('product-min-stock').value);
-    formData.append('description', document.getElementById('product-description').value);
     formData.append('image', imageInput.files[0]);
     
-    // Add size data
-    let sizeIndex = 0;
-    selectedSizes.forEach(checkbox => {
-        const sizeValue = checkbox.value;
-        const sizeRow = checkbox.closest('.size-stock-row');
-        const stockInput = sizeRow.querySelector('.stock-input');
-        
-        if (stockInput.value) {
-            formData.append(`sizes[${sizeIndex}][size]`, sizeValue);
-            formData.append(`sizes[${sizeIndex}][stock]`, stockInput.value);
-            formData.append(`sizes[${sizeIndex}][price_adjustment]`, 0); // Default to 0 since all sizes have same price
-            sizeIndex++;
-        }
+    // Add inventory type
+    const inventoryType = document.getElementById('inventory-type-switcher').value || 'pos';
+    formData.append('inventory_type', inventoryType);
+    
+    // Add color (singular) - use first color for now, or join them
+    formData.append('color', colorArray.join(', '));
+    
+    // Add sizes array in the format the backend expects
+    sizeArray.forEach((size, index) => {
+        formData.append(`sizes[${index}][size]`, size);
+        formData.append(`sizes[${index}][stock]`, stockValue);
+        formData.append(`sizes[${index}][price_adjustment]`, 0);
     });
     
     // Debug: Check form data
@@ -906,18 +1337,17 @@ document.getElementById('add-product-form').addEventListener('submit', function(
     .then(data => {
         console.log('Parsed data:', data);
         if (data.success) {
-            // Add the new product to the table immediately
-            addProductToTable(data.product);
-            
-            // Update KPI counts
-            updateKPICounts();
-            
             // Close modal and show success message
             closeAddProductModal();
             
             // Show a more user-friendly success message
             const successMessage = `${data.product.name} has been added successfully!`;
             showSuccessMessage(successMessage);
+            
+            // Refresh the page after a short delay to show the success message
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
         } else {
             if (data.errors) {
                 let errorMessage = 'Validation errors:\n';
@@ -933,6 +1363,118 @@ document.getElementById('add-product-form').addEventListener('submit', function(
     .catch(error => {
         console.error('Error:', error);
         alert('Error adding product: ' + error.message);
+    });
+});
+
+// Edit product form submission
+document.getElementById('edit-product-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // Validate that at least one size is entered
+    if (editSizeArray.length === 0) {
+        alert('Please enter at least one size for the product.');
+        return;
+    }
+    
+    // Validate that at least one color is entered
+    if (editColorArray.length === 0) {
+        alert('Please enter at least one color for the product.');
+        return;
+    }
+    
+    // Get stock value
+    const stockValue = document.getElementById('edit-product-stock').value;
+    if (!stockValue || parseInt(stockValue) < 0) {
+        alert('Please enter a valid stock quantity.');
+        return;
+    }
+    
+    const productId = document.getElementById('edit-product-id').value;
+    const formData = new FormData();
+    
+    // Add basic product data
+    formData.append('_token', '{{ csrf_token() }}');
+    formData.append('_method', 'PUT');
+    formData.append('name', document.getElementById('edit-product-name').value);
+    formData.append('brand', document.getElementById('edit-product-brand').value);
+    formData.append('category', document.getElementById('edit-product-category').value);
+    formData.append('price', document.getElementById('edit-product-price').value);
+    
+    // Add inventory type
+    const inventoryType = document.getElementById('inventory-type-switcher').value || 'pos';
+    formData.append('inventory_type', inventoryType);
+    
+    // Add image if a new one was selected
+    const imageInput = document.getElementById('edit-product-image');
+    if (imageInput.files && imageInput.files.length > 0) {
+        formData.append('image', imageInput.files[0]);
+    }
+    
+    // Add color (singular) - join all colors
+    formData.append('color', editColorArray.join(', '));
+    
+    // Add sizes array in the format the backend expects
+    editSizeArray.forEach((size, index) => {
+        formData.append(`sizes[${index}][size]`, size);
+        formData.append(`sizes[${index}][stock]`, stockValue);
+        formData.append(`sizes[${index}][price_adjustment]`, 0);
+    });
+    
+    // Debug: Check form data
+    console.log('Edit form data being sent:');
+    for (let pair of formData.entries()) {
+        if (pair[1] instanceof File) {
+            console.log(pair[0] + ': File - ' + pair[1].name + ' (Size: ' + pair[1].size + ')');
+        } else {
+            console.log(pair[0] + ': ' + pair[1]);
+        }
+    }
+    
+    fetch(`{{ url('inventory/products') }}/${productId}`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        }
+    })
+    .then(response => {
+        console.log('Edit response status:', response.status);
+        return response.text().then(text => {
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                console.error('Response is not valid JSON:', text);
+                throw new Error('Server returned invalid response: ' + text.substring(0, 100));
+            }
+        });
+    })
+    .then(data => {
+        console.log('Edit parsed data:', data);
+        if (data.success) {
+            // Update the product card and table immediately
+            updateProductInView(data.product);
+            
+            // Close modal and show success message
+            closeEditProductModal();
+            
+            // Show a more user-friendly success message
+            const successMessage = `${data.product.name} has been updated successfully!`;
+            showSuccessMessage(successMessage);
+        } else {
+            if (data.errors) {
+                let errorMessage = 'Validation errors:\n';
+                for (let field in data.errors) {
+                    errorMessage += field + ': ' + data.errors[field].join(', ') + '\n';
+                }
+                alert(errorMessage);
+            } else {
+                alert('Error updating product: ' + (data.message || 'Unknown error'));
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error updating product: ' + error.message);
     });
 });
 
@@ -996,10 +1538,10 @@ document.getElementById('stock-filter').addEventListener('change', function(e) {
     
     switch(stockLevel) {
         case 'in-stock':
-            filteredData = inventoryData.filter(item => item.total_stock > item.min_stock);
+            filteredData = inventoryData.filter(item => item.total_stock > 5);
             break;
         case 'low-stock':
-            filteredData = inventoryData.filter(item => item.total_stock <= item.min_stock && item.total_stock > 0);
+            filteredData = inventoryData.filter(item => item.total_stock <= 5 && item.total_stock > 0);
             break;
         case 'out-of-stock':
             filteredData = inventoryData.filter(item => item.total_stock <= 0);
@@ -1020,15 +1562,75 @@ function renderFilteredTable(data) {
 
 // Close modal when clicking outside
 window.addEventListener('click', function(e) {
-    const modal = document.getElementById('add-product-modal');
-    if (e.target === modal) {
+    const addModal = document.getElementById('add-product-modal');
+    const editModal = document.getElementById('edit-product-modal');
+    
+    if (e.target === addModal) {
         closeAddProductModal();
+    }
+    
+    if (e.target === editModal) {
+        closeEditProductModal();
     }
 });
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing navigation...');
+    
+    updateDateTime();
+    setInterval(updateDateTime, 1000);
+    initializeSettings();
+    
+    // Load inventory data
+    loadInventoryData();
+    
+    console.log('Navigation initialization complete');
+    
+    // Set up inventory type switcher
+    const inventoryTypeSwitcher = document.getElementById('inventory-type-switcher');
+    if (inventoryTypeSwitcher) {
+        inventoryTypeSwitcher.addEventListener('change', function(e) {
+            const selectedType = this.value;
+            console.log('Switching to inventory type:', selectedType);
+            
+            // Redirect to dashboard with type parameter
+            const currentUrl = new URL(window.location);
+            currentUrl.searchParams.set('type', selectedType);
+            window.location.href = currentUrl.toString();
+        });
+    }
+    
+    // Load real inventory data from database
     loadInventoryData();
 });
+
+// Mock functions for buttons that aren't implemented yet
+function openAddProductModal() {
+    document.getElementById('add-product-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function openUpdateProductModal(productId) {
+    alert('Update Product Modal - To be implemented for product ID: ' + productId);
+}
+
+function openAddSupplierModal() {
+    alert('Add Supplier Modal - To be implemented');
+}
+
+function editSupplier(supplierId) {
+    alert('Edit Supplier - To be implemented for supplier ID: ' + supplierId);
+}
+
+function deleteSupplier(supplierId) {
+    if (confirm('Are you sure you want to delete this supplier?')) {
+        alert('Delete Supplier - To be implemented for supplier ID: ' + supplierId);
+    }
+}
+
+function updateReservationStatus(reservationId, status) {
+    alert(`Reservation ${reservationId} status would be updated to: ${status} (Demo Mode)`);
+}
 </script>
 @endpush

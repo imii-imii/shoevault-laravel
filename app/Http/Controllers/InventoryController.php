@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\ProductSize;
+use App\Models\ReservationProduct;
+use App\Models\ReservationProductSize;
 use App\Models\Supplier;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -14,9 +16,31 @@ class InventoryController extends Controller
     /**
      * Show inventory dashboard
      */
-    public function dashboard()
+    public function dashboard(Request $request)
     {
-        return view('inventory.dashboard');
+        $inventoryType = $request->get('type', 'pos'); // Default to POS
+        
+        if ($inventoryType === 'reservation') {
+            // Get reservation products from database
+            $products = ReservationProduct::with('sizes')->active()->get();
+        } else {
+            // Get POS products from database
+            $products = Product::with('sizes')->active()->get();
+        }
+        
+        // Get suppliers from database (or empty collection if not implemented yet)
+        $suppliers = Supplier::all() ?? collect([]);
+        
+        // Mock reservations data for now (implement when reservation system is ready)
+        $reservations = collect([]);
+        
+        $reservationStats = [
+            'incomplete' => 0,
+            'expiring_soon' => 0,
+            'expiring_today' => 0
+        ];
+        
+        return view('inventory.dashboard', compact('products', 'suppliers', 'reservations', 'reservationStats', 'inventoryType'));
     }
 
     /**
@@ -24,7 +48,100 @@ class InventoryController extends Controller
      */
     public function suppliers()
     {
-        return view('inventory.suppliers');
+        // Get suppliers from database or provide mock data
+        $suppliers = Supplier::all();
+        
+        // If no suppliers exist, provide mock data for UI testing
+        if ($suppliers->isEmpty()) {
+            $suppliers = collect([
+                (object)[
+                    'id' => 1,
+                    'name' => 'Nike Philippines',
+                    'contact_person' => 'John Smith',
+                    'brand' => 'Nike',
+                    'total_stock' => 100,
+                    'country' => 'Philippines',
+                    'available_sizes' => '7-12',
+                    'email' => 'supplier@nike.com.ph',
+                    'phone' => '+63 2 123 4567',
+                    'status' => 'active'
+                ],
+                (object)[
+                    'id' => 2,
+                    'name' => 'Adidas Distributor',
+                    'contact_person' => 'Jane Doe',
+                    'brand' => 'Adidas',
+                    'total_stock' => 85,
+                    'country' => 'Philippines',
+                    'available_sizes' => '6-11',
+                    'email' => 'contact@adidas-ph.com',
+                    'phone' => '+63 2 987 6543',
+                    'status' => 'active'
+                ]
+            ]);
+        }
+
+        return view('inventory.suppliers', compact('suppliers'));
+    }
+
+    /**
+     * Show reservation reports
+     */
+    public function reservationReports()
+    {
+        // Mock data for now - implement when reservation system is ready
+        $reservations = collect([
+            (object)[
+                'id' => 1,
+                'reservation_id' => 'REV-ABC123',
+                'status' => 'pending',
+                'created_at' => now()->subDays(1),
+                'pickup_date' => now()->addDays(2),
+                'customer' => (object)[
+                    'name' => 'John Doe',
+                    'email' => 'john.doe@email.com'
+                ],
+                'product' => (object)[
+                    'name' => 'Nike Air Max 270'
+                ]
+            ],
+            (object)[
+                'id' => 2,
+                'reservation_id' => 'REV-DEF456',
+                'status' => 'confirmed',
+                'created_at' => now()->subDays(2),
+                'pickup_date' => now()->addDay(),
+                'customer' => (object)[
+                    'name' => 'Jane Smith',
+                    'email' => 'jane.smith@email.com'
+                ],
+                'product' => (object)[
+                    'name' => 'Adidas Ultraboost 22'
+                ]
+            ],
+            (object)[
+                'id' => 3,
+                'reservation_id' => 'REV-GHI789',
+                'status' => 'completed',
+                'created_at' => now()->subDays(3),
+                'pickup_date' => now()->subDay(),
+                'customer' => (object)[
+                    'name' => 'Mike Johnson',
+                    'email' => 'mike.j@email.com'
+                ],
+                'product' => (object)[
+                    'name' => 'Converse Chuck Taylor'
+                ]
+            ]
+        ]);
+
+        $reservationStats = [
+            'incomplete' => 24,
+            'expiring_soon' => 8,
+            'expiring_today' => 3
+        ];
+
+        return view('inventory.reservation-reports', compact('reservations', 'reservationStats'));
     }
 
     /**
@@ -38,9 +155,15 @@ class InventoryController extends Controller
     /**
      * Get inventory data
      */
-    public function getInventoryData()
+    public function getInventoryData(Request $request)
     {
-        $products = Product::with('sizes')->active()->get();
+        $inventoryType = $request->get('type', 'pos'); // Default to POS
+        
+        if ($inventoryType === 'reservation') {
+            $products = ReservationProduct::with('sizes')->active()->get();
+        } else {
+            $products = Product::with('sizes')->active()->get();
+        }
         
         // Transform products to include size and stock information
         $transformedProducts = $products->map(function($product) {
@@ -54,7 +177,6 @@ class InventoryController extends Controller
                 'price' => $product->price,
                 'image_url' => $product->image_url,
                 'total_stock' => $product->getTotalStock(),
-                'min_stock' => $product->min_stock,
                 'available_sizes' => $product->sizes->pluck('size')->toArray(),
                 'sizes_with_stock' => $product->sizesWithStock,
                 'stock_status' => $product->stock_status,
@@ -85,6 +207,8 @@ class InventoryController extends Controller
     public function addProduct(Request $request)
     {
         try {
+            $inventoryType = $request->get('inventory_type', 'pos'); // Default to POS
+            
             $request->validate([
                 'name' => 'required|string|max:255',
                 'brand' => 'required|string|max:255',
@@ -95,37 +219,48 @@ class InventoryController extends Controller
                 'sizes.*.stock' => 'required|integer|min:0',
                 'sizes.*.price_adjustment' => 'nullable|numeric',
                 'price' => 'required|numeric|min:0',
-                'min_stock' => 'required|integer|min:0',
-                'sku' => 'nullable|string|unique:products,sku',
-                'description' => 'nullable|string',
-                'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048'
+                'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+                'inventory_type' => 'required|in:pos,reservation'
             ]);
 
             DB::beginTransaction();
 
-            $data = $request->except(['image', 'sizes']);
+            $data = $request->except(['image', 'sizes', 'inventory_type']);
             
-            // Generate unique product ID
-            $data['product_id'] = Product::generateUniqueProductId($request->category);
+            if ($inventoryType === 'reservation') {
+                // Generate unique reservation product ID and SKU
+                $data['product_id'] = ReservationProduct::generateUniqueProductId($request->category);
+                $data['sku'] = ReservationProduct::generateUniqueSku($request->category);
+                $productModel = ReservationProduct::class;
+                $sizeModel = ReservationProductSize::class;
+                $relationKey = 'reservation_product_id';
+            } else {
+                // Generate unique POS product ID and SKU
+                $data['product_id'] = Product::generateUniqueProductId($request->category);
+                $data['sku'] = Product::generateUniqueSku($request->category);
+                $productModel = Product::class;
+                $sizeModel = ProductSize::class;
+                $relationKey = 'product_id';
+            }
             
             // Handle image upload with custom naming
             if ($request->hasFile('image')) {
                 $image = $request->file('image');
                 
                 // Create a temporary product instance to generate filename
-                $tempProduct = new Product(['product_id' => $data['product_id']]);
+                $tempProduct = new $productModel(['product_id' => $data['product_id']]);
                 $imageName = $tempProduct->generateImageFilename($image->getClientOriginalName());
                 
                 $image->move(public_path('assets/images/products'), $imageName);
                 $data['image_url'] = 'assets/images/products/' . $imageName;
             }
 
-            $product = Product::create($data);
+            $product = $productModel::create($data);
 
             // Create product sizes
             foreach ($request->sizes as $sizeData) {
-                ProductSize::create([
-                    'product_id' => $product->id,
+                $sizeModel::create([
+                    $relationKey => $product->id,
                     'size' => $sizeData['size'],
                     'stock' => $sizeData['stock'],
                     'price_adjustment' => $sizeData['price_adjustment'] ?? 0,
@@ -147,13 +282,11 @@ class InventoryController extends Controller
                 'category' => $product->category,
                 'color' => $product->color,
                 'price' => $product->price,
-                'min_stock' => $product->min_stock,
-                'description' => $product->description,
                 'image_url' => $product->image_url,
                 'available_sizes' => $product->sizes->pluck('size')->toArray(),
                 'total_stock' => $product->sizes->sum('stock'),
                 'stock_status' => $product->sizes->sum('stock') <= 0 ? 'out-of-stock' : 
-                               ($product->sizes->sum('stock') <= $product->min_stock ? 'low-stock' : 'in-stock')
+                               ($product->sizes->sum('stock') <= 5 ? 'low-stock' : 'in-stock')
             ];
 
             return response()->json([
@@ -184,7 +317,20 @@ class InventoryController extends Controller
     public function updateProduct(Request $request, $id)
     {
         try {
-            $product = Product::with('sizes')->findOrFail($id);
+            $inventoryType = $request->get('inventory_type', 'pos'); // Default to POS
+            
+            // Determine which model to use based on inventory type
+            if ($inventoryType === 'reservation') {
+                $product = ReservationProduct::with('sizes')->findOrFail($id);
+                $productModel = ReservationProduct::class;
+                $sizeModel = ReservationProductSize::class;
+                $relationKey = 'reservation_product_id';
+            } else {
+                $product = Product::with('sizes')->findOrFail($id);
+                $productModel = Product::class;
+                $sizeModel = ProductSize::class;
+                $relationKey = 'product_id';
+            }
             
             $request->validate([
                 'name' => 'required|string|max:255',
@@ -195,15 +341,22 @@ class InventoryController extends Controller
                 'sizes.*.stock' => 'required|integer|min:0',
                 'sizes.*.price_adjustment' => 'nullable|numeric',
                 'price' => 'required|numeric|min:0',
-                'min_stock' => 'required|integer|min:0',
-                'sku' => 'nullable|string|unique:products,sku,' . $id,
-                'description' => 'nullable|string',
-                'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
+                'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+                'inventory_type' => 'required|in:pos,reservation'
             ]);
 
             DB::beginTransaction();
 
-            $data = $request->except(['image', 'sizes']);
+            $data = $request->except(['image', 'sizes', 'inventory_type']);
+            
+            // Generate new SKU if it doesn't exist or if category changed
+            if (empty($product->sku) || $product->category !== $request->category) {
+                if ($inventoryType === 'reservation') {
+                    $data['sku'] = ReservationProduct::generateUniqueSku($request->category);
+                } else {
+                    $data['sku'] = Product::generateUniqueSku($request->category);
+                }
+            }
             
             // Handle image upload for update
             if ($request->hasFile('image')) {
@@ -223,8 +376,8 @@ class InventoryController extends Controller
             // Update sizes - delete old ones and create new ones
             $product->sizes()->delete();
             foreach ($request->sizes as $sizeData) {
-                ProductSize::create([
-                    'product_id' => $product->id,
+                $sizeModel::create([
+                    $relationKey => $product->id,
                     'size' => $sizeData['size'],
                     'stock' => $sizeData['stock'],
                     'price_adjustment' => $sizeData['price_adjustment'] ?? 0,
@@ -288,5 +441,38 @@ class InventoryController extends Controller
             'success' => true,
             'sizes' => $sizes
         ]);
+    }
+
+    /**
+     * Update reservation status
+     */
+    public function updateReservationStatus(Request $request, $id)
+    {
+        try {
+            $request->validate([
+                'status' => 'required|string|in:pending,confirmed,ready,completed,cancelled'
+            ]);
+
+            // For now, just return success for UI testing
+            // We'll implement database logic later
+            return response()->json([
+                'success' => true,
+                'message' => 'Reservation status updated successfully (demo mode)',
+                'reservation' => [
+                    'id' => $id,
+                    'status' => $request->status,
+                    'customer' => ['name' => 'Demo Customer'],
+                    'product' => ['name' => 'Demo Product']
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error updating reservation status: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Error updating reservation status: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

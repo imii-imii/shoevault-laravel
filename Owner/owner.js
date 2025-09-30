@@ -1,7 +1,1048 @@
+// --- Sync Main Section Dropdown and Dashboard Filter ---
+document.addEventListener('DOMContentLoaded', function() {
+    const mainDropdown = document.getElementById('section-dropdown');
+    const dashFilter = document.getElementById('dashboard-scope');
+    const dashFilterContainer = document.querySelector('.dash-filter');
+    // List of dashboard and report section IDs
+    const dashboardSections = ['inventory-dashboard', 'pos-inventory', 'reservation-inventory'];
+    const reportSections = [
+        'reports-sales-history',
+        'reports-reservation-logs',
+        'reports-supply-logs',
+        'reports-inventory-overview'
+    ];
+    function showSection(sectionId) {
+        document.querySelectorAll('.content-section').forEach(section => {
+            section.style.display = 'none';
+            section.classList.remove('active');
+        });
+        const section = document.getElementById(sectionId);
+        if (section) {
+            section.style.display = '';
+            section.classList.add('active');
+        }
+        // Sync all dashboard-scope dropdowns to match the current section
+        document.querySelectorAll('#dashboard-scope').forEach(function(filter) {
+            if (sectionId === 'inventory-dashboard') filter.value = 'inventory';
+            else if (sectionId === 'pos-inventory') filter.value = 'pos';
+            else if (sectionId === 'reservation-inventory') filter.value = 'reservation';
+        });
+        // Sync report nav dropdowns
+        document.querySelectorAll('[id^="reports-nav-dropdown-"]').forEach(function(drop) {
+            if (reportSections.includes(sectionId)) drop.value = sectionId;
+        });
+        // Sync mainDropdown if present
+        if (mainDropdown) {
+            mainDropdown.value = sectionId;
+        }
+    }
+    window.showSection = showSection;
+
+    if (mainDropdown) {
+        mainDropdown.addEventListener('change', function() {
+            showSection(mainDropdown.value);
+        });
+    }
+        // Support multiple dashboard filters (one per section)
+        document.querySelectorAll('#dashboard-scope').forEach(function(filter) {
+            filter.addEventListener('change', function() {
+                if (filter.value === 'inventory') showSection('inventory-dashboard');
+                else if (filter.value === 'pos') showSection('pos-inventory');
+                else if (filter.value === 'reservation') showSection('reservation-inventory');
+            });
+        });
+    // Initial state: show inventory dashboard
+    showSection('inventory-dashboard');
+
+    // Sidebar nav logic for Reports
+    document.querySelectorAll('.sidebar-nav .nav-item').forEach(function(item) {
+        item.addEventListener('click', function() {
+            const section = item.getAttribute('data-section');
+            if (section === 'reports') {
+                showSection('reports-sales-history');
+            }
+        });
+    });
+
+    // Reports dropdown navigation logic
+    document.querySelectorAll('[id^="reports-nav-dropdown-"]').forEach(function(drop) {
+        drop.addEventListener('change', function() {
+            showSection(drop.value);
+        });
+    });
+});
+// --- Dashboard Scope Filter Navigation ---
+document.addEventListener('DOMContentLoaded', function() {
+    const dashFilter = document.getElementById('dashboard-scope');
+    // Remove Add Product button logic and ensure dropdown selected option is correct
+    if (dashFilter) {
+        dashFilter.addEventListener('change', function() {
+            const val = dashFilter.value;
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.style.display = 'none';
+                section.classList.remove('active');
+            });
+            if (val === 'inventory') {
+                document.getElementById('inventory-dashboard').style.display = '';
+                document.getElementById('inventory-dashboard').classList.add('active');
+                dashFilter.value = 'inventory';
+            } else if (val === 'pos') {
+                document.getElementById('pos-inventory').style.display = '';
+                document.getElementById('pos-inventory').classList.add('active');
+                dashFilter.value = 'pos';
+            } else if (val === 'reservation') {
+                document.getElementById('reservation-inventory').style.display = '';
+                document.getElementById('reservation-inventory').classList.add('active');
+                dashFilter.value = 'reservation';
+            }
+        });
+        // Initial state: show inventory dashboard and set dropdown
+        document.querySelectorAll('.content-section').forEach(section => {
+            if (section.id === 'inventory-dashboard') {
+                section.style.display = '';
+                section.classList.add('active');
+                dashFilter.value = 'inventory';
+            } else {
+                section.style.display = 'none';
+                section.classList.remove('active');
+            }
+        });
+    }
+});
+// --- POS Dashboard Data Example ---
+const posTransactions = [
+    { id: 1, date: '2025-09-01', amount: 5000, qty: 3, products: [{ name: 'Air Max', qty: 2 }, { name: 'Stan Smith', qty: 1 }] },
+    { id: 2, date: '2025-09-02', amount: 3500, qty: 2, products: [{ name: 'Superstar', qty: 2 }] },
+    { id: 3, date: '2025-09-03', amount: 8000, qty: 5, products: [{ name: 'Slides', qty: 3 }, { name: 'Classic', qty: 2 }] },
+    { id: 4, date: '2025-09-04', amount: 12000, qty: 7, products: [{ name: 'Air Max', qty: 4 }, { name: 'Stan Smith', qty: 3 }] },
+    { id: 5, date: '2025-09-05', amount: 4000, qty: 2, products: [{ name: 'Classic', qty: 2 }] },
+];
+
+function updatePOSKPIs() {
+    const totalTransactions = posTransactions.length;
+    const totalRevenue = posTransactions.reduce((sum, t) => sum + t.amount, 0);
+    const totalQty = posTransactions.reduce((sum, t) => sum + t.qty, 0);
+    document.getElementById('pos-kpi-transactions').innerHTML = `<i class="fas fa-receipt"></i> ${totalTransactions}`;
+    document.getElementById('pos-kpi-revenue').innerHTML = `<i class="fas fa-money-bill-wave"></i> ₱${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    document.getElementById('pos-kpi-quantity').innerHTML = `<i class="fas fa-boxes"></i> ${totalQty}`;
+}
+
+// --- Sales Report Chart ---
+function getSalesReportData(filter) {
+    // Mock: group by week, quarter, year
+    if (filter === 'weekly') {
+        return {
+            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+            data: [12000, 8000, 15000, 10000]
+        };
+    } else if (filter === 'quarterly') {
+        return {
+            labels: ['Q1', 'Q2', 'Q3', 'Q4'],
+            data: [32000, 28000, 35000, 30000]
+        };
+    } else {
+        return {
+            labels: ['2023', '2024', '2025'],
+            data: [120000, 135000, 142000]
+        };
+    }
+}
+
+let posSalesChart;
+function renderSalesReportChart(filter = 'weekly') {
+    const ctx = document.getElementById('pos-sales-report-chart').getContext('2d');
+    const report = getSalesReportData(filter);
+    if (posSalesChart) posSalesChart.destroy();
+    // Linear regression calculation
+    function linearRegression(y) {
+        const n = y.length;
+        const x = Array.from({length: n}, (_, i) => i+1);
+        const sumX = x.reduce((a,b) => a+b, 0);
+        const sumY = y.reduce((a,b) => a+b, 0);
+        const sumXY = x.reduce((a,_,i) => a + x[i]*y[i], 0);
+        const sumX2 = x.reduce((a,xi) => a + xi*xi, 0);
+        const slope = (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX);
+        const intercept = (sumY - slope*sumX) / n;
+        return x.map(xi => slope*xi + intercept);
+    }
+    const regression = linearRegression(report.data);
+    posSalesChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: report.labels,
+            datasets: [
+                {
+                    label: 'Sales',
+                    data: report.data,
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    borderColor: '#ffffff',
+                    borderWidth: 2,
+                    borderRadius: 8,
+                    order: 1,
+                },
+                {
+                    label: 'Trend',
+                    data: regression,
+                    type: 'line',
+                    fill: false,
+                    borderColor: '#00e676',
+                    borderWidth: 3,
+                    pointRadius: 0,
+                    tension: 0.2,
+                    order: 2,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: true },
+                title: { display: false }
+            },
+            scales: {
+                x: { 
+                    grid: { color: 'rgba(255, 255, 255, 0.3)' },
+                    ticks: { color: '#ffffff' }
+                },
+                y: { 
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255, 255, 255, 0.3)' },
+                    ticks: { color: '#ffffff' }
+                }
+            }
+        }
+    });
+}
+
+// --- Most Sold Products List ---
+function getMostSoldProducts() {
+    // Aggregate mock data
+    const productMap = {};
+    posTransactions.forEach(t => {
+        t.products.forEach(p => {
+            productMap[p.name] = (productMap[p.name] || 0) + p.qty;
+        });
+    });
+    // Sort by qty desc
+    return Object.entries(productMap)
+        .map(([name, qty]) => ({ name, qty }))
+        .sort((a, b) => b.qty - a.qty);
+}
+
+function renderMostSoldProductsList() {
+    const list = document.getElementById('most-sold-products-list');
+    if (!list) return;
+    list.innerHTML = '';
+    const products = getMostSoldProducts();
+    products.forEach(p => {
+        const item = document.createElement('div');
+        item.className = 'most-sold-item';
+        item.innerHTML = `<span class="product-name">${p.name}</span><span class="product-qty">${p.qty} sold</span>`;
+        list.appendChild(item);
+    });
+}
+
+// --- POS Dashboard Init ---
+document.addEventListener('DOMContentLoaded', function() {
+    updatePOSKPIs();
+    renderSalesReportChart();
+    renderMostSoldProductsList();
+    const filter = document.getElementById('sales-report-filter');
+    if (filter) {
+        filter.addEventListener('change', function() {
+            renderSalesReportChart(filter.value);
+        });
+    }
+});
+// --- Dashboard Data Example ---
+// Replace with your actual inventory and sales data source
+const inventoryData = [
+    { id: 1, name: 'Air Max', brand: 'Nike', category: 'men', stock: 20, price: 5000, sold: 12 },
+    { id: 2, name: 'Superstar', brand: 'Adidas', category: 'women', stock: 15, price: 4500, sold: 8 },
+    { id: 3, name: 'Classic', brand: 'Converse', category: 'kids', stock: 10, price: 3000, sold: 5 },
+    { id: 4, name: 'Slides', brand: 'Nike', category: 'accessories', stock: 25, price: 1500, sold: 20 },
+    { id: 5, name: 'Stan Smith', brand: 'Adidas', category: 'men', stock: 18, price: 4800, sold: 10 },
+];
+
+// --- KPI Cards ---
+function updateKPIs() {
+    const totalStocks = inventoryData.reduce((sum, item) => sum + item.stock, 0);
+    const inventoryItems = inventoryData.length;
+    const productsSold = inventoryData.reduce((sum, item) => sum + item.sold, 0);
+    document.getElementById('kpi-total-stocks').innerHTML = `<i class="fas fa-cube"></i> ${totalStocks}`;
+    document.getElementById('kpi-inventory-items').innerHTML = `<i class="fas fa-list-ul"></i> ${inventoryItems}`;
+    document.getElementById('kpi-products-sold').innerHTML = `<i class="fas fa-shopping-bag"></i> ${productsSold}`;
+}
+
+// --- Bar Chart: Product Stocks by Brand ---
+function renderStocksByBrandChart() {
+    // Add more brands for demo
+    const demoBrands = ['Nike', 'Adidas', 'Puma', 'Reebok', 'New Balance', 'Converse', 'Vans', 'Fila'];
+    const brandMap = {};
+    demoBrands.forEach(b => { brandMap[b] = Math.floor(Math.random() * 100) + 10; });
+    const brands = Object.keys(brandMap);
+    const stocks = Object.values(brandMap);
+    const ctx = document.getElementById('chart-stocks-brand').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: brands,
+            datasets: [{
+                label: 'Stocks',
+                data: stocks,
+                backgroundColor: 'rgba(255,255,255,0.95)',
+                borderColor: 'rgba(255,255,255,0.95)',
+                borderWidth: 0,
+                borderRadius: 10,
+                barPercentage: 0.55,
+                categoryPercentage: 0.65
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                title: { display: false }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(255,255,255,0.15)' },
+                    ticks: { color: '#fff', font: { weight: 'bold' } }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255,255,255,0.15)' },
+                    ticks: { color: '#fff', font: { weight: 'bold' } }
+                }
+            }
+        }
+    });
+}
+
+// --- Pie Chart: Products Sold by Category ---
+function renderSoldByCategoryChart() {
+    const categoryMap = { men: 0, women: 0, kids: 0, accessories: 0 };
+    inventoryData.forEach(item => {
+        if (categoryMap[item.category] !== undefined) {
+            categoryMap[item.category] += item.sold;
+        }
+    });
+    const categories = ['Men', 'Women', 'Accessories'];
+    const soldCounts = [categoryMap.men, categoryMap.women, categoryMap.accessories];
+    const ctx = document.getElementById('chart-sold-category').getContext('2d');
+    new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: categories,
+            datasets: [{
+                label: 'Products Sold',
+                data: soldCounts,
+                backgroundColor: [
+                    '#00ab9ad0',   // teal
+                    '#00d4ff',   // cyan
+                    '#aff8d5ff',   // green
+                ],
+                borderColor: 'transparent',
+                borderWidth: 0,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { color: '#fff', font: { weight: 'bold' } }
+                },
+                title: { display: false }
+            }
+        }
+    });
+}
+
+// --- Initialize Dashboard ---
+document.addEventListener('DOMContentLoaded', function() {
+    updateKPIs();
+    renderStocksByBrandChart();
+    renderSoldByCategoryChart();
+});
 // Global variables
+// --- Mock User Accounts Data ---
+let userAccounts = [
+    {
+        id: 1,
+        name: 'Juan Dela Cruz',
+        role: 'Manager',
+        enabled: true,
+        img: 'profile.png'
+    },
+    {
+        id: 2,
+        name: 'Maria Santos',
+        role: 'Cashier',
+        enabled: false,
+        img: 'profile.png'
+    },
+    {
+        id: 3,
+        name: 'Pedro Reyes',
+        role: 'Owner',
+        enabled: true,
+        img: 'profile.png'
+    }
+];
+
+function renderUserList() {
+    const list = document.getElementById('user-list');
+    if (!list) return;
+    const search = (document.getElementById('user-search')?.value || '').toLowerCase();
+    list.innerHTML = '';
+    let filtered = userAccounts.filter(u => u.name.toLowerCase().includes(search));
+    filtered.forEach(user => {
+        const card = document.createElement('div');
+        card.className = 'user-card';
+        card.style = 'display:flex; align-items:center; gap:24px; background:#fff; border-radius:12px; box-shadow:0 2px 8px #0001; padding:18px 24px;';
+            card.innerHTML = `
+                <div style="width:56px; height:56px; border-radius:50%; overflow:hidden; background:#eee; display:flex; align-items:center; justify-content:center;">
+                    <img src="${user.img}" alt="Profile" style="width:100%; height:100%; object-fit:cover;">
+                </div>
+                <div style="flex:1; min-width:120px; font-weight:600;">${user.name}</div>
+                <div>
+                    <select class="filter-select user-role-select" data-id="${user.id}" style="min-width:110px;">
+                        <option${user.role==='Manager'?' selected':''}>Manager</option>
+                        <option${user.role==='Cashier'?' selected':''}>Cashier</option>
+                    </select>
+                </div>
+                <div>
+                    <select class="filter-select user-enabled-select" data-id="${user.id}" style="min-width:90px;">
+                        <option value="true"${user.enabled?' selected':''}>Enabled</option>
+                        <option value="false"${!user.enabled?' selected':''}>Disabled</option>
+                    </select>
+                </div>
+                <div style="min-width:160px; display:flex; align-items:center; gap:6px;">
+                    <input type="password" class="user-password-field" data-id="${user.id}" value="${user.password || ''}" readonly style="width:100px; border:none; background:#f5f5f5; padding:4px 8px; border-radius:6px; font-size:1em;">
+                    <button class="btn btn-secondary user-password-eye" data-id="${user.id}" style="padding:2px 8px;"><i class="fas fa-eye"></i></button>
+                </div>
+                <button class="btn btn-danger user-remove-btn" data-id="${user.id}"><i class="fas fa-trash"></i> Remove</button>
+            `;
+        list.appendChild(card);
+    });
+}
+
+function setupUserAccountEvents() {
+    const search = document.getElementById('user-search');
+    if (search) search.addEventListener('input', renderUserList);
+    const addBtn = document.getElementById('add-user-btn');
+    if (addBtn) addBtn.addEventListener('click', function() {
+        document.getElementById('add-user-modal').style.display = 'flex';
+    });
+    // Modal close
+    document.getElementById('close-add-user-modal').onclick = function() {
+        document.getElementById('add-user-modal').style.display = 'none';
+    };
+    // Add user confirm
+    document.getElementById('add-user-confirm-btn').onclick = function() {
+        const name = document.getElementById('add-user-fullname').value.trim();
+        const username = document.getElementById('add-user-username').value.trim();
+        const email = document.getElementById('add-user-email').value.trim();
+        const role = document.getElementById('add-user-role').value;
+        if (!name || !username || !email) {
+            alert('Please fill in all fields.');
+            return;
+        }
+        // Generate random password
+        const password = Array(10).fill(0).map(() => String.fromCharCode(Math.floor(Math.random()*26)+97)).join('') + Math.floor(Math.random()*1000);
+        userAccounts.push({
+            id: Date.now(),
+            name,
+            role,
+            enabled: true,
+            img: 'profile.png',
+            password,
+            passwordVisible: false
+        });
+        document.getElementById('add-user-modal').style.display = 'none';
+        document.getElementById('add-user-fullname').value = '';
+        document.getElementById('add-user-username').value = '';
+        document.getElementById('add-user-email').value = '';
+        document.getElementById('add-user-role').value = 'Manager';
+        renderUserList();
+    };
+    // Password eye toggle
+    document.getElementById('user-list').addEventListener('click', function(e) {
+        if (e.target.closest('.user-password-eye')) {
+            const id = +e.target.closest('.user-password-eye').getAttribute('data-id');
+            const input = document.querySelector(`.user-password-field[data-id='${id}']`);
+            if (input) {
+                if (input.type === 'password') {
+                    input.type = 'text';
+                } else {
+                    input.type = 'password';
+                }
+            }
+        }
+    });
+    document.getElementById('user-list').addEventListener('change', function(e) {
+        if (e.target.classList.contains('user-role-select')) {
+            const id = +e.target.getAttribute('data-id');
+            const user = userAccounts.find(u => u.id === id);
+            if (user) user.role = e.target.value;
+        }
+        if (e.target.classList.contains('user-enabled-select')) {
+            const id = +e.target.getAttribute('data-id');
+            const user = userAccounts.find(u => u.id === id);
+            if (user) user.enabled = e.target.value === 'true';
+        }
+        renderUserList();
+    });
+    document.getElementById('user-list').addEventListener('click', function(e) {
+        if (e.target.closest('.user-remove-btn')) {
+            const id = +e.target.closest('.user-remove-btn').getAttribute('data-id');
+            userAccounts = userAccounts.filter(u => u.id !== id);
+            renderUserList();
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    if (document.getElementById('user-list')) {
+        renderUserList();
+        setupUserAccountEvents();
+    }
+});
+// --- Mock Sales History Data ---
+// --- Mock Reservation Logs Data ---
+// --- Mock Supply Logs Data ---
+// --- Mock Inventory Overview Data ---
+let inventoryOverview = [
+    {
+        name: 'Nike Air Max',
+        brand: 'Nike',
+        stock: 50,
+        colors: 'Red, Black',
+        sizes: '8, 9, 10',
+        category: 'men'
+    },
+    {
+        name: 'Adidas Ultraboost',
+        brand: 'Adidas',
+        stock: 30,
+        colors: 'White, Blue',
+        sizes: '7, 8, 9',
+        category: 'women'
+    },
+    {
+        name: 'Puma RS-X',
+        brand: 'Puma',
+        stock: 20,
+        colors: 'Green, Black',
+        sizes: '6, 7, 8',
+        category: 'kids'
+    },
+    {
+        name: 'Converse Chuck Taylor',
+        brand: 'Converse',
+        stock: 40,
+        colors: 'Black, White',
+        sizes: '8, 9, 10, 11',
+        category: 'men'
+    },
+    {
+        name: 'Nike Cap',
+        brand: 'Nike',
+        stock: 15,
+        colors: 'Black',
+        sizes: 'One Size',
+        category: 'accessories'
+    }
+];
+
+function renderInventoryOverviewTable() {
+    const tbody = document.getElementById('inventory-overview-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    let filtered = filterInventoryOverview();
+    filtered.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${row.name}</td>
+            <td>${row.brand}</td>
+            <td>${row.stock}</td>
+            <td>${row.colors}</td>
+            <td>${row.sizes}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function filterInventoryOverview() {
+    let filtered = [...inventoryOverview];
+    // Search
+    const search = (document.getElementById('inventory-search')?.value || '').toLowerCase();
+    if (search) {
+        filtered = filtered.filter(row =>
+            row.name.toLowerCase().includes(search) ||
+            row.brand.toLowerCase().includes(search) ||
+            row.colors.toLowerCase().includes(search) ||
+            row.sizes.toLowerCase().includes(search)
+        );
+    }
+    // Brand filter
+    const brand = document.getElementById('inventory-brand-filter')?.value;
+    if (brand) {
+        filtered = filtered.filter(row => row.brand === brand);
+    }
+    // Category filter
+    const category = document.getElementById('inventory-category-filter')?.value;
+    if (category) {
+        filtered = filtered.filter(row => row.category === category);
+    }
+    // Sorting
+    const sort = document.getElementById('inventory-sort-filter')?.value;
+    if (sort === 'name-asc') {
+        filtered.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sort === 'name-desc') {
+        filtered.sort((a, b) => b.name.localeCompare(a.name));
+    } else if (sort === 'brand-asc') {
+        filtered.sort((a, b) => a.brand.localeCompare(b.brand));
+    } else if (sort === 'brand-desc') {
+        filtered.sort((a, b) => b.brand.localeCompare(a.brand));
+    } else if (sort === 'stock-desc') {
+        filtered.sort((a, b) => b.stock - a.stock);
+    } else if (sort === 'stock-asc') {
+        filtered.sort((a, b) => a.stock - b.stock);
+    }
+    return filtered;
+}
+
+function setupInventoryOverviewEvents() {
+    ['inventory-search', 'inventory-brand-filter', 'inventory-category-filter', 'inventory-sort-filter'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', () => {
+            renderInventoryOverviewTable();
+        });
+        if (el && el.tagName === 'SELECT') el.addEventListener('change', () => {
+            renderInventoryOverviewTable();
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Render Inventory Overview if section exists
+    if (document.getElementById('inventory-overview-tbody')) {
+        renderInventoryOverviewTable();
+        setupInventoryOverviewEvents();
+    }
+});
+let supplyLogs = [
+    {
+        id: 3001,
+        name: 'Nike Philippines',
+        contact: 'Juan Dela Cruz',
+        brand: 'Nike',
+        stock: 200,
+        country: 'Philippines',
+        lastUpdate: '2025-09-10',
+        email: 'nikeph@example.com',
+        phone: '09171234567',
+        status: 'active'
+    },
+    {
+        id: 3002,
+        name: 'Adidas Manila',
+        contact: 'Maria Santos',
+        brand: 'Adidas',
+        stock: 150,
+        country: 'Philippines',
+        lastUpdate: '2025-09-15',
+        email: 'adidasmanila@example.com',
+        phone: '09181234567',
+        status: 'active'
+    },
+    {
+        id: 3003,
+        name: 'Puma Supply',
+        contact: 'Pedro Reyes',
+        brand: 'Puma',
+        stock: 100,
+        country: 'Philippines',
+        lastUpdate: '2025-09-18',
+        email: 'pumaph@example.com',
+        phone: '09191234567',
+        status: 'inactive'
+    }
+];
+
+function renderSupplyLogsTable() {
+    const tbody = document.getElementById('supply-logs-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    let filtered = filterSupplyLogs();
+    filtered.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${row.id}</td>
+            <td>${row.name}</td>
+            <td>${row.contact}</td>
+            <td>${row.brand || '-'}</td>
+            <td>${row.stock != null ? row.stock : '-'}</td>
+            <td>${row.country || '-'}</td>
+            <td>${row.lastUpdate || '-'}</td>
+            <td>${row.email}</td>
+            <td>${row.phone}</td>
+            <td><span class="status-badge ${row.status === 'active' ? 'status-active' : 'status-inactive'}">${row.status}</span></td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function filterSupplyLogs() {
+    let filtered = [...supplyLogs];
+    // Search
+    const search = (document.getElementById('supply-search')?.value || '').toLowerCase();
+    if (search) {
+        filtered = filtered.filter(row =>
+            row.id.toString().includes(search) ||
+            row.name.toLowerCase().includes(search) ||
+            row.contact.toLowerCase().includes(search) ||
+            row.brand.toLowerCase().includes(search)
+        );
+    }
+    // Sorting
+    const sort = document.getElementById('supply-sort-filter')?.value;
+        if (sort === 'date-desc') {
+            filtered.sort((a, b) => new Date(b.lastUpdate) - new Date(a.lastUpdate));
+        } else if (sort === 'date-asc') {
+            filtered.sort((a, b) => new Date(a.lastUpdate) - new Date(b.lastUpdate));
+    } else if (sort === 'id-desc') {
+        filtered.sort((a, b) => b.id - a.id);
+    } else if (sort === 'id-asc') {
+        filtered.sort((a, b) => a.id - b.id);
+    }
+    return filtered;
+}
+
+function setupSupplyLogsEvents() {
+    ['supply-search', 'supply-sort-filter'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', () => {
+            renderSupplyLogsTable();
+        });
+        if (el && el.tagName === 'SELECT') el.addEventListener('change', () => {
+            renderSupplyLogsTable();
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Render Supply Logs if section exists
+    if (document.getElementById('supply-logs-tbody')) {
+        renderSupplyLogsTable();
+        setupSupplyLogsEvents();
+    }
+});
+let reservationLogs = [
+    {
+        id: 2001,
+        name: 'Anna Cruz',
+        email: 'anna@email.com',
+        phone: '09171234567',
+        products: 'Nike Air Max',
+        dateReserved: '2025-09-15',
+        pickupDate: '2025-09-20',
+        status: 'completed',
+    },
+    {
+        id: 2002,
+        name: 'Ben Santos',
+        email: 'ben@email.com',
+        phone: '09181234567',
+        products: 'Adidas Ultraboost',
+        dateReserved: '2025-09-10',
+        pickupDate: '2025-09-18',
+        status: 'cancelled',
+    },
+    {
+        id: 2003,
+        name: 'Carla Reyes',
+        email: 'carla@email.com',
+        phone: '09191234567',
+        products: 'Puma RS-X',
+        dateReserved: '2025-08-25',
+        pickupDate: '2025-08-30',
+        status: 'completed',
+    },
+    {
+        id: 2004,
+        name: 'David Lee',
+        email: 'david@email.com',
+        phone: '09201234567',
+        products: 'Converse Chuck Taylor',
+        dateReserved: '2025-07-12',
+        pickupDate: '2025-07-20',
+        status: 'cancelled',
+    },
+];
+
+function renderReservationLogsTable() {
+    const tbody = document.getElementById('reservation-logs-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    let filtered = filterReservationLogs();
+    filtered.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${row.id}</td>
+            <td>${row.name}</td>
+            <td>${row.email}</td>
+            <td>${row.phone}</td>
+            <td>${row.products}</td>
+            <td>${row.dateReserved}</td>
+            <td>${row.pickupDate}</td>
+            <td>${row.status.charAt(0).toUpperCase() + row.status.slice(1)}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function updateReservationLogsKPIs() {
+    let filtered = filterReservationLogs();
+    let total = filtered.length;
+    let completed = filtered.filter(row => row.status === 'completed').length;
+    let cancelled = filtered.filter(row => row.status === 'cancelled').length;
+    document.getElementById('reservation-kpi-total').textContent = total;
+    document.getElementById('reservation-kpi-completed').textContent = completed;
+    document.getElementById('reservation-kpi-cancelled').textContent = cancelled;
+}
+
+function filterReservationLogs() {
+    let filtered = [...reservationLogs];
+    // Search
+    const search = (document.getElementById('reservation-search')?.value || '').toLowerCase();
+    if (search) {
+        filtered = filtered.filter(row =>
+            row.id.toString().includes(search) ||
+            row.name.toLowerCase().includes(search) ||
+            row.email.toLowerCase().includes(search) ||
+            row.products.toLowerCase().includes(search)
+        );
+    }
+    // Status filter
+    const status = document.getElementById('reservation-status-filter')?.value;
+    if (status) {
+        filtered = filtered.filter(row => row.status === status);
+    }
+    // Sorting
+    const sort = document.getElementById('reservation-sort-filter')?.value;
+    if (sort === 'date-desc') {
+        filtered.sort((a, b) => new Date(b.dateReserved) - new Date(a.dateReserved));
+    } else if (sort === 'date-asc') {
+        filtered.sort((a, b) => new Date(a.dateReserved) - new Date(b.dateReserved));
+    } else if (sort === 'id-desc') {
+        filtered.sort((a, b) => b.id - a.id);
+    } else if (sort === 'id-asc') {
+        filtered.sort((a, b) => a.id - b.id);
+    }
+    return filtered;
+}
+
+function setupReservationLogsEvents() {
+    ['reservation-search', 'reservation-status-filter', 'reservation-sort-filter'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', () => {
+            renderReservationLogsTable();
+            updateReservationLogsKPIs();
+        });
+        if (el && el.tagName === 'SELECT') el.addEventListener('change', () => {
+            renderReservationLogsTable();
+            updateReservationLogsKPIs();
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Render Reservation Logs if section exists
+    if (document.getElementById('reservation-logs-tbody')) {
+        renderReservationLogsTable();
+        updateReservationLogsKPIs();
+        setupReservationLogsEvents();
+    }
+});
+let salesHistory = [
+    {
+        id: 1001,
+        products: 'Nike Air Max, Adidas Ultraboost',
+        quantity: 3,
+        totalPrice: 15000,
+        cashReceived: 16000,
+        change: 1000,
+        date: '2025-09-20',
+        time: '14:23',
+    },
+    {
+        id: 1002,
+        products: 'Puma RS-X',
+        quantity: 1,
+        totalPrice: 6000,
+        cashReceived: 7000,
+        change: 1000,
+        date: '2025-09-19',
+        time: '10:15',
+    },
+    {
+        id: 1003,
+        products: 'Converse Chuck Taylor, Nike Air Max',
+        quantity: 2,
+        totalPrice: 9000,
+        cashReceived: 10000,
+        change: 1000,
+        date: '2025-08-30',
+        time: '16:45',
+    },
+    {
+        id: 1004,
+        products: 'Adidas Stan Smith',
+        quantity: 1,
+        totalPrice: 5000,
+        cashReceived: 5000,
+        change: 0,
+        date: '2025-07-12',
+        time: '11:00',
+    },
+];
+
+function renderSalesHistoryTable() {
+    const tbody = document.getElementById('sales-history-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    let filtered = filterSalesHistory();
+    filtered.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${row.id}</td>
+            <td>${row.products}</td>
+            <td>${row.quantity}</td>
+            <td>₱${row.totalPrice.toLocaleString()}</td>
+            <td>₱${row.cashReceived.toLocaleString()}</td>
+            <td>₱${row.change.toLocaleString()}</td>
+            <td>${row.date}</td>
+            <td>${row.time}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function updateSalesHistoryKPIs() {
+    let filtered = filterSalesHistory();
+    let totalTransactions = filtered.length;
+    let totalQuantity = filtered.reduce((sum, row) => sum + row.quantity, 0);
+    let totalSales = filtered.reduce((sum, row) => sum + row.totalPrice, 0);
+    document.getElementById('sales-kpi-transactions').textContent = totalTransactions;
+    document.getElementById('sales-kpi-quantity').textContent = totalQuantity;
+    document.getElementById('sales-kpi-total').textContent = '₱' + totalSales.toLocaleString();
+}
+
+function filterSalesHistory() {
+    let filtered = [...salesHistory];
+    // Search
+    const search = (document.getElementById('sales-search')?.value || '').toLowerCase();
+    if (search) {
+        filtered = filtered.filter(row =>
+            row.id.toString().includes(search) ||
+            row.products.toLowerCase().includes(search)
+        );
+    }
+    // Month filter
+    const month = document.getElementById('sales-month-filter')?.value;
+    if (month) {
+        filtered = filtered.filter(row => row.date.split('-')[1] === month.padStart(2, '0'));
+    }
+    // Year filter
+    const year = document.getElementById('sales-year-filter')?.value;
+    if (year) {
+        filtered = filtered.filter(row => row.date.split('-')[0] === year);
+    }
+    // Sorting
+    const sort = document.getElementById('sales-sort-filter')?.value;
+    if (sort === 'orderid-desc') {
+        filtered.sort((a, b) => b.id - a.id);
+    } else if (sort === 'orderid-asc') {
+        filtered.sort((a, b) => a.id - b.id);
+    } else if (sort === 'date-desc') {
+        filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+    } else if (sort === 'date-asc') {
+        filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
+    }
+    return filtered;
+}
+
+function setupSalesHistoryEvents() {
+    ['sales-search', 'sales-month-filter', 'sales-year-filter', 'sales-sort-filter'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', () => {
+            renderSalesHistoryTable();
+            updateSalesHistoryKPIs();
+        });
+        if (el && el.tagName === 'SELECT') el.addEventListener('change', () => {
+            renderSalesHistoryTable();
+            updateSalesHistoryKPIs();
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Render Sales History if section exists
+    if (document.getElementById('sales-history-tbody')) {
+        renderSalesHistoryTable();
+        updateSalesHistoryKPIs();
+        setupSalesHistoryEvents();
+    }
+});
 let inventory = [];
 let reservations = [];
 let suppliers = [];
+
+// --- Mock data for suppliers with orderReceivedDate ---
+if (!localStorage.getItem('suppliers')) {
+    suppliers = [
+        {
+            id: 1,
+            name: 'Nike Philippines',
+            contact: 'Juan Dela Cruz',
+            brand: 'Nike',
+            stock: 200,
+            country: 'Philippines',
+            orderReceivedDate: '2025-09-10',
+            email: 'nikeph@example.com',
+            phone: '09171234567',
+            status: 'active'
+        },
+        {
+            id: 2,
+            name: 'Adidas Manila',
+            contact: 'Maria Santos',
+            brand: 'Adidas',
+            stock: 150,
+            country: 'Philippines',
+            orderReceivedDate: '2025-09-15',
+            email: 'adidasmanila@example.com',
+            phone: '09181234567',
+            status: 'active'
+        },
+        {
+            id: 3,
+            name: 'Puma Supply',
+            contact: 'Pedro Reyes',
+            brand: 'Puma',
+            stock: 100,
+            country: 'Philippines',
+            orderReceivedDate: '2025-09-18',
+            email: 'pumaph@example.com',
+            phone: '09191234567',
+            status: 'inactive'
+        }
+    ];
+    localStorage.setItem('suppliers', JSON.stringify(suppliers));
+}
 let cart = [];
 let activities = [];
 
@@ -11,12 +1052,11 @@ document.addEventListener('DOMContentLoaded', function() {
     setupEventListeners();
     loadSampleData();
     renderInventoryTable();
+    updateDashboard();
     updateTimeAndDate();
     setInterval(updateTimeAndDate, 1000);
     renderCharts();
     renderActivityList();
-    // Set POS Inventory as landing page
-    navigateToSection('pos-inventory');
 });
 
 // Update time and date display
@@ -59,290 +1099,9 @@ function initializeApp() {
         reservationDateInput.min = today;
     }
 }
-window.openProductDetailsModal = function(productName) {
 
-    // Mock data for demo
-    const products = {
-        'Nike Air Max 270': {
-            name: 'Nike Air Max 270',
-            brand: 'Nike',
-            category: 'Men',
-            price: '₱8,499',
-            stock: 12,
-            sizes: '7, 8, 9, 10',
-            colors: 'Black, White',
-            image: ''
-        },
-        'Adidas Ultraboost 22': {
-            name: 'Adidas Ultraboost 22',
-            brand: 'Adidas',
-            category: 'Men',
-            price: '₱12,999',
-            stock: 8,
-            sizes: '8, 9, 10, 11',
-            colors: 'Blue, White',
-            image: ''
-        },
-        'Converse Chuck Taylor': {
-            name: 'Converse Chuck Taylor',
-            brand: 'Converse',
-            category: 'Accessories',
-            price: '₱3,999',
-            stock: 20,
-            sizes: '6, 7, 8, 9',
-            colors: 'Red, Black',
-            image: ''
-        }
-    };
-    const details = products[productName];
-    if (!details) return;
-    const modal = document.getElementById('product-details-modal');
-    const overlay = document.getElementById('modal-overlay');
-    const content = document.getElementById('product-details-content');
-    const sizeTags = details.sizes.split(',').map(s => `<span style='background:#2563eb;color:#fff;padding:6px 16px;border-radius:8px;font-size:0.8rem;margin:4px 4px 0 0;display:inline-block;font-weight:600;'>${s.trim()}</span>`).join(' ');
-    const colorTags = details.colors.split(',').map(c => `<span style='background:#4a5568;color:#fff;padding:6px 16px;border-radius:8px;font-size:0.8rem;margin:4px 4px 0 0;display:inline-block;font-weight:600;'>${c.trim()}</span>`).join(' ');
-    content.innerHTML = `
-        <div style="flex:0 0 260px;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-            <div style="width:260px;height:260px;background:#e2e8f0;border-radius:14px;display:flex;align-items:center;justify-content:center;">
-                <i class='fas fa-image' style='font-size:4rem;color:#a0aec0;'></i>
-            </div>
-        </div>
-        <div style="flex:1;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:10px;min-width:320px;">
-            <div style="font-weight:700;font-size:1.08rem;">${details.name}</div>
-            <div style="font-size:1rem;color:#374151;font-weight:500;">Brand: <span style="font-weight:600;color:#2563eb;">${details.brand}</span></div>
-            <div style="font-size:1rem;color:#374151;font-weight:500;">Category: <span style="font-weight:600;color:#2563eb;">${details.category}</span></div>
-            <div style="font-size:1rem;color:#374151;font-weight:500;">Price: <span style="font-weight:600;color:#059669;">${details.price}</span></div>
-            <div style="font-size:1rem;color:#374151;font-weight:500;">Stock: <span style="font-weight:600;color:#2563eb;">${details.stock}</span></div>
-            <div style="font-size:1rem;color:#374151;font-weight:500;">Sizes: <span>${sizeTags}</span></div>
-            <div style="font-size:1rem;color:#374151;font-weight:500;">Colors: <span>${colorTags}</span></div>
-        </div>
-    `;
-    modal.style.display = 'block';
-    overlay.classList.add('active');
-    overlay.style.display = 'block';
-}
+// Setup event listeners
 function setupEventListeners() {
-    // Dropdown section switcher
-    const sectionSwitcher = document.getElementById('section-switcher');
-    if (sectionSwitcher) {
-        sectionSwitcher.addEventListener('change', function() {
-            // Hide all inventory sections
-            document.getElementById('pos-inventory').style.display = 'none';
-            document.getElementById('reservation-inventory').style.display = 'none';
-            // Show selected section
-            if (this.value === 'pos-inventory') {
-                document.getElementById('pos-inventory').style.display = '';
-            } else if (this.value === 'reservation') {
-                document.getElementById('reservation-inventory').style.display = '';
-            }
-        });
-    }
-
-    // Card/List view toggle for add-inventory-list
-    const toggleBtn = document.getElementById('toggle-card-view');
-    const addInventoryList = document.querySelector('.add-inventory-list');
-    if (toggleBtn && addInventoryList) {
-        let isGrid = true;
-        toggleBtn.addEventListener('click', function() {
-            isGrid = !isGrid;
-            if (isGrid) {
-                addInventoryList.style.flexDirection = 'row';
-                addInventoryList.style.flexWrap = 'wrap';
-                    let isGrid = true;
-                    // Helper: get product data from card
-                    function getProductData(card) {
-                        return {
-                            name: card.getAttribute('data-name'),
-                            brand: card.getAttribute('data-brand'),
-                            category: card.getAttribute('data-category'),
-                            price: card.getAttribute('data-price'),
-                            stock: card.getAttribute('data-stock'),
-                            sizes: card.getAttribute('data-sizes'),
-                            colors: card.getAttribute('data-colors'),
-                        };
-                    }
-                    // Helper: render card HTML for grid/horizontal
-                    function renderCard(card, mode) {
-                        // Special handling for add-product-card
-                        if (card.classList.contains('add-product-card')) {
-                            if (mode === 'grid') {
-                                card.innerHTML = `
-                                    <i class="fas fa-plus" style="font-size:2rem;color:#2a6aff;"></i>
-                                    <span style="margin-top:12px;font-size:1.2rem;color:#2a6aff;font-weight:600;">Add Product</span>
-                                `;
-                                card.style.minWidth = '220px';
-                                card.style.maxWidth = '220px';
-                                card.style.height = '280px';
-                                card.style.flexDirection = 'column';
-                                card.style.alignItems = 'center';
-                                card.style.justifyContent = 'center';
-                                card.style.border = '2px dashed #a3bffa';
-                                card.style.background = '#f7fafc';
-                                card.style.boxShadow = '0 2px 8px rgba(67,56,202,0.08)';
-                            } else {
-                                card.innerHTML = `
-                                    <div style="width:56px;height:56px;background:#e2e8f0;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-right:24px;margin-bottom:0;">
-                                        <i class="fas fa-plus" style="font-size:1.6rem;color:#2a6aff;"></i>
-                                    </div>
-                                    <div class="card-details-grid" style="display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(2,auto);gap:12px 24px;width:100%;align-items:center;">
-                                        <div style="font-size:1.2rem;color:#2a6aff;font-weight:600;grid-column:1/5;grid-row:1;display:flex;align-items:center;">Add Product</div>
-                                    </div>
-                                `;
-                                card.style.width = '100%';
-                                card.style.minWidth = '100%';
-                                card.style.maxWidth = '100%';
-                                card.style.height = '120px';
-                                card.style.flexDirection = 'row';
-                                card.style.alignItems = 'center';
-                                card.style.justifyContent = 'flex-start';
-                                card.style.border = '2px dashed #a3bffa';
-                                card.style.background = '#f7fafc';
-                                card.style.boxShadow = '0 2px 8px rgba(67,56,202,0.08)';
-                                card.style.padding = '18px 32px';
-                            }
-                            card.style.cursor = 'pointer';
-                            card.onclick = openAddProductModal;
-                            return;
-                        }
-                        const data = getProductData(card);
-                        if (mode === 'grid') {
-                            card.innerHTML = `
-                                <div style="width:128px;height:128px;background:#e2e8f0;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;">
-                                    <i class="fas fa-image" style="font-size:3.2rem;color:#a0aec0;"></i>
-                                </div>
-                                <div style="font-weight:700;font-size:0.88rem;text-align:center;">${data.name}</div>
-                                <div style="font-size:0.8rem;color:#4a5568;text-align:center;margin-top:4px;">Size: ${data.sizes}</div>
-                                <div style="font-size:0.8rem;color:#4a5568;text-align:center;">Color: ${data.colors}</div>
-                                <div style="font-size:0.8rem;color:#2a6aff;text-align:center;margin-top:4px;">Stock: ${data.stock}</div>
-                                <button type="button" class="btn btn-primary browse-btn" style="display:flex;align-items:center;justify-content:center;min-width:120px;height:36px;border-radius:8px;font-size:0.8rem;margin-top:16px;padding:0;" onclick="openUpdateProductModal('${data.name}')">Update</button>
-                            `;
-                            card.style.minWidth = '220px';
-                            card.style.maxWidth = '220px';
-                            card.style.height = '280px';
-                            card.style.flexDirection = 'column';
-                            card.style.alignItems = 'center';
-                            card.style.justifyContent = 'center';
-                            card.style.padding = '18px';
-                        } else {
-                            card.innerHTML = `
-                                <div style="width:56px;height:56px;background:#e2e8f0;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-right:24px;margin-bottom:0;">
-                                    <i class="fas fa-image" style="font-size:2rem;color:#a0aec0;"></i>
-                                </div>
-                                <div class="card-details-grid" style="display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(2,auto);gap:12px 24px;width:100%;align-items:center;">
-                                    <div><span style="font-weight:600;">Name:</span> ${data.name}</div>
-                                    <div><span style="font-weight:600;">Brand:</span> ${data.brand}</div>
-                                    <div><span style="font-weight:600;">Category:</span> ${data.category}</div>
-                                    <div><span style="font-weight:600;">Price:</span> ${data.price}</div>
-                                    <div><span style="font-weight:600;">Stock:</span> ${data.stock}</div>
-                                    <div><span style="font-weight:600;">Sizes:</span> <span style="background:#2563eb;color:#fff;padding:4px 12px;border-radius:8px;font-size:1rem;">${data.sizes}</span></div>
-                                    <div><span style="font-weight:600;">Colors:</span> <span style="background:#4a5568;color:#fff;padding:4px 12px;border-radius:8px;font-size:1rem;">${data.colors}</span></div>
-                                </div>
-                                <div style="display:flex;justify-content:center;align-items:center;"><button type="button" class="btn btn-primary browse-btn" style="display:flex;align-items:center;justify-content:center;min-width:120px;height:36px;border-radius:8px;font-size:1rem;padding:0;margin:0;" onclick="openUpdateProductModal('${data.name}')">Update</button></div>
-                            `;
-                            card.style.minWidth = '100%';
-                            card.style.maxWidth = '100%';
-                            card.style.height = 'auto';
-                            card.style.flexDirection = 'row';
-                            card.style.alignItems = 'center';
-                            card.style.justifyContent = 'flex-start';
-                            card.style.padding = '18px 32px';
-                            card.style.background = '#fff';
-                            card.style.boxShadow = '0 2px 8px rgba(67,56,202,0.08)';
-                        }
-                    }
-                    // On toggle, re-render all product cards
-                    toggleBtn.addEventListener('click', function() {
-                        isGrid = !isGrid;
-                        if (isGrid) {
-                            addInventoryList.style.flexDirection = 'row';
-                            addInventoryList.style.flexWrap = 'wrap';
-                            addInventoryList.style.alignItems = 'flex-start';
-                            addInventoryList.style.gap = '24px';
-                            toggleBtn.innerHTML = '<i class="fas fa-th-large" id="toggle-card-icon"></i>';
-                        } else {
-                            addInventoryList.style.flexDirection = 'column';
-                            addInventoryList.style.flexWrap = 'nowrap';
-                            addInventoryList.style.alignItems = 'stretch';
-                            addInventoryList.style.gap = '18px';
-                            toggleBtn.innerHTML = '<i class="fas fa-bars" id="toggle-card-icon"></i>';
-                        }
-                        addInventoryList.querySelectorAll('.product-card, .add-product-card').forEach(function(card) {
-                            renderCard(card, isGrid ? 'grid' : 'horizontal');
-                        });
-                    });
-                }
-    });
-    document.querySelectorAll('#product-size-input').forEach(function(sizeInput) {
-        const sizeTags = sizeInput.parentElement.parentElement.querySelector('#product-size-tags');
-        const enterBtn = sizeInput.parentElement.querySelector('#product-size-enter');
-        if (sizeTags) {
-            sizeInput.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' && this.value.trim()) {
-                    const tag = document.createElement('span');
-                    tag.textContent = this.value.trim();
-                    tag.className = 'tag-item';
-                    tag.style = 'background:#4a5568;color:#fff;padding:4px 10px;border-radius:6px;font-size:0.95rem;margin-right:4px;cursor:pointer;';
-                    tag.onclick = function() { sizeTags.removeChild(tag); };
-                    sizeTags.appendChild(tag);
-                    this.value = '';
-                }
-            });
-            if (enterBtn) {
-                enterBtn.addEventListener('click', function() {
-                    if (sizeInput.value.trim()) {
-                        const tag = document.createElement('span');
-                        tag.textContent = sizeInput.value.trim();
-                        tag.className = 'tag-item';
-                        tag.style = 'background:#4a5568;color:#fff;padding:4px 10px;border-radius:6px;font-size:0.95rem;margin-right:4px;cursor:pointer;';
-                        tag.onclick = function() { sizeTags.removeChild(tag); };
-                        sizeTags.appendChild(tag);
-                        sizeInput.value = '';
-                    }
-                });
-            }
-        }
-    });
-    document.querySelectorAll('#product-color-input').forEach(function(colorInput) {
-        const colorTags = colorInput.parentElement.parentElement.querySelector('#product-color-tags');
-        const enterBtn = colorInput.parentElement.querySelector('#product-color-enter');
-        if (colorTags) {
-            colorInput.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' && this.value.trim()) {
-                    const tag = document.createElement('span');
-                    tag.textContent = this.value.trim();
-                    tag.className = 'tag-item';
-                    tag.style = 'background:#4a5568;color:#fff;padding:4px 10px;border-radius:6px;font-size:0.95rem;margin-right:4px;cursor:pointer;';
-                    tag.onclick = function() { colorTags.removeChild(tag); };
-                    colorTags.appendChild(tag);
-                    this.value = '';
-                }
-            });
-            if (enterBtn) {
-                enterBtn.addEventListener('click', function() {
-                    if (colorInput.value.trim()) {
-                        const tag = document.createElement('span');
-                        tag.textContent = colorInput.value.trim();
-                        tag.className = 'tag-item';
-                        tag.style = 'background:#4a5568;color:#fff;padding:4px 10px;border-radius:6px;font-size:0.95rem;margin-right:4px;cursor:pointer;';
-                        tag.onclick = function() { colorTags.removeChild(tag); };
-                        colorTags.appendChild(tag);
-                        colorInput.value = '';
-                    }
-                });
-            }
-        }
-    });
-    // Collect tags for saving (example for Add to Inventory button)
-    const addBtn = document.getElementById('add-to-inventory-btn');
-    if (addBtn) {
-        addBtn.onclick = function() {
-            const sizes = Array.from(sizeTags.children).map(tag => tag.textContent);
-            const colors = Array.from(colorTags.children).map(tag => tag.textContent);
-            // ...collect other fields and save as needed...
-            alert('Sizes: ' + sizes.join(', ') + '\nColors: ' + colors.join(', '));
-        };
-    }
-}
     // Navigation
     document.querySelectorAll('.nav-link').forEach(link => {
         link.addEventListener('click', function(e) {
@@ -399,12 +1158,37 @@ function setupEventListeners() {
         });
     }
 
-    // ...existing code...
+    // Quick links on dashboard
+    document.querySelectorAll('.quick-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            e.preventDefault();
+            const target = this.getAttribute('data-go');
+            if (target) {
+                navigateToSection(target);
+            }
+        });
+    });
+
+    // Dashboard scope filter
+    const scopeSelect = document.getElementById('dashboard-scope');
+    if (scopeSelect) {
+        scopeSelect.addEventListener('change', function() {
+            updateDashboard();
+            renderCharts();
+            updateDashAddButton();
+        });
+        // initialize state
+        updateDashAddButton();
+    }
 
 }
 
 // Navigation function
 function navigateToSection(section) {
+    // Normalize parent inventory to dashboard
+    if (section === 'inventory') {
+        section = 'inventory-dashboard';
+    }
     // Update active nav item
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
@@ -414,16 +1198,17 @@ function navigateToSection(section) {
     // Update page title
     const pageTitle = document.getElementById('page-title');
     const titles = {
+        'inventory': 'Dashboard',
+        'inventory-dashboard': 'Dashboard',
         'inventory-list': 'Inventory - Inventory List',
         'pos-inventory': 'POS',
         'reservation-inventory': 'Reservation Inventory',
         'inventory-reports': 'Inventory Reports',
         'reservation': 'Reservation Management',
-        'reservation-reports': 'Reservation Management',
         'supplier': 'Supplier Management',
         'settings': 'Settings'
     };
-    pageTitle.textContent = titles[section] || 'Inventory Management';
+    pageTitle.textContent = titles[section] || 'Reports';
 
     // Show/hide content sections
     document.querySelectorAll('.content-section').forEach(content => {
@@ -438,6 +1223,11 @@ function navigateToSection(section) {
     switch (section) {
         case 'inventory-list':
             renderInventoryTable();
+            break;
+        case 'inventory-dashboard':
+            updateDashboard();
+            renderCharts();
+            renderActivityList();
             break;
         case 'pos-inventory':
             renderPOSProducts();
@@ -571,7 +1361,24 @@ function setupSettings() {
     }
 }
 
-// Dashboard logic removed
+// Dashboard KPIs
+function updateDashboard() {
+    // Bind KPIs to scoped dataset while keeping the same card labels
+    const data = getScopedDataset();
+    const totalStock = data.reduce((sum, i) => sum + (i.quantity || 0), 0);
+    const totalValue = data.reduce((sum, i) => sum + ((i.quantity || 0) * (i.price || 0)), 0);
+    const avgPrice = data.length ? (data.reduce((s, i) => s + (i.price || 0), 0) / data.length) : 0;
+    const brandCount = new Set(data.map(i => (i.brand || ''))).size;
+
+    const kpiSales = document.getElementById('kpi-sales');
+    const kpiRevenue = document.getElementById('kpi-revenue');
+    const kpiAvg = document.getElementById('kpi-avg');
+    const kpiOps = document.getElementById('kpi-ops');
+    if (kpiSales) kpiSales.textContent = totalStock.toString();
+    if (kpiRevenue) kpiRevenue.textContent = `₱${totalValue.toFixed(2)}`;
+    if (kpiAvg) kpiAvg.textContent = `₱${avgPrice.toFixed(2)}`;
+    if (kpiOps) kpiOps.textContent = brandCount.toString();
+}
 
 // Charts (gradient blue)
 let marketChart, donutChart, areaChart;
@@ -1271,7 +2078,6 @@ function renderSupplierTable() {
     suppliers.forEach(supplier => {
         const row = document.createElement('tr');
         const statusClass = supplier.status === 'active' ? 'status-active' : 'status-inactive';
-
         row.innerHTML = `
             <td>${supplier.id}</td>
             <td>${supplier.name}</td>
@@ -1279,22 +2085,34 @@ function renderSupplierTable() {
             <td>${supplier.brand || '-'}</td>
             <td>${supplier.stock != null ? supplier.stock : '-'}</td>
             <td>${supplier.country || '-'}</td>
-            <td>${supplier.sizes ? supplier.sizes.join(', ') : '-'}</td>
+            <td>${supplier.orderReceivedDate || '-'}</td>
             <td>${supplier.email}</td>
             <td>${supplier.phone}</td>
             <td><span class="status-badge ${statusClass}">${supplier.status}</span></td>
-            <td>
-                <button class="btn btn-secondary" onclick="editSupplier(${supplier.id})">
-                    <i class="fas fa-edit"></i>
-                </button>
-                <button class="btn btn-danger" onclick="deleteSupplier(${supplier.id})">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </td>
         `;
         tbody.appendChild(row);
     });
 }
+
+// --- Sorting for Supplier Table by Order Received Date ---
+document.addEventListener('DOMContentLoaded', function() {
+    const sortSelect = document.getElementById('sort-supplier-select');
+    if (sortSelect) {
+        sortSelect.addEventListener('change', function() {
+            const val = sortSelect.value;
+            if (val === 'date-desc') {
+                suppliers.sort((a, b) => new Date(b.orderReceivedDate || '') - new Date(a.orderReceivedDate || ''));
+            } else if (val === 'date-asc') {
+                suppliers.sort((a, b) => new Date(a.orderReceivedDate || '') - new Date(b.orderReceivedDate || ''));
+            } else if (val === 'name-asc') {
+                suppliers.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, {sensitivity: 'base'}));
+            } else if (val === 'name-desc') {
+                suppliers.sort((a, b) => (b.name || '').localeCompare(a.name || '', undefined, {sensitivity: 'base'}));
+            }
+            renderSupplierTable();
+        });
+    }
+});
 
 function filterSuppliers() {
     const searchTerm = document.getElementById('search-supplier').value.toLowerCase();

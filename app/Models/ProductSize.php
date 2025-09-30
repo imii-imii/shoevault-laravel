@@ -37,11 +37,11 @@ class ProductSize extends Model
     }
 
     /**
-     * Check if this size is low stock based on product's min_stock.
+     * Check if this size is low stock based on threshold of 5.
      */
     public function isLowStock(): bool
     {
-        return $this->stock <= $this->product->min_stock && $this->stock > 0;
+        return $this->stock <= 5 && $this->stock > 0;
     }
 
     /**

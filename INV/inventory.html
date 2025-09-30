@@ -22,16 +22,23 @@
         </div>
 
         <ul class="sidebar-nav">
-            <li class="nav-item active" data-section="inventory-dashboard">
-                <a href="#" class="nav-link">
-                    <i class="fas fa-chart-pie"></i>
-                    <span>Dashboard</span>
-                </a>
-            </li>
+            
+                <li class="nav-item" data-section="add-inventory">
+                    <a href="#" class="nav-link">
+                        <i class="fas fa-box-open"></i>
+                        <span>Add Inventory</span>
+                    </a>
+                </li>
             <li class="nav-item" data-section="supplier">
                 <a href="#" class="nav-link">
                     <i class="fas fa-user-tie"></i>
                     <span>Supplier</span>
+                </a>
+            </li>
+            <li class="nav-item" data-section="reservation-reports">
+                <a href="#" class="nav-link">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Reservation Reports</span>
                 </a>
             </li>
             <li class="nav-item" data-section="settings">
@@ -80,251 +87,109 @@
 
         <!-- Content Grid -->
         <div class="content-grid">
-            <!-- Inventory Dashboard Section -->
-            <section id="inventory-dashboard" class="content-section active">
-                <div class="dash-filter" style="justify-content: space-between;">
-                    <div style="display:flex; align-items:center; gap:10px;">
+            
+
+                <!-- Add Inventory Section -->
+                <section id="add-inventory" class="content-section active">
+                    <!-- Product Details Modal -->
+                    <div id="product-details-modal" class="modal" style="max-width: 600px; display:none;">
+                        <div class="modal-content" style="max-width:100%; min-height:400px; display:flex; flex-direction:column;">
+                            <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between; border-bottom:1px solid #e2e8f0; padding:24px 32px 12px 32px;">
+                                <h3 style="margin:0; font-size:1.28rem; font-weight:700;">Product Details</h3>
+                                <button class="close-btn" style="font-size:1.2rem; color:#718096; background:none; border:none; cursor:pointer;" onclick="document.getElementById('product-details-modal').style.display='none';document.getElementById('modal-overlay').classList.remove('active');document.getElementById('modal-overlay').style.display='none';">&times;</button>
+                            </div>
+                            <div id="product-details-content" style="display:flex; flex-direction:row; gap:40px; margin:32px; align-items:center; justify-content:flex-start; min-height:320px;font-size: 1.2rem;">
+                                <!-- Details will be injected by JS -->
+                            </div>
+                        </div>
                     </div>
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <select id="dashboard-scope" class="filter-select filter-sm" style="min-width: 160px;">
-                            <option value="inventory" selected>Inventory</option>
-                            <option value="pos">POS</option>
-                            <option value="reservation">Reservations</option>
-                        </select>
-                        <button id="dash-add-btn" class="btn btn-primary btn-sm" style="display:none;" onclick="openAddInventoryModal()">
-                            <i class="fas fa-plus"></i> Add Product
+                    <div id="modal-overlay" class="modal-overlay" style="display:none;"></div>
+                    <div class="section-header">
+                        <h2 style="display:flex;align-items:center;gap:12px;"><i class="fas fa-box-open"></i> Add Inventory</h2>
+                        <div style="margin-left:auto;display:flex;align-items:center;gap:16px;">
+                            <select id="section-switcher" style="height:40px;min-width:160px;background:#2a6aff;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:600;padding:0 18px;cursor:pointer;box-shadow:0 2px 8px rgba(67,56,202,0.08);">
+                                <option value="pos-inventory">POS Inventory</option>
+                                <option value="reservation">Reservation</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="toggle">
+                        <button id="toggle-card-view" style="position:absolute;right: 20px; bottom: 20px; z-index:10;background:#2a6aff;color:#fff;border:none;border-radius:50%;width:48px;height:48px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(67,56,202,0.18);font-size:1.2rem;cursor:pointer;">
+                            <i class="fas fa-th-large" id="toggle-card-icon"></i>
                         </button>
                     </div>
-                </div>
-                <div class="kpi-grid">
-                    <div class="kpi-card">
-                        <div class="kpi-head">
-                            <div>
-                                <div class="kpi-value" id="kpi-sales">0</div>
-                                <div class="kpi-label">Number of Sales</div>
-                            </div>
-                            <div class="kpi-icon kpi-1"><i class="fas fa-chart-line"></i></div>
+                    <div class="add-inventory-list" style="position:relative; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; justify-content: flex-start;">
+                        
+                        <!-- Add Product Card/Button -->
+                        <div class="add-product-card" style="min-width:220px;max-width:220px;height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed #a3bffa;border-radius:16px;cursor:pointer;background:#f7fafc;box-shadow:0 2px 8px rgba(67,56,202,0.08);" onclick="openAddProductModal()">
+                            <i class="fas fa-plus" style="font-size:2rem;color:#2a6aff;"></i>
+                            <span style="margin-top:12px;font-size:1.2rem;color:#2a6aff;font-weight:600;">Add Product</span>
                         </div>
-                        <div class="kpi-trend up">↑ 25%</div>
-                    </div>
-                    <div class="kpi-card">
-                        <div class="kpi-head">
-                            <div>
-                                <div class="kpi-value" id="kpi-revenue">₱0.00</div>
-                                <div class="kpi-label">Sales Revenue</div>
+                        <!-- Mock Product Cards (Image, Name, Size, Color, Stock) -->
+                        <div class="product-card" 
+                            data-name="Nike Air Max 270" 
+                            data-brand="Nike" 
+                            data-category="Men" 
+                            data-price="₱8,499" 
+                            data-stock="12" 
+                            data-sizes="7, 8, 9, 10" 
+                            data-colors="Black, White" 
+                            style="min-width:220px;max-width:220px;height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(67,56,202,0.08);padding:18px;cursor:pointer;" onclick="openProductDetailsModal('Nike Air Max 270')">
+                            <div style="width:128px;height:128px;background:#e2e8f0;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;">
+                                <i class="fas fa-image" style="font-size:3.2rem;color:#a0aec0;"></i>
                             </div>
-                            <div class="kpi-icon kpi-2"><i class="fas fa-signal"></i></div>
+                            <div style="font-weight:700;font-size:0.88rem;text-align:center;">Nike Air Max 270</div>
+                            <div style="font-size:0.8rem;color:#4a5568;text-align:center;margin-top:4px;">Size: 7, 8, 9, 10</div>
+                            <div style="font-size:0.8rem;color:#4a5568;text-align:center;">Color: Black, White</div>
+                            <div style="font-size:0.8rem;color:#2a6aff;text-align:center;margin-top:4px;">Stock: 12</div>
+                            <button type="button" class="btn btn-primary browse-btn" style="display:flex;align-items:center;justify-content:center;min-width:120px;height:36px;border-radius:8px;font-size:0.8rem;margin-top:16px;padding:0;" onclick="openUpdateProductModal('Nike Air Max 270')">Update</button>
                         </div>
-                        <div class="kpi-trend up">↑ 15%</div>
-                    </div>
-                    <div class="kpi-card">
-                        <div class="kpi-head">
-                            <div>
-                                <div class="kpi-value" id="kpi-avg">₱0.00</div>
-                                <div class="kpi-label">Average Price</div>
+                        <div class="product-card" 
+                            data-name="Adidas Ultraboost 22" 
+                            data-brand="Adidas" 
+                            data-category="Men" 
+                            data-price="₱12,999" 
+                            data-stock="8" 
+                            data-sizes="8, 9, 10, 11" 
+                            data-colors="Blue, White" 
+                            style="min-width:220px;max-width:220px;height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(67,56,202,0.08);padding:18px;cursor:pointer;" onclick="openProductDetailsModal('Adidas Ultraboost 22')">
+                            <div style="width:128px;height:128px;background:#e2e8f0;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;">
+                                <i class="fas fa-image" style="font-size:4rem;color:#a0aec0;"></i>
                             </div>
-                            <div class="kpi-icon kpi-3"><i class="fas fa-dollar-sign"></i></div>
+                            <div style="font-weight:700;font-size:0.88rem;text-align:center;">Adidas Ultraboost 22</div>
+                            <div style="font-size:0.8rem;color:#4a5568;text-align:center;margin-top:4px;">Size: 8, 9, 10, 11</div>
+                            <div style="font-size:0.8rem;color:#4a5568;text-align:center;">Color: Blue, White</div>
+                            <div style="font-size:0.8rem;color:#2a6aff;text-align:center;margin-top:4px;">Stock: 8</div>
+                            <button type="button" class="btn btn-primary browse-btn" style="display:flex;align-items:center;justify-content:center;min-width:120px;height:36px;border-radius:8px;font-size:1rem;margin-top:16px;padding:0;" onclick="openUpdateProductModal('Adidas Ultraboost 22')">Update</button>
                         </div>
-                        <div class="kpi-trend down">↓ 15%</div>
-                    </div>
-                    <div class="kpi-card">
-                        <div class="kpi-head">
-                            <div>
-                                <div class="kpi-value" id="kpi-ops">0</div>
-                                <div class="kpi-label">Operations</div>
+                        <div class="product-card" 
+                            data-name="Converse Chuck Taylor" 
+                            data-brand="Converse" 
+                            data-category="Accessories" 
+                            data-price="₱3,999" 
+                            data-stock="20" 
+                            data-sizes="6, 7, 8, 9" 
+                            data-colors="Red, Black" 
+                            style="min-width:220px;max-width:220px;height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(67,56,202,0.08);padding:18px;cursor:pointer;" onclick="openProductDetailsModal('Converse Chuck Taylor')">
+                            <div style="width:128px;height:128px;background:#e2e8f0;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;">
+                                <i class="fas fa-image" style="font-size:4rem;color:#a0aec0;"></i>
                             </div>
-                            <div class="kpi-icon kpi-4"><i class="fas fa-chart-bar"></i></div>
+                            <div style="font-weight:700;font-size:0.88rem;text-align:center;">Converse Chuck Taylor</div>
+                            <div style="font-size:0.8rem;color:#4a5568;text-align:center;margin-top:4px;">Size: 6, 7, 8, 9</div>
+                            <div style="font-size:0.8rem;color:#4a5568;text-align:center;">Color: Red, Black</div>
+                            <div style="font-size:0.8rem;color:#2a6aff;text-align:center;margin-top:4px;">Stock: 20</div>
+                            <button type="button" class="btn btn-primary browse-btn" style="display:flex;align-items:center;justify-content:center;min-width:120px;height:36px;border-radius:8px;font-size:1rem;margin-top:16px;padding:0;" onclick="openUpdateProductModal('Converse Chuck Taylor')">Update</button>
                         </div>
-                        <div class="kpi-trend up">↑ 12%</div>
                     </div>
-                </div>
+                    </div>
+                    </div>
+                </section>
 
-                <div class="dashboard-rows">
-                    <div class="left-col">
-                        <div class="card-lg">
-                            <div class="card-title">Market Overview</div>
-                            <canvas id="chart-market"></canvas>
-                        </div>
-                        <div class="card-row">
-                            <div class="card-md">
-                                <div class="card-title">Sales Overview</div>
-                                <canvas id="chart-donut"></canvas>
-                            </div>
-                            <div class="card-md">
-                                <div class="card-title">Sales Analytics</div>
-                                <canvas id="chart-area"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                    <aside class="right-col">
-                        <div class="panel-title">Today <span id="today-date"></span></div>
-                        <div id="activity-list" class="activity-list"></div>
-                    </aside>
-                </div>
-            </section>
-
-            <!-- Inventory List Section -->
-            <section id="inventory-list" class="content-section">
-                <div class="section-header">
-                    <h2><i class="fas fa-list"></i> Inventory - Inventory List</h2>
-                    <button class="btn btn-primary" onclick="openAddInventoryModal()">
-                        <i class="fas fa-plus"></i> Add New Item
-                    </button>
-                </div>
-                <div class="filters">
-                    <input type="text" id="search-inventory" placeholder="Search inventory..." class="search-input">
-                    <select id="category-filter" class="filter-select">
-                        <option value="">All Categories</option>
-                        <option value="men">Men's Shoes</option>
-                        <option value="women">Women's Shoes</option>
-                        <option value="kids">Kids' Shoes</option>
-                        <option value="accessories">Accessories</option>
-                    </select>
-                </div>
-                <div class="table-container">
-                    <table id="inventory-table" class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Inventory ID</th>
-                                <th>Name</th>
-                                <th>Brand</th>
-                                <th>Category</th>
-                                <th>Size</th>
-                                <th>Stock</th>
-                                <th>Price</th>
-                                <th>Status</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="inventory-tbody">
-                            <!-- Inventory items will be populated by JavaScript -->
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <!-- POS Inventory Section -->
-            <section id="pos-inventory" class="content-section">
-                <div class="section-header with-left-actions">
-                    <h2><i class="fas fa-cash-register"></i> POS (Inventory)</h2>
-                    <div style="display:flex; gap:10px; align-items:center;">
-                        <p>Point of Sale inventory management</p>
-                        <button class="btn btn-primary" onclick="openAddInventoryModal()">
-                            <i class="fas fa-plus"></i> Add Inventory
-                        </button>
-                    </div>
-                </div>
-                <div class="pos-container">
-                    <div class="pos-left">
-                        <div class="product-search">
-                            <input type="text" id="pos-search" placeholder="Search products..." class="search-input">
-                        </div>
-                        <div class="product-grid" id="product-list">
-                            <!-- Products will be populated by JavaScript -->
-                        </div>
-                    </div>
-                    <div class="pos-right">
-                        <div class="cart-container">
-                            <h3>Shopping Cart</h3>
-                            <div id="cart-items">
-                                <!-- Cart items will be populated by JavaScript -->
-                            </div>
-                            <div class="cart-total">
-                                <h4>Total: ₱<span id="cart-total">0.00</span></h4>
-                            </div>
-                            <button class="btn btn-success" onclick="processSale()">
-                                <i class="fas fa-check"></i> Complete Sale
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Reservation Inventory Section -->
-            <section id="reservation-inventory" class="content-section">
-                <div class="section-header with-left-actions">
-                    <h2><i class="fas fa-calendar-check"></i> Reservation Inventory</h2>
-                    <div style="display:flex; gap:10px; align-items:center;">
-                        <button class="btn btn-primary" onclick="openAddReservationModal()">
-                            <i class="fas fa-plus"></i> New Reservation
-                        </button>
-                        <button class="btn btn-secondary" onclick="openAddInventoryModal()">
-                            <i class="fas fa-box"></i> Add Inventory
-                        </button>
-                    </div>
-                </div>
-                <div class="filters">
-                    <input type="text" id="search-reservation" placeholder="Search reservations..." class="search-input">
-                    <select id="status-filter" class="filter-select">
-                        <option value="">All Status</option>
-                        <option value="pending">Pending</option>
-                        <option value="confirmed">Confirmed</option>
-                        <option value="completed">Completed</option>
-                        <option value="cancelled">Cancelled</option>
-                    </select>
-                </div>
-                <div class="table-container">
-                    <table id="reservation-table" class="data-table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Customer</th>
-                                <th>Product</th>
-                                <th>Quantity</th>
-                                <th>Date</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="reservation-tbody">
-                            <!-- Reservation items will be populated by JavaScript -->
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <!-- Reservation Section -->
-            <section id="reservation" class="content-section">
-                <div class="section-header">
-                    <h2>Reservation Management</h2>
-                    <button class="btn btn-primary" onclick="openAddReservationModal()">
-                        <i class="fas fa-plus"></i> New Reservation
-                    </button>
-                </div>
-                <div class="filters">
-                    <input type="text" id="search-reservation" placeholder="Search reservations..." class="search-input">
-                    <select id="status-filter" class="filter-select">
-                        <option value="">All Status</option>
-                        <option value="pending">Pending</option>
-                        <option value="confirmed">Confirmed</option>
-                        <option value="completed">Completed</option>
-                        <option value="cancelled">Cancelled</option>
-                    </select>
-                </div>
-                <div class="table-container">
-                    <table id="reservation-table" class="data-table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Customer</th>
-                                <th>Product</th>
-                                <th>Quantity</th>
-                                <th>Date</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="reservation-tbody">
-                            <!-- Reservation items will be populated by JavaScript -->
-                        </tbody>
-                    </table>
-                </div>
-            </section>
 
             <!-- Supplier Section -->
             <section id="supplier" class="content-section">
                 <div class="section-header">
-                    <h2>Supplier Management</h2>
+                    <h2 style="display:flex;align-items:center;gap:12px;"><i class="fas fa-people-carry-box"></i>Supplier Management</h2>
                     <button class="btn btn-primary" onclick="openAddSupplierModal()">
                         <i class="fas fa-plus"></i> Add Supplier
                     </button>
@@ -353,6 +218,156 @@
                             <!-- Supplier items will be populated by JavaScript -->
                         </tbody>
                     </table>
+                </div>
+            </section>
+
+            <!-- Reservation Reports Section -->
+            <section id="reservation-reports" class="content-section">
+                <div class="section-header">
+                    <h2 style="display:flex;align-items:center;gap:12px;"><i class="fas fa-chart-line"></i> Reservation Management</h2>
+                </div>
+                <!-- Analytics Cards -->
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin: 20px;">
+                    <div style="background: linear-gradient(135deg, #3B82F6 0%, #1E40AF 100%); padding: 24px; border-radius: 12px; color: white;">
+                        <h3 style="font-size: 1.1rem; margin-bottom: 12px;">Incomplete Reservations</h3>
+                        <p style="font-size: 2rem; font-weight: bold;">24</p>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #F59E0B 0%, #B45309 100%); padding: 24px; border-radius: 12px; color: white;">
+                        <h3 style="font-size: 1.1rem; margin-bottom: 12px;">Expiring Soon</h3>
+                        <p style="font-size: 2rem; font-weight: bold;">8</p>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #EF4444 0%, #991B1B 100%); padding: 24px; border-radius: 12px; color: white;">
+                        <h3 style="font-size: 1.1rem; margin-bottom: 12px;">Expiring Today</h3>
+                        <p style="font-size: 2rem; font-weight: bold;">3</p>
+                    </div>
+                </div>
+                
+                <!-- Search and Filter Bar -->
+                <div style="display: flex; gap: 16px; margin: 20px; align-items: center;">
+                    <input type="text" placeholder="Search reservations..." style="flex: 1; padding: 8px 16px; border: 1px solid #E2E8F0; border-radius: 8px;">
+                    <select style="padding: 8px 16px; border: 1px solid #E2E8F0; border-radius: 8px;">
+                        <option value="all">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="completed">Completed</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                </div>
+
+                <!-- Reservation Cards -->
+                <div style="margin: 20px; display: grid; gap: 16px;">
+                    <!-- Reservation Card 1 -->
+                    <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; align-items: center;">
+                            <div>
+                                <p style="color: #6B7280; font-size: 0.9rem;">Reservation ID</p>
+                                <p style="font-weight: 600;">#RES001</p>
+                            </div>
+                            <div>
+                                <p style="color: #6B7280; font-size: 0.9rem;">Customer Name</p>
+                                <p style="font-weight: 600;">John Doe</p>
+                            </div>
+                            <div>
+                                <p style="color: #6B7280; font-size: 0.9rem;">Email</p>
+                                <p style="font-weight: 600;">john.doe@email.com</p>
+                            </div>
+                            <div>
+                                <p style="color: #6B7280; font-size: 0.9rem;">Item Reserved</p>
+                                <p style="font-weight: 600;">Nike Air Max 270</p>
+                            </div>
+                            <div>
+                                <p style="color: #6B7280; font-size: 0.9rem;">Reservation Date</p>
+                                <p style="font-weight: 600;">Sep 19, 2025</p>
+                            </div>
+                            <div>
+                                <p style="color: #6B7280; font-size: 0.9rem;">Pickup Date</p>
+                                <p style="font-weight: 600;">Sep 22, 2025</p>
+                            </div>
+                            <div>
+                                <p style="color: #6B7280; font-size: 0.9rem;">Status</p>
+                                <span style="display: inline-block; padding: 4px 12px; border-radius: 9999px; background-color: #FEF3C7; color: #92400E; font-weight: 500; font-size: 0.9rem;">Pending</span>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button style="min-width: 100px; padding: 8px 16px; border-radius: 8px; background-color: #2563EB; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 500;">Complete</button>
+                                <button style="min-width: 100px; padding: 8px 16px; border-radius: 8px; background-color: #DC2626; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 500;">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Reservation Card 2 -->
+                    <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; align-items: center;">
+                            <div>
+                                <p style="color: #6B7280; font-size: 0.9rem;">Reservation ID</p>
+                                <p style="font-weight: 600;">#RES002</p>
+                            </div>
+                            <div>
+                                <p style="color: #6B7280; font-size: 0.9rem;">Customer Name</p>
+                                <p style="font-weight: 600;">Jane Smith</p>
+                            </div>
+                            <div>
+                                <p style="color: #6B7280; font-size: 0.9rem;">Email</p>
+                                <p style="font-weight: 600;">jane.smith@email.com</p>
+                            </div>
+                            <div>
+                                <p style="color: #6B7280; font-size: 0.9rem;">Item Reserved</p>
+                                <p style="font-weight: 600;">Adidas Ultraboost 22</p>
+                            </div>
+                            <div>
+                                <p style="color: #6B7280; font-size: 0.9rem;">Reservation Date</p>
+                                <p style="font-weight: 600;">Sep 18, 2025</p>
+                            </div>
+                            <div>
+                                <p style="color: #6B7280; font-size: 0.9rem;">Pickup Date</p>
+                                <p style="font-weight: 600;">Sep 19, 2025</p>
+                            </div>
+                            <div>
+                                <p style="color: #6B7280; font-size: 0.9rem;">Status</p>
+                                <span style="display: inline-block; padding: 4px 12px; border-radius: 9999px; background-color: #DCFCE7; color: #166534; font-weight: 500; font-size: 0.9rem;">Completed</span>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button style="min-width: 100px; padding: 8px 16px; border-radius: 8px; background-color: #6B7280; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 500;">Uncomplete</button>
+                                <button style="min-width: 100px; padding: 8px 16px; border-radius: 8px; background-color: #DC2626; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 500;">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Reservation Card 3 -->
+                    <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; align-items: center;">
+                            <div>
+                                <p style="color: #6B7280; font-size: 0.9rem;">Reservation ID</p>
+                                <p style="font-weight: 600;">#RES003</p>
+                            </div>
+                            <div>
+                                <p style="color: #6B7280; font-size: 0.9rem;">Customer Name</p>
+                                <p style="font-weight: 600;">Mike Johnson</p>
+                            </div>
+                            <div>
+                                <p style="color: #6B7280; font-size: 0.9rem;">Email</p>
+                                <p style="font-weight: 600;">mike.j@email.com</p>
+                            </div>
+                            <div>
+                                <p style="color: #6B7280; font-size: 0.9rem;">Item Reserved</p>
+                                <p style="font-weight: 600;">Converse Chuck Taylor</p>
+                            </div>
+                            <div>
+                                <p style="color: #6B7280; font-size: 0.9rem;">Reservation Date</p>
+                                <p style="font-weight: 600;">Sep 15, 2025</p>
+                            </div>
+                            <div>
+                                <p style="color: #6B7280; font-size: 0.9rem;">Pickup Date</p>
+                                <p style="font-weight: 600;">Sep 18, 2025</p>
+                            </div>
+                            <div>
+                                <p style="color: #6B7280; font-size: 0.9rem;">Status</p>
+                                <span style="display: inline-block; padding: 4px 12px; border-radius: 9999px; background-color: #FEE2E2; color: #991B1B; font-weight: 500; font-size: 0.9rem;">Cancelled</span>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button style="min-width: 100px; padding: 8px 16px; border-radius: 8px; background-color: #2563EB; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 500;">Complete</button>
+                                <button style="min-width: 100px; padding: 8px 16px; border-radius: 8px; background-color: #6B7280; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 500;" disabled>Cancelled</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -531,54 +546,73 @@
 
     <!-- Add Product Modal -->
     <div id="add-product-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Add New Product</h3>
-                <button class="close-btn" onclick="closeModal('add-product-modal')">&times;</button>
+        <div class="modal-content" style="max-width:100%; min-height:480px; display:flex; flex-direction:column; justify-content:flex-start; align-items:stretch;">
+            <div class="modal-header" style="padding:24px 32px 12px 32px; border-bottom:1px solid #e2e8f0;">
+                <h3 style="margin:0; font-size:1.6rem; font-weight:700;">Add New Product</h3>
+                <button class="close-btn" style="font-size:1.5rem; color:#718096; background:none; border:none; cursor:pointer;" onclick="closeModal('add-product-modal')">&times;</button>
             </div>
-            <form id="add-product-form" class="modal-form">
-                <div class="modal-split">
-                    <div class="upload-card">
-                        <div class="upload-box" role="button" tabindex="0">
-                            <div class="upload-drop">
-                                <i class="fas fa-cloud-upload-alt"></i>
-                                <h4>Drop files here</h4>
-                                <p>Supported format: PNG, JPG</p>
-                                <span class="or-text">OR</span>
-                                <span class="browse-link">Browse files</span>
-                            </div>
-                        </div>
-                        <div class="upload-actions">
-                            <button type="button" class="btn btn-secondary" onclick="closeModal('add-product-modal')">Cancel</button>
-                            <button type="button" class="btn btn-primary browse-btn">Upload</button>
+            <form id="add-product-form" class="modal-form" style="flex:1; display:flex; flex-direction:row; gap:32px; overflow:hidden; min-height:0;">
+                <div class="upload-card" style="flex:0 0 400px; display:flex; flex-direction:column; justify-content:space-between; height:480px;">
+                    <div class="upload-box" role="button" tabindex="0" style="flex:1;">
+                        <div class="upload-drop">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <h4>Drop files here</h4>
+                            <p>Supported format: PNG, JPG</p>
+                            <span class="or-text">OR</span>
+                            <span class="browse-link">Browse files</span>
                         </div>
                     </div>
-                    <div class="info-card">
-                        <div class="info-title">Inventory item Information</div>
-                        <div class="form-group">
-                            <label for="product-name">Product Name</label>
-                            <input type="text" id="product-name" placeholder="Please enter an item." required>
-                        </div>
-                        <div class="form-group">
-                            <label for="product-brand">Brand</label>
-                            <input type="text" id="product-brand" placeholder="Please enter an item.">
-                        </div>
-                        <div class="form-group">
-                            <label for="product-stock">Stock</label>
-                            <input type="number" id="product-stock" min="0" placeholder="Please enter an item." required>
-                        </div>
-                        <div class="form-group">
-                            <label for="product-category">Category</label>
-                            <input type="text" id="product-category" placeholder="Please enter an item." required>
-                        </div>
-                        <div class="form-group">
-                            <label for="product-price">Price</label>
-                            <input type="number" id="product-price" min="0" step="0.01" placeholder="Please enter an item." required>
-                        </div>
+                    <div class="upload-actions" style="margin-top:18px; display:flex; gap:12px;">
+                        <button type="button" class="btn btn-secondary" style="height:40px;display:flex;align-items:center;" onclick="closeModal('add-product-modal')">Cancel</button>
+                        <button type="button" class="btn btn-primary browse-btn" style="height:40px;display:flex;align-items:center;margin: 0;">Upload</button>
                     </div>
                 </div>
-                <div class="modal-create">
-                    <button type="submit" class="btn btn-primary btn-create">Create</button>
+                <div class="info-card" style="flex:1; display:flex; flex-direction:column; max-height:480px; overflow-y:auto; padding-right:8px;">
+                    <div class="info-title" style="font-weight:600; font-size:1.1rem; margin-bottom:12px;">Inventory item Information</div>
+                    <div class="form-group">
+                        <label for="product-name">Product Name</label>
+                        <input type="text" id="product-name" placeholder="Please enter item name." required style="font-size: 1rem;">
+                    </div>
+                    <div class="form-group">
+                        <label for="product-brand">Brand</label>
+                        <input type="text" id="product-brand" placeholder="Please enter brand name." style="font-size: 1rem;">
+                    </div>
+                    <div class="form-group">
+                        <label for="product-stock">Stock</label>
+                        <input type="number" id="product-stock" min="0" placeholder="Please enter quantity." required style="font-size: 1rem;">
+                    </div>
+                    <div class="form-group">
+                        <label for="product-category">Category</label>
+                        <input type="text" id="product-category" placeholder="Please enter category" required style="font-size: 1rem;">
+                    </div>
+                    <div class="form-group">
+                        <label for="product-price">Price</label>
+                        <input type="number" id="product-price" min="0" step="0.01" placeholder="Please enter item price" required style="font-size: 1rem;">
+                    </div>
+                    <div class="form-group">
+                        <label for="product-size-tags">Sizes</label>
+                        <div id="product-size-tags" style="font-size:1rem;display:flex;flex-wrap:wrap;gap:8px;padding:6px 0;border:1px solid #e2e8f0;border-radius:6px;background:#f7fafc;min-height:38px;margin-bottom:6px;width:100%;"></div>
+                        <div style="position:relative;display:flex;align-items:center;width:100%;">
+                            <input type="text" id="product-size-input" placeholder="Type size and press Enter" style="width:100%;padding-right:36px;font-size:1rem;">
+                            <button type="button" id="product-size-enter" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#2a6aff;padding:0;">
+                                <i class="fas fa-arrow-up"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                            <label for="product-color-tags">Colors</label>
+                            <div id="product-color-tags" style="font-size:1rem;display:flex;flex-wrap:wrap;gap:8px;padding:6px 0;border:1px solid #e2e8f0;border-radius:6px;background:#f7fafc;min-height:38px;margin-bottom:6px;width:100%;"></div>
+                            <div style="position:relative;display:flex;align-items:center;width:100%;">
+                                <input type="text" id="product-color-input" placeholder="Type color and press Enter" style="width:100%;padding-right:36px;font-size:1rem;">
+                                <button type="button" id="product-color-enter" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#2a6aff;padding:0;">
+                                    <i class="fas fa-arrow-up"></i>
+                                </button>
+                            </div>
+                    </div>
+                    <div style="flex:1;"></div>
+                    <div class="modal-create" style="margin-top:18px; display:flex; justify-content:flex-end;">
+                        <button type="submit" class="btn btn-primary browse-btn" style="min-width:220px;max-width:220px;height:40px;font-size:0.88rem;font-weight:600;border-radius:16px;display:flex;align-items:center;justify-content:center;">Add Product</button>
+                    </div>
                 </div>
             </form>
         </div>

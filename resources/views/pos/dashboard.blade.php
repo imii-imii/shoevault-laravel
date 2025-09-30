@@ -238,12 +238,12 @@ async function loadProducts(category = 'all') {
             }
             
             grid.innerHTML = filteredProducts.map(product => `
-                <div class="product-card ${product.stock <= 0 ? 'out-of-stock' : product.stock <= product.min_stock ? 'low-stock' : ''}" data-id="${product.id}">
+                <div class="product-card ${product.stock <= 0 ? 'out-of-stock' : product.stock <= 5 ? 'low-stock' : ''}" data-id="${product.id}">
                     <div class="product-image">
                         <img src="${product.image_url ? '/'+product.image_url : 'https://via.placeholder.com/200x150/333/fff?text='+product.name.charAt(0)}" 
                              alt="${product.name}"
                              onerror="this.src='https://via.placeholder.com/200x150/333/fff?text=${product.name.charAt(0)}'">
-                        <div class="stock-badge ${product.stock <= 0 ? 'out-of-stock' : product.stock <= product.min_stock ? 'low-stock' : ''}">
+                        <div class="stock-badge ${product.stock <= 0 ? 'out-of-stock' : product.stock <= 5 ? 'low-stock' : ''}">
                             ${product.stock} in stock
                         </div>
                         ${product.stock <= 0 ? '<div class="out-of-stock-overlay">OUT OF STOCK</div>' : ''}

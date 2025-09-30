@@ -90,7 +90,7 @@ class AuthController extends Controller
             case 'manager':
                 return redirect()->route('inventory.dashboard');
             case 'owner':
-                return redirect()->route('analytics.dashboard');
+                return redirect()->route('owner.dashboard');
             case 'admin':
                 return redirect()->route('pos.dashboard'); // Default to POS for admin
             default:
@@ -109,7 +109,7 @@ class AuthController extends Controller
             case 'manager':
                 return route('inventory.dashboard');
             case 'owner':
-                return route('analytics.dashboard');
+                return route('owner.dashboard');
             case 'admin':
                 return route('pos.dashboard');
             default:

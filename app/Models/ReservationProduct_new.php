@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
-class Product extends Model
+class ReservationProduct extends Model
 {
     use HasFactory;
 
@@ -29,15 +29,15 @@ class Product extends Model
     ];
 
     /**
-     * Get the sizes for this product.
+     * Get the sizes for this reservation product.
      */
     public function sizes(): HasMany
     {
-        return $this->hasMany(ProductSize::class);
+        return $this->hasMany(ReservationProductSize::class);
     }
 
     /**
-     * Get available sizes for this product.
+     * Get available sizes for this reservation product.
      */
     public function availableSizes(): HasMany
     {
@@ -45,33 +45,32 @@ class Product extends Model
     }
 
     /**
-     * Generate unique product ID
-     * Format: SV-{CATEGORY_PREFIX}-{RANDOM_STRING}
-     * Example: SV-MEN-A1B2C3, SV-WOM-X9Y8Z7, SV-ACC-M5N6P7
+     * Generate unique reservation product ID
+     * Format: RSV-{CATEGORY_PREFIX}-{RANDOM_STRING}
+     * Example: RSV-MEN-A1B2C3, RSV-WOM-X9Y8Z7, RSV-ACC-M5N6P7
      */
-    public static function generateUniqueProductId($category)
+    public static function generateProductId($category)
     {
         $categoryPrefixes = [
             'men' => 'MEN',
             'women' => 'WOM',
             'accessories' => 'ACC'
         ];
-        
-        $prefix = $categoryPrefixes[$category] ?? 'GEN';
+
+        $prefix = $categoryPrefixes[$category] ?? 'GEN'; // General if category not found
         
         do {
-            // Generate random alphanumeric string (6 characters)
             $randomString = strtoupper(Str::random(6));
-            $productId = "SV-{$prefix}-{$randomString}";
+            $productId = "RSV-{$prefix}-{$randomString}";
         } while (self::where('product_id', $productId)->exists());
-        
+
         return $productId;
     }
 
     /**
-     * Generate unique SKU
-     * Format: SKU-{CATEGORY_PREFIX}-{TIMESTAMP}-{RANDOM}
-     * Example: SKU-MEN-1696233456-A1B2, SKU-WOM-1696233457-X9Y8
+     * Generate unique SKU for reservation products
+     * Format: RSKU-{CATEGORY_PREFIX}-{TIMESTAMP}-{RANDOM}
+     * Example: RSKU-MEN-1696233456-A1B2, RSKU-WOM-1696233457-X9Y8
      */
     public static function generateUniqueSku($category)
     {
@@ -87,7 +86,7 @@ class Product extends Model
         do {
             // Generate random alphanumeric string (4 characters)
             $randomString = strtoupper(Str::random(4));
-            $sku = "SKU-{$prefix}-{$timestamp}-{$randomString}";
+            $sku = "RSKU-{$prefix}-{$timestamp}-{$randomString}";
         } while (self::where('sku', $sku)->exists());
         
         return $sku;
@@ -96,7 +95,7 @@ class Product extends Model
     /**
      * Generate image filename based on product ID
      * Format: {PRODUCT_ID}_{TIMESTAMP}.{EXTENSION}
-     * Example: SV-MEN-A1B2C3_1694952000.jpg
+     * Example: RSV-MEN-A1B2C3_1694952000.jpg
      */
     public function generateImageFilename($originalFilename)
     {
