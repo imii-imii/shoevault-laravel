@@ -5,18 +5,9 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\OwnerController;
-use App\Http\Controllers\ReservationController;
 
 // Authentication routes
-Route::get('/', [ReservationController::class, 'index'])->name('reservation.home');
-Route::get('/portal', [ReservationController::class, 'portal'])->name('reservation.portal');
-Route::get('/form', [ReservationController::class, 'form'])->name('reservation.form');
-Route::get('/size-converter', [ReservationController::class, 'sizeConverter'])->name('reservation.size-converter');
-
-// AJAX routes for dynamic functionality
-Route::get('/api/products/filter', [ReservationController::class, 'getFilteredProducts'])->name('api.products.filter');
-Route::get('/api/products/{id}/details', [ReservationController::class, 'getProductDetails'])->name('api.products.details');
-
+Route::get('/', [AuthController::class, 'showLogin'])->name('login');
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
