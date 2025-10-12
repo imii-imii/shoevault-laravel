@@ -25,8 +25,8 @@ Route::get('/logout', [AuthController::class, 'logout'])->name('logout.get'); //
 // POS routes (for cashiers and admin)
 Route::middleware(['auth', 'role:cashier,admin'])->prefix('pos')->name('pos.')->group(function () {
     Route::get('/dashboard', [PosController::class, 'dashboard'])->name('dashboard');
-    Route::get('/sales-history', [PosController::class, 'salesHistory'])->name('sales-history');
     Route::get('/reservations', [PosController::class, 'reservations'])->name('reservations');
+    Route::get('/settings', [PosController::class, 'settings'])->name('settings');
     Route::get('/products', [PosController::class, 'getProducts'])->name('products');
     Route::post('/process-sale', [PosController::class, 'processSale'])->name('process-sale');
 });
