@@ -42,7 +42,7 @@
         .main-title{font-family:'Roboto Slab', serif;font-size:1.5rem;font-weight:700;color:var(--primary)}
         .header-right{display:flex;align-items:center;gap:var(--spacing-lg)}
         .time-display,.date-display{display:flex;align-items:center;gap:.5rem;color:var(--gray-600);font-size:.85rem}
-        .main-content-wrapper{flex:1;padding:var(--spacing-xl);overflow:auto}
+    .main-content-wrapper{flex:1;padding:var(--spacing-lg);overflow:auto}
 
     /* Header notifications */
     .notification-wrapper{position:relative}
@@ -56,30 +56,30 @@
 
         /* Settings-specific styles (ported) */
         .settings-container{max-width:1200px;margin:0 auto}
-        .settings-tabs{display:flex;gap:.5rem;margin-bottom:1rem;border-bottom:2px solid #e2e8f0}
-        .settings-tab{padding:.75rem 1rem;border:none;background:transparent;color:#64748b;cursor:pointer;border-bottom:3px solid transparent;transition:.2s;font-weight:500;display:flex;align-items:center;gap:.5rem}
+        .settings-tabs{display:flex;gap:.25rem;margin-bottom:.5rem;border-bottom:1px solid #e2e8f0}
+        .settings-tab{padding:.5rem .75rem;border:none;background:transparent;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;transition:.2s;font-weight:500;display:flex;align-items:center;gap:.5rem;font-size:.9rem}
         .settings-tab:hover{color:#1e293b;background:#f1f5f9}
         .settings-tab.active{color:#3b82f6;border-bottom-color:#3b82f6;background:#eff6ff}
-        .settings-panels{background:#fff;border-radius:12px;box-shadow:var(--shadow-md);padding:1.25rem}
+        .settings-panels{background:#fff;border-radius:12px;box-shadow:var(--shadow-md);padding:.75rem}
         .settings-panel{display:none}
         .settings-panel.active{display:block}
-        .settings-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:1rem;margin-bottom:1rem}
-        .card-title{font-size:1.05rem;font-weight:600;color:#1e293b;margin-bottom:.75rem;display:flex;align-items:center;gap:.5rem}
-        .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem}
+        .settings-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:.75rem;margin-bottom:.75rem}
+        .card-title{font-size:1rem;font-weight:600;color:#1e293b;margin-bottom:.5rem;display:flex;align-items:center;gap:.5rem}
+        .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.75rem}
         .form-group{display:flex;flex-direction:column}
         .form-group.full{grid-column:1 / -1}
-        .form-group label{font-weight:500;color:#374151;margin-bottom:.5rem}
-        .form-group input,.form-group textarea,.form-group select{padding:.65rem;border:1px solid #d1d5db;border-radius:8px;font-size:.875rem}
-        .form-actions{margin-top:1rem;display:flex;gap:.75rem}
-        .btn{padding:.6rem 1rem;border:none;border-radius:8px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:.5rem}
+        .form-group label{font-weight:500;color:#374151;margin-bottom:.35rem}
+        .form-group input,.form-group textarea,.form-group select{padding:.5rem;border:1px solid #d1d5db;border-radius:8px;font-size:.85rem}
+        .form-actions{margin-top:.75rem;display:flex;gap:.5rem}
+        .btn{padding:.5rem .8rem;border:none;border-radius:8px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:.5rem;font-size:.9rem}
         .btn-primary{background:#3b82f6;color:#fff}
         .btn-primary:hover{background:#2563eb}
         .btn-secondary{background:#6b7280;color:#fff}
         .btn-secondary:hover{background:#4b5563}
-        .avatar-row{display:flex;align-items:center;gap:1rem;margin-bottom:1rem}
-        .avatar-preview{width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid #e5e7eb}
+        .avatar-row{display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem}
+        .avatar-preview{width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid #e5e7eb}
         .avatar-actions{display:flex;gap:.5rem}
-        .btn-sm{padding:.45rem .8rem;font-size:.85rem}
+        .btn-sm{padding:.4rem .7rem;font-size:.85rem}
         .back-button{background:#4a5568;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-flex;align-items:center;gap:.5rem;margin-bottom:1rem}
         .back-button:hover{background:#2d3748}
     </style>
@@ -164,6 +164,7 @@
                 <div class="settings-tabs" role="tablist">
                     <button class="settings-tab active" data-tab="profile" role="tab"><i class="fas fa-user"></i> Profile</button>
                     <button class="settings-tab" data-tab="security" role="tab"><i class="fas fa-shield-alt"></i> Security</button>
+                    <button class="settings-tab" data-tab="system" role="tab"><i class="fas fa-tools"></i> System</button>
                 </div>
 
                 <div class="settings-panels">
@@ -196,10 +197,7 @@
                                     <label for="settings-phone">Phone</label>
                                     <input id="settings-phone" type="tel" placeholder="+63 900 000 0000">
                                 </div>
-                                <div class="form-group full">
-                                    <label for="settings-bio">Bio</label>
-                                    <textarea id="settings-bio" rows="3" placeholder="Tell us about yourself..."></textarea>
-                                </div>
+                                
                             </div>
                             <div class="form-actions">
                                 <button class="btn btn-primary" id="settings-profile-save"><i class="fas fa-save"></i> Save Profile</button>
@@ -235,6 +233,21 @@
                     </div>
 
                     
+                    <!-- System -->
+                    <div class="settings-panel" id="settings-panel-system">
+                        <div class="settings-card">
+                            <div class="card-title"><i class="fas fa-info-circle"></i> System</div>
+                            <div class="system-list">
+                                <div><strong>App:</strong> ShoeVault POS</div>
+                                <div><strong>Version:</strong> 1.0.0</div>
+                                <div><strong>Framework:</strong> Laravel {{ app()->version() }}</div>
+                                <div><strong>PHP Version:</strong> {{ PHP_VERSION }}</div>
+                                <div><strong>Environment:</strong> {{ app()->environment() }}</div>
+                            </div>
+                            
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -294,6 +307,8 @@
         if (newPassword.length < 8){ alert('New password must be at least 8 characters long.'); return; }
         alert('Password updated successfully!'); this.reset();
     });
+
+    // System reset button removed per request
 
     // ===== Header notifications wiring =====
     function initNotifications(){

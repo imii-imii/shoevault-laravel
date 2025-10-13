@@ -686,6 +686,16 @@
             margin-bottom: 0.5rem;
         }
 
+        /* Product color (e.g., Red, Blue) */
+        .product-info .product-color {
+            color: #4b5563; /* gray-600 */
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: capitalize;
+            margin-top: -0.2rem;
+            margin-bottom: 0.4rem;
+        }
+
         .price-stock-row {
             display: flex;
             justify-content: space-between;
@@ -821,6 +831,7 @@
             align-items: center;
             gap: var(--spacing-sm);
         }
+        .cart-header h2 i { color: #2a6aff; }
 
         .clear-cart-btn {
             background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
@@ -1056,6 +1067,71 @@
 
         .product-card {
             animation: fadeIn 0.6s ease-out;
+        }
+
+        /* Slide-in animation for new cart items */
+        @keyframes slideInFromLeft {
+            from { opacity: 0; transform: translateX(-12px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .cart-item.slide-in { animation: slideInFromLeft 0.35s ease-out; }
+
+        /* Receipt preview modal */
+        .receipt-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        .receipt-modal.open { display: flex; }
+        .receipt-container {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: var(--shadow-xl);
+            width: 340px;
+            max-width: 92vw;
+            max-height: 90vh;
+            overflow: auto;
+            padding: 12px;
+        }
+        .receipt-actions { display:flex; justify-content: flex-end; gap:8px; margin-top:8px; }
+        .btn-print { background:#2a6aff; color:#fff; border:none; padding:8px 12px; border-radius:8px; cursor:pointer; }
+        .btn-close { background:#6b7280; color:#fff; border:none; padding:8px 12px; border-radius:8px; cursor:pointer; }
+        .receipt-paper {
+            width: 280px;
+            margin: 0 auto;
+            color: #111827;
+            font-size: 11px;
+            font-weight: 400; /* thinner overall */
+            line-height: 1.5; /* more airy */
+            min-height: 420px; /* slightly longer */
+            padding-bottom: 16px;
+        }
+        .receipt-header { text-align:center; margin-bottom:10px; }
+        .receipt-header h3 { margin:0; font-size:15px; letter-spacing:0.5px; font-weight:700; }
+        .receipt-address { text-align:center; color:#374151; font-size:10px; line-height:1.5; font-weight:400; margin-top:4px; }
+        .receipt-meta { text-align:center; color:#6b7280; font-size:10px; margin:6px 0; font-weight:300; }
+        .receipt-sep { border-top: 1px dotted #9ca3af; margin: 10px 0; }
+        .receipt-info-row { display:flex; justify-content:space-between; font-size:10px; color:#374151; margin:4px 0; font-weight:400; }
+        .receipt-items { width:100%; border-collapse: collapse; margin:8px 0; }
+        .receipt-items th, .receipt-items td { padding:5px 0; border-bottom:1px dotted #e5e7eb; font-weight:400; }
+        .receipt-items th { text-align:left; color:#374151; font-weight:600; font-size:10px; }
+        .receipt-items td:last-child { text-align:right; }
+    .receipt-totals { margin-top:8px; }
+    .receipt-row { display:flex; justify-content:space-between; margin:4px 0; font-weight:400; }
+    .receipt-row.total { font-weight:700; font-size:12px; }
+    .receipt-footer { text-align:center; margin-top:12px; color:#6b7280; font-size:10px; line-height:1.6; }
+    .receipt-barcode { height:44px; background: repeating-linear-gradient(90deg, #000, #000 2px, #fff 2px, #fff 4px); margin-top:12px; }
+
+        /* Print only receipt */
+        @media print {
+            body * { visibility: hidden; }
+            #receipt-modal, #receipt-modal * { visibility: visible; }
+            #receipt-modal { position: fixed; inset: 0; background: transparent !important; }
+            .receipt-container { box-shadow: none; border: none; padding: 0; }
         }
 
         /* Responsive Design */
@@ -1352,6 +1428,7 @@ async function loadProducts(category = 'all') {
                         <div class="product-details">
                             <h3>${product.name}</h3>
                             <p class="brand">${product.brand || ''}</p>
+                            ${product.color ? `<p class="product-color">${product.color}</p>` : ''}
                             <div class="price-stock-row">
                                 <p class="price">₱${parseFloat(product.price).toLocaleString()}</p>
                                 <p class="product-stock">${totalStock} in stock</p>
@@ -1443,7 +1520,7 @@ function updateCartDisplay() {
         printBtn.disabled = true;
     } else {
         cartItems.innerHTML = cart.map(item => `
-            <div class="cart-item">
+            <div class="cart-item slide-in">
                 <div class="item-info">
                     <h5>${item.name} <span style="color:#718096; font-weight:500">• Size ${item.size || ''}</span></h5>
                     <p>₱${item.price.toLocaleString()}</p>
@@ -1523,53 +1600,8 @@ document.getElementById('quick-print').addEventListener('click', async function(
         return;
     }
     
-    // Default payment method to cash for quick print UX
-    const paymentMethod = 'cash';
-    
-    try {
-        // Prepare sale data
-        const saleData = {
-            items: cart.map(item => ({
-                id: item.id,
-                size: item.size || '',
-                quantity: item.quantity
-            })),
-            subtotal: summary.subtotal,
-            tax: summary.tax,
-            total: summary.total,
-            amount_paid: paymentAmount,
-            payment_method: paymentMethod
-        };
-        
-        // Process sale via API
-        const response = await fetch('{{ route("pos.process-sale") }}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            },
-            body: JSON.stringify(saleData)
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            const change = result.change;
-            alert(`Sale processed successfully!\nTransaction ID: ${result.transaction_id}\nChange: ₱${change.toLocaleString()}`);
-            
-            // Clear cart and reload products (to update stock)
-            cart = [];
-            updateCartDisplay();
-            loadProducts(); // Reload to show updated stock
-            document.getElementById('payment-amount').value = '';
-            updatePaymentUi();
-        } else {
-            alert('Error processing sale: ' + result.message);
-        }
-    } catch (error) {
-        console.error('Error processing sale:', error);
-        alert('Error processing sale. Please try again.');
-    }
+    // Show receipt preview before final print/submit
+    openReceiptPreview({ summary, paymentAmount });
 });
 
 // Cancel transaction
@@ -1592,8 +1624,9 @@ document.getElementById('search-input').addEventListener('input', function(e) {
     productCards.forEach(card => {
         const name = card.querySelector('h3').textContent.toLowerCase();
         const brand = card.querySelector('.brand').textContent.toLowerCase();
+        const color = (card.querySelector('.product-color')?.textContent || '').toLowerCase();
         
-        if (name.includes(searchTerm) || brand.includes(searchTerm)) {
+        if (name.includes(searchTerm) || brand.includes(searchTerm) || color.includes(searchTerm)) {
             card.style.display = 'block';
         } else {
             card.style.display = 'none';
@@ -1657,6 +1690,99 @@ function updatePaymentUi() {
     const printBtn = document.getElementById('quick-print');
     // Enable print only if payment covers total and there's something in cart
     printBtn.disabled = !(cart.length > 0 && paymentAmount >= total);
+}
+
+// ===== Receipt Preview =====
+function openReceiptPreview({ summary, paymentAmount }) {
+    let modal = document.getElementById('receipt-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'receipt-modal';
+        modal.className = 'receipt-modal';
+        modal.innerHTML = `
+        <div class="receipt-container">
+            <div class="receipt-paper" id="receipt-paper">
+                <div class="receipt-header">
+                    <h3>SHOE VAULT BATANGAS</h3>
+                    <div class="receipt-address">P. Burgos St., Batangas City 4200<br>Tel.: +63 43 700 0000</div>
+                    <div class="receipt-meta">{{ date('F d, Y h:i A') }}</div>
+                </div>
+                <div class="receipt-sep"></div>
+                <div class="receipt-info-row"><span>Cashier</span><span>{{ auth()->user()->name ?? '—' }}</span></div>
+                <div class="receipt-info-row"><span>Register</span><span>#1</span></div>
+                <div class="receipt-sep"></div>
+                <table class="receipt-items">
+                    <thead>
+                        <tr><th>Name</th><th>Qty</th><th>Price</th></tr>
+                    </thead>
+                    <tbody id="receipt-items-body"></tbody>
+                </table>
+                <div class="receipt-sep"></div>
+                <div class="receipt-totals">
+                    <div class="receipt-row"><span>Subtotal</span><span>₱ ${summary.subtotal.toLocaleString()}</span></div>
+                    <div class="receipt-row total"><span>Total</span><span>₱ ${summary.total.toLocaleString()}</span></div>
+                    <div class="receipt-row"><span>Cash</span><span>₱ ${paymentAmount.toLocaleString()}</span></div>
+                    <div class="receipt-row"><span>Change</span><span>₱ ${(paymentAmount - summary.total).toLocaleString()}</span></div>
+                </div>
+                <div class="receipt-barcode"></div>
+                <div class="receipt-footer">THANK YOU!<br>Glad to see you again!</div>
+            </div>
+            <div class="receipt-actions">
+                <button class="btn-close" id="receipt-close">Close</button>
+                <button class="btn-print" id="receipt-print">Print</button>
+            </div>
+        </div>`;
+        document.body.appendChild(modal);
+    }
+    // Populate items
+    const tbody = modal.querySelector('#receipt-items-body');
+    tbody.innerHTML = cart.map(item => `
+        <tr>
+            <td>${item.name} ${item.size ? `(Size ${item.size})` : ''}</td>
+            <td style="text-align:center">${item.quantity}</td>
+            <td style="text-align:right">₱ ${(item.price * item.quantity).toLocaleString()}</td>
+        </tr>
+    `).join('');
+
+    modal.classList.add('open');
+    modal.querySelector('#receipt-close').onclick = () => modal.classList.remove('open');
+    modal.querySelector('#receipt-print').onclick = async () => {
+        // Proceed to process sale then trigger print
+        await processSaleAndPrint(summary, paymentAmount);
+    };
+}
+
+async function processSaleAndPrint(summary, paymentAmount) {
+    const saleData = {
+        items: cart.map(item => ({ id: item.id, size: item.size || '', quantity: item.quantity })),
+        subtotal: summary.subtotal,
+        tax: summary.tax,
+        total: summary.total,
+        amount_paid: paymentAmount,
+        payment_method: 'cash'
+    };
+    try {
+        const response = await fetch('{{ route("pos.process-sale") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+            body: JSON.stringify(saleData)
+        });
+        const result = await response.json();
+        if (!result.success) { alert('Error processing sale: ' + result.message); return; }
+        // Print the preview
+        window.print();
+        // After print: clear cart and close modal
+        cart = [];
+        updateCartDisplay();
+        loadProducts();
+        document.getElementById('payment-amount').value = '';
+        updatePaymentUi();
+        const modal = document.getElementById('receipt-modal');
+        if (modal) modal.classList.remove('open');
+    } catch (e) {
+        console.error(e);
+        alert('Error processing sale. Please try again.');
+    }
 }
 
 // ===== Header notifications wiring =====
