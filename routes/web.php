@@ -180,6 +180,7 @@ Route::middleware(['auth', 'role:manager,admin'])->prefix('inventory')->name('in
 // Owner routes (for owners and admin)
 Route::middleware(['auth', 'role:owner,admin'])->prefix('owner')->name('owner.')->group(function () {
     Route::get('/dashboard', [OwnerController::class, 'dashboard'])->name('dashboard');
+    Route::get('/reports', [OwnerController::class, 'reports'])->name('reports');
     Route::get('/sales-history', [OwnerController::class, 'salesHistory'])->name('sales-history');
     Route::get('/reservation-logs', [OwnerController::class, 'reservationLogs'])->name('reservation-logs');
     Route::get('/supply-logs', [OwnerController::class, 'supplyLogs'])->name('supply-logs');

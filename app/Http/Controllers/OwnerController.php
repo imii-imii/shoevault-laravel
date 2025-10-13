@@ -25,6 +25,15 @@ class OwnerController extends Controller
     }
 
     /**
+     * Render Reports page (separate view mirroring dashboard reports tab)
+     */
+    public function reports()
+    {
+        $dashboardData = $this->getDashboardKPIs();
+        return view('owner.reports', compact('dashboardData'));
+    }
+
+    /**
      * Display sales history reports
      */
     public function salesHistory(Request $request)

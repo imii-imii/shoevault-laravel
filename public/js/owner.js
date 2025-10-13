@@ -2,17 +2,13 @@
 // CSRF Token setup
 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
-// Set up AJAX defaults
+// Set up AJAX defaults (wrap fetch to include CSRF and AJAX header)
 if (csrfToken) {
-    // For fetch requests
-    const originalFetch = window.fetch;
+    const originalFetch = window.fetch.bind(window);
     window.fetch = function(url, options = {}) {
-        if (!options.headers) {
-            options.headers = {};
-        }
-        if (options.method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(options.method.toUpperCase())) {
-            options.headers['X-CSRF-TOKEN'] = csrfToken;
-        }
+        options = options || {};
+        options.headers = options.headers || {};
+        options.headers['X-CSRF-TOKEN'] = csrfToken;
         options.headers['X-Requested-With'] = 'XMLHttpRequest';
         return originalFetch(url, options);
     };
@@ -20,6 +16,7 @@ if (csrfToken) {
 
 // Global variables
 let salesChart, reservationChart, inventoryChart;
+let odashLineChart, odashBarChart;
 const laravelRoutes = window.laravelData?.routes || {};
 
 // --- Main Section Navigation ---
@@ -57,8 +54,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Sync dashboard scope dropdowns
         syncDashboardScopes(sectionId);
 
-        // Sync report navigation dropdowns
-        syncReportDropdowns(sectionId);
+    // Sync report navigation dropdowns (legacy) and switch tabs (new)
+    syncReportDropdowns(sectionId);
+    syncSwitchTabs(sectionId);
 
         // Load section data
         loadSectionData(sectionId);
@@ -102,6 +100,19 @@ document.addEventListener('DOMContentLoaded', function() {
             if (reportSections.includes(sectionId)) {
                 dropdown.value = sectionId;
             }
+        });
+    }
+
+    // Sync switch-style tabs across report sections
+    function syncSwitchTabs(sectionId) {
+        document.querySelectorAll('.switch-tabs').forEach(group => {
+            const buttons = group.querySelectorAll('.switch-tab');
+            buttons.forEach(btn => {
+                const target = btn.getAttribute('data-target');
+                const isActive = target === sectionId;
+                btn.classList.toggle('active', isActive);
+                btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            });
         });
     }
 
@@ -163,30 +174,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Sidebar navigation
-    document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
-        item.addEventListener('click', function() {
-            const section = item.getAttribute('data-section');
-            if (section === 'reports') {
-                showSection('reports-sales-history');
-            } else {
-                showSection(section);
-            }
-        });
-    });
+    // Sidebar navigation: handled by anchor hrefs now (reports navigates to separate page)
 
-    // Report dropdown navigation
-    document.querySelectorAll('[id^="reports-nav-dropdown-"]').forEach(dropdown => {
-        dropdown.addEventListener('change', function() {
-            showSection(dropdown.value);
-        });
-    });
+    // Report dropdown navigation removed (reports are on a separate blade)
 
     // Settings tabs
     setupSettingsTabs();
 
-    // Initialize with dashboard
-    showSection('inventory-dashboard');
+    // Initialize with dashboard or a page-provided initial section
+    const init = window.initialOwnerSection || 'inventory-dashboard';
+    showSection(init);
 });
 
 // --- Data Loading Functions ---
@@ -212,17 +209,38 @@ async function loadReservationLogs(period = 'weekly') {
     try {
         const response = await fetch(`${laravelRoutes.reservationLogs}?period=${period}`);
         const data = await response.json();
-        
         if (response.ok) {
-            updateReservationKPIs(data);
-            renderReservationChart(data.reservationData, period);
-            renderPopularReservedProducts(data.popularProducts);
-            renderReservationTable(data.reservationData);
+            // Update KPIs using API data if needed
+            if (typeof updateReservationKPIs === 'function') {
+                updateReservationKPIs(data);
+            }
+            // Normalize into card items with mock customer/product details
+            const apiItems = Array.isArray(data.reservationData) ? data.reservationData : [];
+            let normalized = apiItems.map((item, i) => ({
+                id: `REV-${String(i + 1).padStart(4, '0')}`,
+                customer: `Customer ${i + 1}`,
+                email: `customer${i + 1}@email.com`,
+                product: 'Sample Product',
+                reservationDate: item.date,
+                pickupDate: item.date,
+                status: (i % 2 === 0) ? 'completed' : 'cancelled'
+            }));
+            if (!normalized.length) {
+                normalized = getMockReservations();
+            }
+            renderReservationCards(normalized);
+            setupReservationStatusSwitch(normalized);
         } else {
             console.error('Failed to load reservation logs:', data.message);
+            const normalized = getMockReservations();
+            renderReservationCards(normalized);
+            setupReservationStatusSwitch(normalized);
         }
     } catch (error) {
         console.error('Error loading reservation logs:', error);
+        const normalized = getMockReservations();
+        renderReservationCards(normalized);
+        setupReservationStatusSwitch(normalized);
     }
 }
 
@@ -262,6 +280,7 @@ async function loadDashboardData() {
         const dashboardData = window.laravelData?.dashboardData || {};
         updateDashboardKPIs(dashboardData);
         renderDashboardCharts(dashboardData);
+        renderOwnerCompactDashboard(dashboardData);
     } catch (error) {
         console.error('Error loading dashboard data:', error);
     }
@@ -384,6 +403,217 @@ function renderDashboardCharts(dashboardData) {
     renderProductsSoldChart();
 }
 
+// ===== Owner Compact Dashboard Rendering =====
+function renderOwnerCompactDashboard(d) {
+    // KPIs
+    const revenue = Number(d.todaySales || 0);
+    const sold = Number(d.totalQuantitySold || 0);
+    const resvCompleted = Number(d.completedReservations || 0);
+    const resvCancelled = Number(d.cancelledReservations || 0);
+    updateElement('odash-kpi-revenue', '₱' + revenue.toLocaleString(undefined, { minimumFractionDigits: 2 }));
+    updateElement('odash-kpi-sold', sold);
+    updateElement('odash-kpi-resv-completed', resvCompleted);
+    updateElement('odash-kpi-resv-cancelled', resvCancelled);
+
+    // Line chart data (mock fallback if backend not provided)
+    const lineRangeSel = document.getElementById('odash-line-range');
+    if (lineRangeSel) {
+        lineRangeSel.onchange = () => buildLineChart(lineRangeSel.value, d);
+        buildLineChart(lineRangeSel.value, d);
+    }
+
+    // Latest POS (limit 5)
+    const latestPosEl = document.getElementById('odash-latest-pos');
+    if (latestPosEl) {
+        const tx = (d.latestPos || []).slice(0,5);
+        if (tx.length === 0) {
+            latestPosEl.innerHTML = `<div class="odash-empty-hint">No recent transactions.</div>`;
+        } else {
+            latestPosEl.innerHTML = tx.map(t => `
+                <div class="odash-list-item">
+                    <div>
+                        <div class="name">TXN-${String(t.id || 0).toString().padStart(4,'0')}</div>
+                        <div class="sub">${formatDate(t.date || new Date())}</div>
+                    </div>
+                    <div class="odash-badge"><i class="fas fa-peso-sign"></i> ${Number(t.total || 0).toLocaleString(undefined,{minimumFractionDigits:2})}</div>
+                </div>
+            `).join('');
+        }
+    }
+
+    // Bar chart + stock levels
+    const barFilter = document.getElementById('odash-bar-filter');
+    if (barFilter) {
+        barFilter.onchange = () => buildBarChartAndStock(barFilter.value, d);
+        buildBarChartAndStock(barFilter.value, d);
+    }
+
+    // Lowest stock list (percentage ascending)
+    const lowList = document.getElementById('odash-lowest-stock');
+    if (lowList) {
+        let items = Array.isArray(d.lowestStock) ? d.lowestStock : [];
+        if (!items.length) {
+            // Build fallback from popular products or use local mock in bar builder
+            const fallback = [];
+            const sources = [d.popularProducts?.men, d.popularProducts?.women, d.popularProducts?.accessories];
+            sources.forEach(arr => {
+                if (Array.isArray(arr)) {
+                    arr.forEach(p => fallback.push({ name: p.name, remaining: p.stock ?? 0, total: (p.stock ?? 0) + (p.sold ?? 0) }));
+                }
+            });
+            items = fallback;
+        }
+        items = (items || [])
+            .filter(i => (i?.total ?? 0) > 0)
+            .map(i => ({ ...i, pct: (i.remaining / i.total) }))
+            .sort((a,b) => a.pct - b.pct)
+            .slice(0, 8);
+
+        if (!items.length) {
+            lowList.innerHTML = `<div class="odash-empty-hint">No data.</div>`;
+        } else {
+            lowList.innerHTML = items.map(p => `
+                <div class="odash-list-item">
+                    <span class="name">${p.name}</span>
+                    <span class="sub">${Math.round(p.pct*100)}%</span>
+                </div>
+            `).join('');
+        }
+    }
+}
+
+function buildLineChart(range='weekly', d={}) {
+    const ctx = document.getElementById('odash-line');
+    if (!ctx) return;
+    if (odashLineChart) odashLineChart.destroy();
+
+    // Prefer server data if provided
+    const fromServer = d.salesTrend?.[range];
+    let labels, phys, resv;
+    if (fromServer && Array.isArray(fromServer.labels)) {
+        labels = fromServer.labels;
+        phys = fromServer.physical || [];
+        resv = fromServer.reservation || [];
+    } else {
+        // Compact-friendly mock
+        const points = range === 'yearly' ? 12 : (range === 'monthly' ? 28 : 7);
+        labels = Array.from({length: points}, (_, i) => range==='yearly' ? `M${i+1}` : `D${i+1}`);
+        const baseP = range==='yearly' ? 3000 : range==='monthly' ? 1800 : 1400;
+        const baseR = range==='yearly' ? 1800 : range==='monthly' ? 1100 : 800;
+        phys = labels.map((_,i)=> Math.max(400, Math.round(baseP*(0.8+Math.sin(i/2)*0.1) + Math.random()*300)));
+        resv = labels.map((_,i)=> Math.max(200, Math.round(baseR*(0.85+Math.cos(i/3)*0.08) + Math.random()*220)));
+    }
+
+    // Determine peaks for highlight
+    const pMaxIdx = phys.indexOf(Math.max(...phys));
+    const rMaxIdx = resv.indexOf(Math.max(...resv));
+
+    odashLineChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Physical Sales',
+                    data: phys,
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                    tension: 0.35,
+                    pointRadius: labels.map((_,i)=> i===pMaxIdx ? 5 : 3),
+                    pointBackgroundColor: labels.map((_,i)=> i===pMaxIdx ? '#1e40af' : '#2563eb'),
+                    pointBorderWidth: labels.map((_,i)=> i===pMaxIdx ? 2 : 1),
+                },
+                {
+                    label: 'Reservation Sales',
+                    data: resv,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16,185,129,0.08)',
+                    tension: 0.35,
+                    pointRadius: labels.map((_,i)=> i===rMaxIdx ? 5 : 3),
+                    pointBackgroundColor: labels.map((_,i)=> i===rMaxIdx ? '#047857' : '#10b981'),
+                    pointBorderWidth: labels.map((_,i)=> i===rMaxIdx ? 2 : 1),
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx)=> `₱${ctx.parsed.y.toLocaleString()}` } } },
+            scales: {
+                x: { grid: { display: false }, ticks: { color: '#6b7280', maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
+                y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#6b7280', callback: (v)=> '₱'+v.toLocaleString() } }
+            }
+        }
+    });
+}
+
+function buildBarChartAndStock(category='men', d={}) {
+    const ctx = document.getElementById('odash-bar');
+    const stockEl = document.getElementById('odash-stock-levels');
+    if (!ctx || !stockEl) return;
+    if (odashBarChart) odashBarChart.destroy();
+
+    // Prefer backend payload if provided; otherwise mock catalog
+    const serverCat = d.popularProducts?.[category];
+    const catalog = serverCat && Array.isArray(serverCat) ? { [category]: serverCat } : {
+        men: [
+            { name: 'Nike Air Max', sold: 120, stock: 30 },
+            { name: 'Adidas Ultraboost', sold: 95, stock: 18 },
+            { name: 'Puma Suede', sold: 70, stock: 22 },
+            { name: 'Converse Chuck 70', sold: 60, stock: 12 },
+            { name: 'Vans Old Skool', sold: 88, stock: 15 },
+        ],
+        women: [
+            { name: 'Nike Air Force 1', sold: 110, stock: 25 },
+            { name: 'Adidas NMD', sold: 80, stock: 14 },
+            { name: 'Puma Cali', sold: 65, stock: 20 },
+            { name: 'Converse Platform', sold: 58, stock: 10 },
+            { name: 'Vans Sk8-Hi', sold: 72, stock: 16 },
+        ],
+        accessories: [
+            { name: 'Crease Protectors', sold: 140, stock: 40 },
+            { name: 'Shoe Cleaner', sold: 130, stock: 35 },
+            { name: 'Laces Pack', sold: 85, stock: 50 },
+            { name: 'Insoles', sold: 76, stock: 28 },
+            { name: 'Socks (3-Pack)', sold: 92, stock: 60 },
+        ],
+    };
+
+    const data = catalog[category] || [];
+    const labels = data.map(i=> i.name);
+    const sold = data.map(i=> i.sold);
+
+    odashBarChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Units Sold',
+                data: sold,
+                backgroundColor: '#3b82f6',
+                borderRadius: 6,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx)=> `${ctx.parsed.y} sold` } } },
+            scales: {
+                x: { grid: { display: false }, ticks: { color: '#6b7280', maxRotation: 0, autoSkip: true, maxTicksLimit: 6 } },
+                y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#6b7280' } }
+            }
+        }
+    });
+
+    // Stock levels list
+    stockEl.innerHTML = data.map(item => `
+        <div class="odash-list-item">
+            <span class="name">${item.name}</span>
+            <span class="sub">${item.stock} left</span>
+        </div>
+    `).join('');
+}
+
 function renderStocksByBrandChart() {
     const ctx = document.getElementById('chart-stocks-brand');
     if (!ctx) return;
@@ -467,13 +697,12 @@ function renderSalesTable(salesData) {
     tbody.innerHTML = salesData.map((sale, index) => `
         <tr>
             <td>TXN-${String(index + 1).padStart(4, '0')}</td>
-            <td>Customer ${index + 1}</td>
+            <td>${(index % 2 === 0) ? 'In-Store' : 'Reservation'}</td>
             <td>Sample Product</td>
             <td>${sale.transactions}</td>
             <td>₱${parseFloat(sale.total).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
             <td>Cash</td>
             <td>${formatDate(sale.date)}</td>
-            <td><span class="status-badge status-completed">Completed</span></td>
         </tr>
     `).join('');
 }
@@ -494,6 +723,86 @@ function renderReservationTable(reservationData) {
             <td><span class="status-badge status-pending">Pending</span></td>
         </tr>
     `).join('');
+}
+
+// --- Reservation cards (reports) ---
+function renderReservationCards(items) {
+    const list = document.getElementById('reservation-card-list');
+    if (!list) return;
+    list.innerHTML = items.map(it => `
+        <div class="resv-card">
+            <div class="resv-grid">
+                <div class="resv-field">
+                    <span class="resv-label">Reservation ID</span>
+                    <span class="resv-value">${it.id}</span>
+                </div>
+                <div class="resv-field">
+                    <span class="resv-label">Customer Name</span>
+                    <span class="resv-value">${it.customer}</span>
+                </div>
+                <div class="resv-field">
+                    <span class="resv-label">Email</span>
+                    <span class="resv-value">${it.email}</span>
+                </div>
+                <div class="resv-field">
+                    <span class="resv-label">Item Reserved</span>
+                    <span class="resv-value">${it.product}</span>
+                </div>
+                <div class="resv-field">
+                    <span class="resv-label">Status</span>
+                    <span class="resv-badge ${it.status}">${capitalize(it.status)}</span>
+                </div>
+                <div class="resv-field">
+                    <span class="resv-label">Reservation Date</span>
+                    <span class="resv-value">${formatDate(it.reservationDate)}</span>
+                </div>
+                <div class="resv-field">
+                    <span class="resv-label">Pickup Date</span>
+                    <span class="resv-value">${formatDate(it.pickupDate)}</span>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function setupReservationStatusSwitch(items) {
+    const switchWrap = document.getElementById('reservation-status-switch');
+    if (!switchWrap) return;
+    const apply = (status) => {
+        const filtered = status === 'all' ? items : items.filter(i => i.status === status);
+        renderReservationCards(filtered);
+        // Toggle active state
+        switchWrap.querySelectorAll('.switch-tab').forEach(btn => {
+            const isActive = btn.getAttribute('data-status') === status;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+    };
+    switchWrap.querySelectorAll('.switch-tab').forEach(btn => {
+        btn.addEventListener('click', () => apply(btn.getAttribute('data-status')));
+    });
+    // Default to 'all'
+    apply('all');
+}
+
+function capitalize(s){ return (s||'').charAt(0).toUpperCase()+ (s||'').slice(1); }
+
+function getMockReservations() {
+    const today = new Date();
+    const toISO = (d) => new Date(d).toISOString();
+    const addDays = (n) => toISO(new Date(today.getTime() + n * 24 * 60 * 60 * 1000));
+    return [
+        { id: 'REV-0001', customer: 'Juan Dela Cruz', email: 'juan@example.com', product: 'Nike Air Max 270', reservationDate: addDays(-12), pickupDate: addDays(-10), status: 'completed' },
+        { id: 'REV-0002', customer: 'Maria Santos', email: 'maria@example.com', product: 'Adidas Ultraboost', reservationDate: addDays(-9), pickupDate: addDays(-7), status: 'completed' },
+        { id: 'REV-0003', customer: 'Pedro Reyes', email: 'pedro@example.com', product: 'Puma Suede Classic', reservationDate: addDays(-8), pickupDate: addDays(-6), status: 'cancelled' },
+        { id: 'REV-0004', customer: 'Ana Cruz', email: 'ana@example.com', product: 'Converse Chuck 70', reservationDate: addDays(-6), pickupDate: addDays(-4), status: 'completed' },
+        { id: 'REV-0005', customer: 'Luis Garcia', email: 'luis@example.com', product: 'New Balance 550', reservationDate: addDays(-5), pickupDate: addDays(-3), status: 'cancelled' },
+        { id: 'REV-0006', customer: 'Cathy Mendoza', email: 'cathy@example.com', product: 'Nike Dunk Low', reservationDate: addDays(-4), pickupDate: addDays(-2), status: 'completed' },
+        { id: 'REV-0007', customer: 'Mark Lim', email: 'mark@example.com', product: 'Adidas Samba OG', reservationDate: addDays(-3), pickupDate: addDays(-1), status: 'completed' },
+        { id: 'REV-0008', customer: 'Jenny Tan', email: 'jenny@example.com', product: 'Vans Old Skool', reservationDate: addDays(-2), pickupDate: addDays(0), status: 'cancelled' },
+        { id: 'REV-0009', customer: 'Arman dela Rosa', email: 'arman@example.com', product: 'Asics Gel-Lyte III', reservationDate: addDays(-1), pickupDate: addDays(1), status: 'completed' },
+        { id: 'REV-0010', customer: 'Bea Villanueva', email: 'bea@example.com', product: 'Reebok Club C 85', reservationDate: addDays(-1), pickupDate: addDays(2), status: 'completed' }
+    ];
 }
 
 function renderSupplyTable(supplyData) {

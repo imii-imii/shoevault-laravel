@@ -36,7 +36,7 @@
             </a>
         </li>
         <li class="nav-item" data-section="reports">
-            <a href="#" class="nav-link" onclick="showSection('reports-sales-history'); return false;">
+            <a href="{{ route('owner.reports') }}" class="nav-link">
                 <i class="fas fa-chart-bar"></i>
                 <span>Reports</span>
             </a>
@@ -89,371 +89,109 @@
 
     <!-- Content Grid -->
     <div class="content-grid">
-        <!-- Reports: Sales History -->
-        <section id="reports-sales-history" class="content-section" style="display:none;">
-            <div class="section-header with-left-actions">
-                <h2><i class="fas fa-receipt"></i> Sales History</h2>
-                <div style="margin-left:auto;">
-                    <select id="reports-nav-dropdown-1" class="filter-select filter-sm" style="min-width: 180px;">
-                        <option value="reports-sales-history" selected>Sales History</option>
-                        <option value="reports-reservation-logs">Reservation Logs</option>
-                        <option value="reports-supply-logs">Supply Logs</option>
-                        <option value="reports-inventory-overview">Inventory Overview</option>
-                    </select>
-                </div>
-            </div>
-            
-            <!-- KPI Cards Row -->
-            <div class="dashboard-kpi-row gradient-row" style="display: flex; gap: 24px; margin-bottom: 32px;">
-                <div class="kpi-card gradient-card" style="flex:1;">
-                    <div class="kpi-head">
-                        <div>
-                            <div class="kpi-value" id="sales-kpi-transactions">{{ $dashboardData['totalSales'] ?? 0 }}</div>
-                            <div class="kpi-label">Total No. of Transactions</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="kpi-card gradient-card" style="flex:1;">
-                    <div class="kpi-head">
-                        <div>
-                            <div class="kpi-value" id="sales-kpi-revenue">₱{{ number_format($dashboardData['todaySales'] ?? 0, 2) }}</div>
-                            <div class="kpi-label">Total Revenue</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="kpi-card gradient-card" style="flex:1;">
-                    <div class="kpi-head">
-                        <div>
-                            <div class="kpi-value" id="sales-kpi-quantity">{{ $dashboardData['totalQuantitySold'] ?? 0 }}</div>
-                            <div class="kpi-label">Total Quantity Sold</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Charts Row -->
-            <div class="dashboard-charts-row" style="display: flex; gap: 24px;">
-                <div class="card-lg" style="flex:2; display:flex; flex-direction:column; min-height: 340px;">
-                    <div style="display:flex; align-items:center; justify-content:space-between;">
-                        <div class="card-title">Sales Report</div>
-                        <select id="sales-report-filter" class="filter-select filter-sm" style="min-width: 140px;">
-                            <option value="weekly">Weekly</option>
-                            <option value="monthly">Monthly</option>
-                            <option value="yearly">Yearly</option>
-                        </select>
-                    </div>
-                    <canvas id="sales-report-chart" style="margin-top:18px;"></canvas>
-                </div>
-                <div class="card-lg" style="flex:1; overflow-y:auto;">
-                    <div class="card-title">Top Selling Products</div>
-                    <div id="top-selling-products-list" class="most-sold-list">
-                        <!-- Will be populated by JavaScript -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- Filters Row -->
-            <div class="filters" style="display:flex; gap:12px; align-items:center; margin-bottom:18px;">
-                <input type="text" id="sales-search" placeholder="Search sales..." class="search-input" style="flex:1; min-width:180px;">
-                <select id="sales-period-filter" class="filter-select">
-                    <option value="">All Periods</option>
-                    <option value="today">Today</option>
-                    <option value="week">This Week</option>
-                    <option value="month">This Month</option>
-                </select>
-                <select id="sales-sort-filter" class="filter-select" style="min-width:180px;">
-                    <option value="date-desc">Date (Newest)</option>
-                    <option value="date-asc">Date (Oldest)</option>
-                    <option value="amount-desc">Amount (High-Low)</option>
-                    <option value="amount-asc">Amount (Low-High)</option>
-                </select>
-            </div>
-
-            <!-- Table -->
-            <div class="table-container">
-                <table id="sales-history-table" class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Transaction ID</th>
-                            <th>Customer Name</th>
-                            <th>Products</th>
-                            <th>Quantity</th>
-                            <th>Total Amount</th>
-                            <th>Payment Method</th>
-                            <th>Date</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="sales-history-tbody">
-                        <!-- Sales data will be populated by JavaScript -->
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <!-- Reports: Reservation Logs -->
-        <section id="reports-reservation-logs" class="content-section" style="display:none;">
-            <div class="section-header with-left-actions">
-                <h2><i class="fas fa-calendar-alt"></i> Reservation Logs</h2>
-                <div style="margin-left:auto;">
-                    <select id="reports-nav-dropdown-2" class="filter-select filter-sm" style="min-width: 180px;">
-                        <option value="reports-sales-history">Sales History</option>
-                        <option value="reports-reservation-logs" selected>Reservation Logs</option>
-                        <option value="reports-supply-logs">Supply Logs</option>
-                        <option value="reports-inventory-overview">Inventory Overview</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- KPI Cards Row -->
-            <div class="dashboard-kpi-row gradient-row" style="display: flex; gap: 24px; margin-bottom: 32px;">
-                <div class="kpi-card gradient-card" style="flex:1;">
-                    <div class="kpi-head">
-                        <div>
-                            <div class="kpi-value" id="reservation-kpi-total">{{ $dashboardData['activeReservations'] ?? 0 }}</div>
-                            <div class="kpi-label">Total Reservations</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="kpi-card gradient-card" style="flex:1;">
-                    <div class="kpi-head">
-                        <div>
-                            <div class="kpi-value" id="reservation-kpi-completed">0</div>
-                            <div class="kpi-label">Completed Reservations</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="kpi-card gradient-card" style="flex:1;">
-                    <div class="kpi-head">
-                        <div>
-                            <div class="kpi-value" id="reservation-kpi-cancelled">0</div>
-                            <div class="kpi-label">Cancelled Reservations</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Charts Row -->
-            <div class="dashboard-charts-row" style="display: flex; gap: 24px;">
-                <div class="card-lg" style="flex:2; display:flex; flex-direction:column; min-height: 340px;">
-                    <div style="display:flex; align-items:center; justify-content:space-between;">
-                        <div class="card-title">Reservation Report</div>
-                        <select id="reservation-report-filter" class="filter-select filter-sm" style="min-width: 140px;">
-                            <option value="weekly">Weekly</option>
-                            <option value="monthly">Monthly</option>
-                            <option value="yearly">Yearly</option>
-                        </select>
-                    </div>
-                    <canvas id="reservation-report-chart" style="margin-top:18px;"></canvas>
-                </div>
-                <div class="card-lg" style="flex:1; overflow-y:auto;">
-                    <div class="card-title">Popular Reserved Products</div>
-                    <div id="popular-reserved-products-list" class="most-sold-list">
-                        <!-- Will be populated by JavaScript -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- Filters Row -->
-            <div class="filters" style="display:flex; gap:12px; align-items:center; margin-bottom:18px;">
-                <input type="text" id="reservation-search" placeholder="Search reservations..." class="search-input" style="flex:1; min-width:180px;">
-                <select id="reservation-status-filter" class="filter-select">
-                    <option value="">All Status</option>
-                    <option value="pending">Pending</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
-                </select>
-                <select id="reservation-sort-filter" class="filter-select" style="min-width:180px;">
-                    <option value="date-desc">Date Modified (Newest)</option>
-                    <option value="date-asc">Date Modified (Oldest)</option>
-                    <option value="id-desc">Reservation ID (Descending)</option>
-                    <option value="id-asc">Reservation ID (Ascending)</option>
-                </select>
-            </div>
-
-            <!-- Table -->
-            <div class="table-container">
-                <table id="reservation-logs-table" class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Reservation ID</th>
-                            <th>Customer Name</th>
-                            <th>Email</th>
-                            <th>Phone Number</th>
-                            <th>Reserved Product(s)</th>
-                            <th>Date Reserved</th>
-                            <th>Pickup Date</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="reservation-logs-tbody">
-                        <!-- Reservation logs will be populated by JavaScript -->
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <!-- Reports: Supply Logs -->
-        <section id="reports-supply-logs" class="content-section" style="display:none;">
-            <div class="section-header with-left-actions">
-                <h2><i class="fas fa-truck"></i> Supply Logs</h2>
-                <div style="margin-left:auto;">
-                    <select id="reports-nav-dropdown-3" class="filter-select filter-sm" style="min-width: 180px;">
-                        <option value="reports-sales-history">Sales History</option>
-                        <option value="reports-reservation-logs">Reservation Logs</option>
-                        <option value="reports-supply-logs" selected>Supply Logs</option>
-                        <option value="reports-inventory-overview">Inventory Overview</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- Filters Row -->
-            <div class="filters" style="display:flex; gap:12px; align-items:center; margin-bottom:18px;">
-                <input type="text" id="supply-search" placeholder="Search supply logs..." class="search-input" style="flex:1; min-width:180px;">
-                <select id="supply-sort-filter" class="filter-select" style="min-width:180px;">
-                    <option value="date-desc">Date Modified (Newest)</option>
-                    <option value="date-asc">Date Modified (Oldest)</option>
-                    <option value="id-desc">Log ID (Descending)</option>
-                    <option value="id-asc">Log ID (Ascending)</option>
-                </select>
-            </div>
-
-            <!-- Table -->
-            <div class="table-container">
-                <table id="supply-logs-table" class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Log ID</th>
-                            <th>Supplier Name</th>
-                            <th>Contact</th>
-                            <th>Brand</th>
-                            <th>Stock</th>
-                            <th>Country</th>
-                            <th>Last Update</th>
-                            <th>Email</th>
-                            <th>Phone</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="supply-logs-tbody">
-                        <!-- Supply logs will be populated by JavaScript -->
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <!-- Reports: Inventory Overview -->
-        <section id="reports-inventory-overview" class="content-section" style="display:none;">
-            <div class="section-header with-left-actions">
-                <h2><i class="fas fa-boxes"></i> Inventory Overview</h2>
-                <div style="margin-left:auto;">
-                    <select id="reports-nav-dropdown-4" class="filter-select filter-sm" style="min-width: 180px;">
-                        <option value="reports-sales-history">Sales History</option>
-                        <option value="reports-reservation-logs">Reservation Logs</option>
-                        <option value="reports-supply-logs">Supply Logs</option>
-                        <option value="reports-inventory-overview" selected>Inventory Overview</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- Filters Row -->
-            <div class="filters" style="display:flex; gap:12px; align-items:center; margin-bottom:18px;">
-                <input type="text" id="inventory-search" placeholder="Search inventory..." class="search-input" style="flex:1; min-width:180px;">
-                <select id="inventory-brand-filter" class="filter-select">
-                    <option value="">All Brands</option>
-                    <option value="Nike">Nike</option>
-                    <option value="Adidas">Adidas</option>
-                    <option value="Puma">Puma</option>
-                    <option value="Converse">Converse</option>
-                </select>
-                <select id="inventory-category-filter" class="filter-select">
-                    <option value="">All Categories</option>
-                    <option value="men">Men's Shoes</option>
-                    <option value="women">Women's Shoes</option>
-                    <option value="accessories">Accessories</option>
-                </select>
-                <select id="inventory-sort-filter" class="filter-select" style="min-width:180px;">
-                    <option value="name-asc">Product Name (A-Z)</option>
-                    <option value="name-desc">Product Name (Z-A)</option>
-                    <option value="brand-asc">Brand (A-Z)</option>
-                    <option value="brand-desc">Brand (Z-A)</option>
-                    <option value="stock-desc">Stock (High-Low)</option>
-                    <option value="stock-asc">Stock (Low-High)</option>
-                </select>
-            </div>
-
-            <!-- Table -->
-            <div class="table-container">
-                <table id="inventory-overview-table" class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Product Name</th>
-                            <th>Brand</th>
-                            <th>Stock</th>
-                            <th>Colors</th>
-                            <th>Sizes</th>
-                        </tr>
-                    </thead>
-                    <tbody id="inventory-overview-tbody">
-                        <!-- Inventory overview will be populated by JavaScript -->
-                    </tbody>
-                </table>
-            </div>
-        </section>
+        
 
         <!-- Dashboard Section -->
         <section id="inventory-dashboard" class="content-section active">
-            <div class="section-header with-left-actions">
-                <h2><i class="fas fa-warehouse"></i> Inventory Dashboard</h2>
-                <div style="display:flex; gap:10px; align-items:center; justify-content:space-between; width:100%;">
-                    <div style="margin-left:auto;">
-                        <select id="dashboard-scope" class="filter-select filter-sm" style="min-width: 40px;">
-                            <option value="inventory" selected>Inventory</option>
-                            <option value="pos">POS</option>
-                            <option value="reservation">Reservations</option>
-                        </select>
+            <div class="odash-wrap">
+                <!-- Top 4 KPI Cards -->
+                <div class="odash-row-top">
+                    <div class="odash-card">
+                        <div class="odash-kpi">
+                            <div class="odash-kpi-icon"><i class="fas fa-peso-sign"></i></div>
+                            <div class="odash-kpi-meta">
+                                <div class="odash-kpi-value" id="odash-kpi-revenue">₱0.00</div>
+                                <div class="odash-kpi-label">Total Revenue</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="odash-card">
+                        <div class="odash-kpi">
+                            <div class="odash-kpi-icon" style="background: linear-gradient(135deg,#2563eb,#60a5fa)"><i class="fas fa-cube"></i></div>
+                            <div class="odash-kpi-meta">
+                                <div class="odash-kpi-value" id="odash-kpi-sold">0</div>
+                                <div class="odash-kpi-label">Total Products Sold</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="odash-card">
+                        <div class="odash-kpi">
+                            <div class="odash-kpi-icon" style="background: linear-gradient(135deg,#16a34a,#34d399)"><i class="fas fa-check-circle"></i></div>
+                            <div class="odash-kpi-meta">
+                                <div class="odash-kpi-value" id="odash-kpi-resv-completed">0</div>
+                                <div class="odash-kpi-label">Completed Reservations</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="odash-card">
+                        <div class="odash-kpi">
+                            <div class="odash-kpi-icon" style="background: linear-gradient(135deg,#ef4444,#f97316)"><i class="fas fa-ban"></i></div>
+                            <div class="odash-kpi-meta">
+                                <div class="odash-kpi-value" id="odash-kpi-resv-cancelled">0</div>
+                                <div class="odash-kpi-label">Cancelled Reservations</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Top KPI Cards Row -->
-            <div class="dashboard-kpi-row gradient-row" style="display: flex; gap: 24px; margin-bottom: 32px;">
-                <div class="kpi-card gradient-card" style="flex:1;">
-                    <div class="kpi-head">
-                        <div>
-                            <div class="kpi-value" id="kpi-total-stocks">{{ $dashboardData['totalStock'] ?? 0 }}</div>
-                            <div class="kpi-label">Total Stocks</div>
+                <!-- Middle Row: Line Chart + Latest POS Transactions -->
+                <div class="odash-row-mid">
+                    <div class="odash-card odash-line-card">
+                        <div class="odash-card-header">
+                            <div class="odash-title">Sales Trend</div>
+                            <div style="display:flex; gap:10px; align-items:center;">
+                                <div class="odash-legend">
+                                    <span class="dot" style="background:#2563eb"></span><span class="sub">Physical</span>
+                                    <span class="dot" style="background:#10b981"></span><span class="sub">Reservation</span>
+                                </div>
+                                <select id="odash-line-range" class="odash-select">
+                                    <option value="weekly">Weekly</option>
+                                    <option value="monthly">Monthly</option>
+                                    <option value="yearly">Annually</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="odash-chart-shell">
+                            <canvas id="odash-line"></canvas>
                         </div>
                     </div>
-                </div>
-                <div class="kpi-card gradient-card" style="flex:1;">
-                    <div class="kpi-head">
-                        <div>
-                            <div class="kpi-value" id="kpi-inventory-items">{{ $dashboardData['totalProducts'] ?? 0 }}</div>
-                            <div class="kpi-label">No. of Inventory Items</div>
+                    <div class="odash-card">
+                        <div class="odash-card-header">
+                            <div class="odash-title">Latest POS Transactions</div>
                         </div>
+                        <div id="odash-latest-pos" class="odash-list"></div>
                     </div>
                 </div>
-                <div class="kpi-card gradient-card" style="flex:1;">
-                    <div class="kpi-head">
-                        <div>
-                            <div class="kpi-value" id="kpi-products-sold">{{ $dashboardData['todaySales'] ?? 0 }}</div>
-                            <div class="kpi-label">Today's Sales</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Charts Row -->
-            <div class="dashboard-charts-row" style="display: flex; gap: 24px;">
-                <div class="card-lg" style="flex:2;">
-                    <div class="card-title">Product Stocks by Brand</div>
-                    <canvas id="chart-stocks-brand"></canvas>
-                </div>
-                <div class="card-lg" style="flex:1;">
-                    <div class="card-title">Products Sold by Category</div>
-                    <canvas id="chart-sold-category"></canvas>
+                <!-- Bottom Row: Bar Chart + Stock Level list, and Low Stock Ranking -->
+                <div class="odash-row-bottom">
+                    <div class="odash-bottom-left">
+                        <div class="odash-card">
+                            <div class="odash-card-header">
+                                <div class="odash-title">Popular Products</div>
+                                <select id="odash-bar-filter" class="odash-select">
+                                    <option value="men">Men</option>
+                                    <option value="women">Women</option>
+                                    <option value="accessories">Accessories</option>
+                                </select>
+                            </div>
+                            <div class="odash-chart-shell" style="min-height:260px;">
+                                <canvas id="odash-bar"></canvas>
+                            </div>
+                        </div>
+                        <div class="odash-card">
+                            <div class="odash-card-header">
+                                <div class="odash-title">Stock Levels</div>
+                            </div>
+                            <div id="odash-stock-levels" class="odash-list"></div>
+                        </div>
+                    </div>
+                    <div class="odash-card">
+                        <div class="odash-card-header">
+                            <div class="odash-title">Lowest Stock (%)</div>
+                        </div>
+                        <div id="odash-lowest-stock" class="odash-list"></div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -667,7 +405,12 @@ document.addEventListener('DOMContentLoaded', function() {
 function updateDateTime() {
     const now = new Date();
     document.getElementById('current-time').textContent = now.toLocaleTimeString();
-    document.getElementById('current-date').textContent = now.toLocaleDateString();
+    document.getElementById('current-date').textContent = now.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
 }
 </script>
 
