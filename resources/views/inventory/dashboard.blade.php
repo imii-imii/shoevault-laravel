@@ -6,6 +6,12 @@
 <link rel="stylesheet" href="{{ asset('assets/css/inventory.css') }}">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;600;700;800&family=Roboto+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+<style>
+/* Gradient pill logout button */
+.logout-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.9rem 1rem;background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:9999px;font-size:.86rem;font-weight:700;cursor:pointer;transition:all .2s ease;text-decoration:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 6px 20px rgba(239,68,68,.35)}
+.logout-btn:hover{filter:brightness(1.05);box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 10px 24px rgba(185,28,28,.45)}
+.logout-btn i{font-size:1rem}
+</style>
 @endpush
 
 @section('content')
@@ -58,7 +64,7 @@
         </div>
         <form id="logout-form" method="POST" action="{{ route('logout') }}" style="display: inline;">
             @csrf
-            <button type="submit" class="logout-btn" style="background: none; border: none; color: inherit; width: 100%; text-align: left;">
+            <button type="submit" class="logout-btn">
                 <i class="fas fa-sign-out-alt"></i>
                 <span>Logout</span>
             </button>
@@ -73,14 +79,26 @@
         <div class="header-left">
             <h1 class="main-title" id="page-title">Add Inventory</h1>
         </div>
-        <div class="header-right">
+        <div class="header-right" style="position:relative;">
             <div class="time-display">
                 <i class="fas fa-clock"></i>
                 <span id="current-time">Loading...</span>
             </div>
-            <div class="date-display">
+            <div class="date-display" style="display:flex;align-items:center;gap:12px;">
                 <i class="fas fa-calendar"></i>
                 <span id="current-date">Loading...</span>
+                <button id="notif-bell" title="Notifications" style="background:none;border:none;cursor:pointer;position:relative;">
+                    <i class="fas fa-bell" style="font-size:1.5rem;"></i>
+                    <span id="notif-badge" style="position:absolute;top:-4px;right:-8px;background:#ef4444;color:#fff;border-radius:999px;padding:2px 6px;font-size:11px;display:none;">3</span>
+                </button>
+                <div id="notif-dropdown" style="display:none;position:absolute;right:0;top:48px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.08);width:320px;z-index:1000;">
+                    <div style="padding:12px 14px;border-bottom:1px solid #f1f5f9;font-weight:700;">Notifications</div>
+                    <div style="max-height:280px;overflow:auto;">
+                        <div style="padding:10px 14px;border-bottom:1px solid #f8fafc;">Low stock: Converse Chuck Taylor size 8</div>
+                        <div style="padding:10px 14px;border-bottom:1px solid #f8fafc;">3 reservations expiring today</div>
+                        <div style="padding:10px 14px;">System backup completed</div>
+                    </div>
+                </div>
             </div>
         </div>
     </header>
@@ -106,9 +124,14 @@
             <div class="section-header">
                 <h2 style="display:flex;align-items:center;gap:12px;"><i class="fas fa-box-open"></i> Add Inventory</h2>
                 <div style="margin-left:auto;display:flex;align-items:center;gap:16px;">
-                    <select id="inventory-type-switcher" style="height:40px;min-width:160px;background:#2a6aff;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:600;padding:0 18px;cursor:pointer;box-shadow:0 2px 8px rgba(67,56,202,0.08);">
-                        <option value="pos" {{ isset($inventoryType) && $inventoryType === 'pos' ? 'selected' : '' }}>POS Inventory</option>
-                        <option value="reservation" {{ isset($inventoryType) && $inventoryType === 'reservation' ? 'selected' : '' }}>Reservation Inventory</option>
+                    <div id="type-toggle" style="display:flex;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:9999px;padding:4px;gap:4px;box-shadow:0 2px 8px rgba(67,56,202,0.08);">
+                        @php $type = isset($inventoryType) ? $inventoryType : 'pos'; @endphp
+                        <button type="button" data-type="pos" class="type-chip" style="border:none;border-radius:9999px;padding:8px 14px;font-weight:700;font-size:.9rem;cursor:pointer;{{ ($type==='pos') ? 'background:#2a6aff;color:#fff;' : 'background:transparent;color:#334155;' }}">POS</button>
+                        <button type="button" data-type="reservation" class="type-chip" style="border:none;border-radius:9999px;padding:8px 14px;font-weight:700;font-size:.9rem;cursor:pointer;{{ ($type==='reservation') ? 'background:#2a6aff;color:#fff;' : 'background:transparent;color:#334155;' }}">Reservation</button>
+                    </div>
+                    <select id="inventory-type-switcher" style="display:none;">
+                        <option value="pos" {{ ($type === 'pos') ? 'selected' : '' }}>POS Inventory</option>
+                        <option value="reservation" {{ ($type === 'reservation') ? 'selected' : '' }}>Reservation Inventory</option>
                     </select>
                 </div>
             </div>
@@ -119,11 +142,13 @@
                 </button>
             </div>
             
-            <div class="add-inventory-list" style="position:relative; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; justify-content: flex-start;">
-                <!-- Add Product Card/Button -->
-                <div class="add-product-card" style="min-width:220px;max-width:220px;height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed #a3bffa;border-radius:16px;cursor:pointer;background:#f7fafc;box-shadow:0 2px 8px rgba(67,56,202,0.08);" onclick="openAddProductModal()">
-                    <i class="fas fa-plus" style="font-size:2rem;color:#2a6aff;"></i>
-                    <span style="margin-top:12px;font-size:1.2rem;color:#2a6aff;font-weight:600;">Add Product</span>
+            <div class="add-inventory-list" style="position:relative; display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; justify-content: flex-start;">
+                <!-- Add Product Card/Button (card mode reference) -->
+                <div class="product-card add-product-card" style="position:relative;min-width:220px;max-width:220px;height:340px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:16px;background:#f8fbff;box-shadow:none;padding:18px;cursor:pointer;border:2px dashed #a3bffa;" onclick="openAddProductModal()">
+                    <div class="icon-box" style="width:48px;height:48px;border-radius:12px;background:#e6efff;display:flex;align-items:center;justify-content:center;margin-bottom:10px;">
+                        <i class="fas fa-plus" style="font-size:1.2rem;color:#2a6aff;"></i>
+                    </div>
+                    <div class="add-text" style="font-weight:700;color:#2a6aff;font-size:1rem;">Add Product</div>
                 </div>
                 
                 @foreach($products as $product)
@@ -137,22 +162,32 @@
                     data-sizes="{{ $product->sizes->pluck('size')->implode(', ') }}" 
                     data-color="{{ $product->color }}"
                     data-image="{{ $product->image_url }}"
-                    style="min-width:220px;max-width:220px;height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(67,56,202,0.08);padding:18px;cursor:pointer;" onclick="openEditProductModal({{ $product->id }})">>
-                    
-                    <div style="width:128px;height:128px;background:#e2e8f0;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;">
+                    style="position:relative;min-width:220px;max-width:220px;height:340px;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(67,56,202,0.08);padding:18px;cursor:pointer;" onclick="openEditProductModal({{ $product->id }})">
+
+                    <!-- Category tag top-right -->
+                    @php $cat = strtolower($product->category ?? ''); @endphp
+                    <div class="category-tag" style="position:absolute;top:10px;right:10px;color:#fff;font-size:.7rem;font-weight:700;padding:4px 8px;border-radius:999px;letter-spacing:.5px; {{ $cat==='men' ? 'background:linear-gradient(135deg,#3b82f6,#1d4ed8)' : ($cat==='women' ? 'background:linear-gradient(135deg,#ec4899,#be185d)' : 'background:linear-gradient(135deg,#10b981,#047857)') }} ">{{ strtoupper($product->category) }}</div>
+
+                    <!-- Top image spanning full width with rounded top corners -->
+                    <div class="card-image-top" style="width:calc(100% + 36px);height:200px;background:#e2e8f0;margin:-18px -18px 10px -18px;border-radius:16px 16px 0 0;overflow:hidden;display:flex;align-items:center;justify-content:center;">
                         @if($product->image_url)
-                            <img src="{{ asset($product->image_url) }}" alt="{{ $product->name }}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;">
+                            <img src="{{ asset($product->image_url) }}" alt="{{ $product->name }}" style="width:100%;height:100%;object-fit:cover;object-position:center;">
                         @else
-                            <i class="fas fa-image" style="font-size:3.2rem;color:#a0aec0;"></i>
+                            <i class="fas fa-image" style="font-size:2.2rem;color:#a0aec0;"></i>
                         @endif
                     </div>
+
+                    <div class="pd-info" style="display:flex;flex-direction:column;gap:2px;padding:0 2px;">
+                        <div class="pd-name" style="font-weight:700;font-size:0.95rem;color:#111827;">{{ $product->name }}</div>
+                        <div class="pd-brand" style="font-size:0.78rem;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;font-weight:600;">{{ $product->brand }}</div>
+                        <div class="pd-color" style="font-size:0.8rem;color:#374151;">{{ $product->color ?: '—' }}</div>
+                        <div class="pd-category" style="display:none;">{{ ucfirst($product->category) }}</div>
+                        <span class="pd-price" style="font-size:0.95rem;font-weight:800;color:#111827;margin-top:6px;">₱ {{ number_format((float)$product->price, 0, '.', ',') }}</span>
+                        <span class="pd-stock" style="font-size:0.78rem;color:#2a6aff;font-weight:600;margin-top:-18px;align-self:flex-end;">{{ $product->sizes->sum('stock') }} in stock</span>
+                        <div class="pd-sizes" style="font-size:0.78rem;color:#374151;margin-top:6px;">Sizes: {{ $product->sizes->pluck('size')->implode(', ') }}</div>
+                    </div>
                     
-                    <div style="font-weight:700;font-size:0.88rem;text-align:center;">{{ $product->name }}</div>
-                    <div style="font-size:0.8rem;color:#4a5568;text-align:center;margin-top:4px;">Size: {{ $product->sizes->pluck('size')->implode(', ') }}</div>
-                    <div style="font-size:0.8rem;color:#4a5568;text-align:center;">Brand: {{ $product->brand }}</div>
-                    <div style="font-size:0.8rem;color:#2a6aff;text-align:center;margin-top:4px;">Stock: {{ $product->sizes->sum('stock') }}</div>
-                    
-                    <button type="button" class="btn btn-primary browse-btn" style="display:flex;align-items:center;justify-content:center;min-width:120px;height:36px;border-radius:8px;font-size:0.8rem;margin-top:16px;padding:0;" onclick="event.stopPropagation(); openUpdateProductModal('{{ $product->id }}')">Update</button>
+                    <button type="button" class="btn btn-primary browse-btn" style="display:flex;align-items:center;justify-content:center;width:calc(100% + 36px);height:32px;border-radius:0 0 16px 16px;font-size:0.85rem;margin:8px -18px -18px -18px;padding:0;" onclick="event.stopPropagation(); openEditProductModal('{{ $product->id }}')">Update</button>
                 </div>
                 @endforeach
             </div>
@@ -274,14 +309,14 @@
 
 <!-- Add Product Modal -->
 <div id="add-product-modal" class="modal" style="background: none; border: none; box-shadow: none;">
-    <div class="modal-content" style="max-width:100%; min-height:480px; display:flex; flex-direction:column; justify-content:flex-start; align-items:stretch;">
+    <div class="modal-content" style="max-width:100%; min-height:560px; display:flex; flex-direction:column; justify-content:flex-start; align-items:stretch;">
         <div class="modal-header" style="padding:24px 32px 12px 32px; border-bottom:1px solid #e2e8f0;">
             <h3 style="margin:0; font-size:1.6rem; font-weight:700;">Add New Product</h3>
             <button class="close-btn" style="font-size:1.5rem; color:#718096; background:none; border:none; cursor:pointer;" onclick="closeAddProductModal()">&times;</button>
         </div>
         <form id="add-product-form" class="modal-form" style="flex:1; display:flex; flex-direction:row; gap:32px; overflow:hidden; min-height:0;" enctype="multipart/form-data">
             @csrf
-            <div class="upload-card" style="flex:0 0 400px; display:flex; flex-direction:column; justify-content:space-between; height:480px;">
+            <div class="upload-card" style="flex:0 0 440px; display:flex; flex-direction:column; justify-content:space-between; height:560px;">
                 <div class="upload-box" role="button" tabindex="0" style="flex:1;" onclick="document.getElementById('product-image').click()">
                     <div class="upload-drop" id="upload-placeholder">
                         <i class="fas fa-cloud-upload-alt"></i>
@@ -291,7 +326,7 @@
                         <span class="browse-link">Browse files</span>
                     </div>
                     <div class="image-preview" id="image-preview" style="display: none; width: 100%; height: 100%; position: relative;">
-                        <img id="preview-img" src="" alt="Preview" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+                        <img id="preview-img" src="" alt="Preview" style="width: 100%; height: 100%; object-fit: cover; object-position: center; border-radius: 8px;">
                         <button type="button" class="remove-image" onclick="removeImage(event)" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer;">
                             <i class="fas fa-times"></i>
                         </button>
@@ -303,7 +338,7 @@
                     <button type="button" class="btn btn-primary browse-btn" style="height:40px;display:flex;align-items:center;margin: 0;">Upload</button>
                 </div>
             </div>
-            <div class="info-card" style="flex:1; display:flex; flex-direction:column; max-height:480px; overflow-y:auto; padding-right:8px;">
+            <div class="info-card" style="flex:1; display:flex; flex-direction:column; max-height:560px; overflow-y:auto; padding-right:8px;">
                 <div class="info-title" style="font-weight:600; font-size:1.1rem; margin-bottom:12px;">Inventory item Information</div>
                 <div class="form-group">
                     <label for="product-name">Product Name</label>
@@ -380,7 +415,7 @@
                         <span class="browse-link">Browse files</span>
                     </div>
                     <div class="image-preview" id="edit-image-preview" style="width: 100%; height: 100%; position: relative;">
-                        <img id="edit-preview-img" src="" alt="Preview" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+                        <img id="edit-preview-img" src="" alt="Preview" style="width: 100%; height: 100%; object-fit: cover; object-position: center; border-radius: 8px;">
                         <button type="button" class="remove-image" onclick="removeEditImage(event)" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer;">
                             <i class="fas fa-times"></i>
                         </button>
@@ -500,7 +535,11 @@ let inventoryData = [];
 
 // Load real inventory data from API
 function loadInventoryData() {
-    fetch('{{ route("inventory.data") }}')
+    const typeSel = document.getElementById('inventory-type-switcher');
+    const type = typeSel ? typeSel.value : 'pos';
+    const url = new URL('{{ route("inventory.data") }}', window.location.origin);
+    url.searchParams.set('type', type);
+    fetch(url.toString())
         .then(response => response.json())
         .then(data => {
             console.log('API Response:', data); // Debug log
@@ -686,27 +725,42 @@ function addProductToCardView(product) {
     newCard.setAttribute('data-sizes', product.available_sizes ? product.available_sizes.join(', ') : '');
     newCard.setAttribute('data-color', product.color);
     newCard.setAttribute('data-image', product.image_url);
-    newCard.style.cssText = 'min-width:220px;max-width:220px;height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(67,56,202,0.08);padding:18px;cursor:pointer;';
+    newCard.style.cssText = 'min-width:220px;max-width:220px;height:340px;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(67,56,202,0.08);padding:18px;cursor:pointer;';
     newCard.setAttribute('onclick', `openEditProductModal('${product.id}')`);
     
+    const catLower = (product.category || '').toLowerCase();
+    const catStyle = catLower.includes('men')
+        ? 'background:linear-gradient(135deg,#3b82f6,#1d4ed8)'
+        : (catLower.includes('women')
+            ? 'background:linear-gradient(135deg,#ec4899,#be185d)'
+            : 'background:linear-gradient(135deg,#10b981,#047857)');
     newCard.innerHTML = `
-        <div style="width:128px;height:128px;background:#e2e8f0;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;">
+        <div class="category-tag" style="position:absolute;top:10px;right:10px;color:#fff;font-size:.7rem;font-weight:700;padding:4px 8px;border-radius:999px;letter-spacing:.5px; ${catStyle}">${(product.category || '').toUpperCase()}</div>
+    <div class="card-image-top" style="width:calc(100% + 36px);height:200px;background:#e2e8f0;margin:-18px -18px 10px -18px;border-radius:16px 16px 0 0;overflow:hidden;display:flex;align-items:center;justify-content:center;">
             ${product.image_url ? 
-                `<img src="${product.image_url}" alt="${product.name}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;">` : 
-                '<i class="fas fa-image" style="font-size:3.2rem;color:#a0aec0;"></i>'
+                `<img src="${product.image_url}" alt="${product.name}" style="width:100%;height:100%;object-fit:cover;object-position:center;">` : 
+                '<i class="fas fa-image" style="font-size:2.2rem;color:#a0aec0;"></i>'
             }
         </div>
-        
-        <div style="font-weight:700;font-size:0.88rem;text-align:center;">${product.name}</div>
-        <div style="font-size:0.8rem;color:#4a5568;text-align:center;margin-top:4px;">Size: ${product.available_sizes ? product.available_sizes.join(', ') : 'N/A'}</div>
-        <div style="font-size:0.8rem;color:#4a5568;text-align:center;">Brand: ${product.brand}</div>
-        <div style="font-size:0.8rem;color:#2a6aff;text-align:center;margin-top:4px;">Stock: ${product.total_stock || 0}</div>
-        
-        <button type="button" class="btn btn-primary browse-btn" style="display:flex;align-items:center;justify-content:center;min-width:120px;height:36px;border-radius:8px;font-size:0.8rem;margin-top:16px;padding:0;" onclick="event.stopPropagation(); openEditProductModal('${product.id}')">Update</button>
+        <div class="pd-info" style="display:flex;flex-direction:column;gap:2px;padding:0 2px;">
+            <div class="pd-name" style="font-weight:700;font-size:0.95rem;color:#111827;">${product.name}</div>
+            <div class="pd-brand" style="font-size:0.78rem;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;font-weight:600;">${product.brand || ''}</div>
+            <div class="pd-color" style="font-size:0.8rem;color:#374151;">${product.color || '—'}</div>
+            <div class="pd-category" style="display:none;">${(product.category || '').charAt(0).toUpperCase() + (product.category || '').slice(1)}</div>
+            <span class="pd-price" style="font-size:0.95rem;font-weight:800;color:#111827;margin-top:6px;">₱ ${(parseFloat(product.price)||0).toLocaleString()}</span>
+            <span class="pd-stock" style="font-size:0.78rem;color:#2a6aff;font-weight:600;margin-top:-18px;align-self:flex-end;">${product.total_stock || 0} in stock</span>
+            <div class="pd-sizes" style="font-size:0.78rem;color:#374151;margin-top:6px;">Sizes: ${product.available_sizes ? product.available_sizes.join(', ') : 'N/A'}</div>
+        </div>
+    <button type="button" class="btn btn-primary browse-btn" style="display:flex;align-items:center;justify-content:center;width:calc(100% + 36px);height:32px;border-radius:0 0 16px 16px;font-size:0.85rem;margin:8px -18px -18px -18px;padding:0;" onclick="event.stopPropagation(); openEditProductModal('${product.id}')">Update</button>
     `;
     
     // Add the new card at the end of the container (append to the end)
     cardContainer.appendChild(newCard);
+
+    // Ensure the new card respects the current view mode
+    if (typeof window.currentCardView !== 'undefined') {
+        applyCardViewToCards(window.currentCardView);
+    }
 }
 
 // Function to update a product in both card and table view
@@ -725,20 +779,30 @@ function updateProductInView(product) {
         productCard.setAttribute('data-image', product.image_url);
         
         // Update the card content
+        const catLower = (product.category || '').toLowerCase();
+        const catStyle = catLower.includes('men')
+            ? 'background:linear-gradient(135deg,#3b82f6,#1d4ed8)'
+            : (catLower.includes('women')
+                ? 'background:linear-gradient(135deg,#ec4899,#be185d)'
+                : 'background:linear-gradient(135deg,#10b981,#047857)');
         productCard.innerHTML = `
-            <div style="width:128px;height:128px;background:#e2e8f0;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;">
+            <div class="category-tag" style="position:absolute;top:10px;right:10px;color:#fff;font-size:.7rem;font-weight:700;padding:4px 8px;border-radius:999px;letter-spacing:.5px; ${catStyle}">${(product.category || '').toUpperCase()}</div>
+            <div class="card-image-top" style="width:calc(100% + 36px);height:200px;background:#e2e8f0;margin:-18px -18px 10px -18px;border-radius:16px 16px 0 0;overflow:hidden;display:flex;align-items:center;justify-content:center;">
                 ${product.image_url ? 
-                    `<img src="${product.image_url}" alt="${product.name}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;">` : 
-                    '<i class="fas fa-image" style="font-size:3.2rem;color:#a0aec0;"></i>'
+                    `<img src="${product.image_url}" alt="${product.name}" style="width:100%;height:100%;object-fit:cover;object-position:center;">` : 
+                    '<i class="fas fa-image" style="font-size:2.2rem;color:#a0aec0;"></i>'
                 }
             </div>
-            
-            <div style="font-weight:700;font-size:0.88rem;text-align:center;">${product.name}</div>
-            <div style="font-size:0.8rem;color:#4a5568;text-align:center;margin-top:4px;">Size: ${product.available_sizes ? product.available_sizes.join(', ') : 'N/A'}</div>
-            <div style="font-size:0.8rem;color:#4a5568;text-align:center;">Brand: ${product.brand}</div>
-            <div style="font-size:0.8rem;color:#2a6aff;text-align:center;margin-top:4px;">Stock: ${product.total_stock || 0}</div>
-            
-            <button type="button" class="btn btn-primary browse-btn" style="display:flex;align-items:center;justify-content:center;min-width:120px;height:36px;border-radius:8px;font-size:0.8rem;margin-top:16px;padding:0;" onclick="event.stopPropagation(); openEditProductModal('${product.id}')">Update</button>
+            <div class="pd-info" style="display:flex;flex-direction:column;gap:2px;padding:0 2px;">
+                <div class="pd-name" style="font-weight:700;font-size:0.95rem;color:#111827;">${product.name}</div>
+                <div class="pd-brand" style="font-size:0.78rem;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;font-weight:600;">${product.brand || ''}</div>
+                <div class="pd-color" style="font-size:0.8rem;color:#374151;">${product.color || '—'}</div>
+                <div class="pd-category" style="display:none;">${(product.category || '').charAt(0).toUpperCase() + (product.category || '').slice(1)}</div>
+                <span class="pd-price" style="font-size:0.95rem;font-weight:800;color:#111827;margin-top:6px;">₱ ${(parseFloat(product.price)||0).toLocaleString()}</span>
+                <span class="pd-stock" style="font-size:0.78rem;color:#2a6aff;font-weight:600;margin-top:-18px;align-self:flex-end;">${product.total_stock || 0} in stock</span>
+                <div class="pd-sizes" style="font-size:0.78rem;color:#374151;margin-top:6px;">Sizes: ${product.available_sizes ? product.available_sizes.join(', ') : 'N/A'}</div>
+            </div>
+            <button type="button" class="btn btn-primary browse-btn" style="display:flex;align-items:center;justify-content:center;width:calc(100% + 36px);height:32px;border-radius:0 0 16px 16px;font-size:0.85rem;margin:8px -18px -18px -18px;padding:0;" onclick="event.stopPropagation(); openEditProductModal('${product.id}')">Update</button>
         `;
     }
     
@@ -748,6 +812,10 @@ function updateProductInView(product) {
         inventoryData[inventoryIndex] = product;
         // Re-render the table to show updated data
         renderInventoryTable();
+    }
+    // Re-apply current card view mode so updated card keeps layout
+    if (typeof window.currentCardView !== 'undefined') {
+        applyCardViewToCards(window.currentCardView);
     }
 }
 
@@ -831,6 +899,261 @@ function toggleSizeStock(checkbox) {
         stockInput.value = '';
     }
 }
+
+// ===== Card view toggle (grid <-> horizontal) =====
+window.currentCardView = 'grid';
+
+function applyCardViewToCards(mode) {
+    const container = document.querySelector('.add-inventory-list');
+    const cards = Array.from(container.querySelectorAll('.product-card'));
+    // Adjust container layout
+    if (mode === 'horizontal') {
+        container.style.flexDirection = 'column';
+        container.style.flexWrap = 'nowrap';
+        container.style.alignItems = 'stretch';
+        container.style.gap = '12px';
+    } else {
+        container.style.flexDirection = 'row';
+        container.style.flexWrap = 'wrap';
+        container.style.alignItems = 'flex-start';
+        container.style.gap = '16px';
+    }
+
+    // helper to add a label before content once
+    const addLabel = (el, label) => {
+        if (!el) return;
+        if (!el.dataset) return;
+        if (el.dataset.hasLabel === '1') return;
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'pd-label';
+        labelSpan.textContent = label + ' ';
+        labelSpan.style.fontWeight = '700';
+        labelSpan.style.color = '#111827';
+        labelSpan.style.marginRight = '6px';
+        el.insertBefore(labelSpan, el.firstChild);
+        el.dataset.hasLabel = '1';
+        el.style.display = 'flex';
+        el.style.alignItems = 'center';
+        el.style.gap = '6px';
+    };
+    // helper to remove labels and restore defaults
+    const removeLabel = (el) => {
+        if (!el) return;
+        const first = el.firstElementChild;
+        if (first && first.classList.contains('pd-label')) first.remove();
+        if (el.dataset) delete el.dataset.hasLabel;
+        el.style.display = '';
+        el.style.alignItems = '';
+        el.style.gap = '';
+    };
+
+    cards.forEach(card => {
+        const isAddCard = card.classList.contains('add-product-card');
+        const imgDiv = card.querySelector('.card-image-top');
+        const infoDiv = imgDiv ? imgDiv.nextElementSibling : card.querySelector('.pd-info');
+        const btn = card.querySelector('button.btn');
+        const catTag = card.querySelector('.category-tag');
+
+        if (mode === 'horizontal') {
+            // Card as a horizontal row with 4x2 segmentation
+            card.style.minWidth = '100%';
+            card.style.maxWidth = '100%';
+            card.style.height = 'auto';
+            card.style.display = 'flex';
+            card.style.flexDirection = 'row';
+            card.style.alignItems = 'center';
+            card.style.justifyContent = 'flex-start';
+            card.style.padding = '10px 14px';
+
+            if (isAddCard) {
+                // Transform add card into horizontal banner
+                const icon = card.querySelector('.icon-box');
+                const text = card.querySelector('.add-text');
+                if (icon) { icon.style.width = '56px'; icon.style.height = '56px'; icon.style.margin = '0 12px 0 0'; }
+                if (text) { text.style.fontSize = '0.95rem'; text.style.margin = '0'; }
+                card.style.border = '2px dashed #a3bffa';
+                card.style.background = '#f8fbff';
+                card.style.flexDirection = 'row';
+                card.style.justifyContent = 'flex-start';
+            } else {
+                if (catTag) catTag.style.display = 'none'; // hide category pill in horizontal
+                if (imgDiv) {
+                    imgDiv.style.width = '88px';
+                    imgDiv.style.height = '88px';
+                    imgDiv.style.margin = '0 12px 0 0';
+                    imgDiv.style.borderRadius = '12px';
+                    imgDiv.style.overflow = 'hidden';
+                }
+                if (infoDiv) {
+                    infoDiv.style.flex = '1';
+                    infoDiv.style.padding = '0 8px';
+                    // Turn info into 4 columns x 2 rows grid
+                    infoDiv.style.display = 'grid';
+                    infoDiv.style.gridTemplateColumns = '1fr 1fr 1fr 1fr';
+                    infoDiv.style.gridTemplateRows = 'auto auto';
+                    infoDiv.style.columnGap = '12px';
+                    infoDiv.style.rowGap = '6px';
+                    // Map fields into cells (Row1: Name, Brand, Colors, Price) (Row2: Stock, Sizes, Category)
+                    const nameEl = infoDiv.querySelector('.pd-name');
+                    const brandEl = infoDiv.querySelector('.pd-brand');
+                    const colorEl = infoDiv.querySelector('.pd-color');
+                    const priceEl = infoDiv.querySelector('.pd-price');
+                    const catEl = infoDiv.querySelector('.pd-category');
+                    const sizesEl = infoDiv.querySelector('.pd-sizes');
+                    const stockEl = infoDiv.querySelector('.pd-stock');
+                    // Labels
+                    addLabel(nameEl, 'Name:');
+                    addLabel(brandEl, 'Brand:');
+                    addLabel(priceEl, 'Price:');
+                    addLabel(stockEl, 'Stock:');
+                    // Uniform fonts
+                    [nameEl, brandEl, colorEl, priceEl, catEl, sizesEl, stockEl].forEach(el => { if (el) { el.style.fontSize = '0.95rem'; el.style.margin = '0'; el.style.lineHeight = '1.3'; } });
+                    const allLabels = infoDiv.querySelectorAll('.pd-label');
+                    allLabels.forEach(l => { l.style.fontSize = '0.95rem'; });
+                    // Grid positions
+                    if (nameEl) { nameEl.style.gridColumn = '1 / 2'; nameEl.style.gridRow = '1'; }
+                    if (brandEl) { brandEl.style.gridColumn = '2 / 3'; brandEl.style.gridRow = '1'; brandEl.style.textAlign = 'left'; }
+                    // Colors as pills in column 3 (row 1)
+                    if (colorEl) {
+                        colorEl.style.gridColumn = '3 / 4';
+                        colorEl.style.gridRow = '1';
+                        if (!colorEl.dataset.original) colorEl.dataset.original = (card.getAttribute('data-color') || colorEl.textContent.trim());
+                        const colors = (card.getAttribute('data-color') || '').split(',').map(c => c.trim()).filter(Boolean);
+                        const pills = colors.map(c => `<span class=\"color-pill\" style=\"background:#374151;color:#fff;padding:2px 8px;border-radius:12px;font-size:.95rem;font-weight:700;display:inline-block;margin-right:6px;\">${c}</span>`).join(' ');
+                        colorEl.innerHTML = `<span class=\"pd-label\" style=\"font-weight:700;color:#111827;margin-right:6px;\">Colors:</span> ${pills || '<span style=\"color:#6b7280;\">—</span>'}`;
+                        colorEl.dataset.pills = '1';
+                    }
+                    if (priceEl) { priceEl.style.gridColumn = '4 / 5'; priceEl.style.gridRow = '1'; priceEl.style.justifySelf = 'end'; }
+                    // Row 2 mapping
+                    if (stockEl) { stockEl.style.gridColumn = '1 / 2'; stockEl.style.gridRow = '2'; stockEl.style.justifySelf = 'start'; }
+                    if (sizesEl) {
+                        sizesEl.style.gridColumn = '2 / 3';
+                        sizesEl.style.gridRow = '2';
+                        if (!sizesEl.dataset.original) sizesEl.dataset.original = (card.getAttribute('data-sizes') || sizesEl.textContent.replace(/Sizes:\\s*/i,'').trim());
+                        const sizes = (card.getAttribute('data-sizes') || '').split(',').map(s => s.trim()).filter(Boolean);
+                        const pills = sizes.map(s => `<span class=\"size-pill\" style=\"background:#2a6aff;color:#fff;padding:2px 8px;border-radius:12px;font-size:.95rem;font-weight:700;display:inline-block;margin-right:6px;\">${s}</span>`).join(' ');
+                        sizesEl.innerHTML = `<span class=\"pd-label\" style=\"font-weight:700;color:#111827;margin-right:6px;\">Sizes:</span> ${pills || '<span style=\"color:#6b7280;\">N/A</span>'}`;
+                        sizesEl.dataset.pills = '1';
+                    }
+                    if (catEl) { catEl.style.display = 'block'; catEl.style.gridColumn = '3 / 4'; catEl.style.gridRow = '2'; addLabel(catEl, 'Category:'); }
+                }
+                if (btn) {
+                    // compact inline button in horizontal mode
+                    btn.style.width = 'auto';
+                    btn.style.margin = '0 0 0 12px';
+                    btn.style.borderRadius = '8px';
+                    btn.style.minWidth = '110px';
+                    btn.style.height = '30px';
+                    btn.style.alignSelf = 'center';
+                    btn.style.fontSize = '0.8rem';
+                    btn.style.padding = '0 10px';
+                }
+            }
+        } else {
+            // Card as a compact grid tile
+            if (isAddCard) {
+                // Restore to centered small dashed card
+                card.style.minWidth = '220px';
+                card.style.maxWidth = '220px';
+                card.style.height = '340px';
+                card.style.display = 'flex';
+                card.style.flexDirection = 'column';
+                card.style.alignItems = 'center';
+                card.style.justifyContent = 'center';
+                card.style.padding = '18px';
+                const icon = card.querySelector('.icon-box');
+                const text = card.querySelector('.add-text');
+                if (icon) { icon.style.width = '48px'; icon.style.height = '48px'; icon.style.margin = '0 0 10px 0'; }
+                if (text) { text.style.fontSize = '1rem'; }
+            } else {
+                card.style.minWidth = '220px';
+                card.style.maxWidth = '220px';
+                card.style.height = '340px';
+                card.style.display = 'flex';
+                card.style.flexDirection = 'column';
+                card.style.alignItems = 'stretch';
+                card.style.justifyContent = 'flex-start';
+                card.style.padding = '18px';
+
+                if (catTag) catTag.style.display = '';
+                if (imgDiv) {
+                    imgDiv.style.width = 'calc(100% + 36px)';
+                    imgDiv.style.height = '200px';
+                    imgDiv.style.margin = '-18px -18px 10px -18px';
+                    imgDiv.style.borderRadius = '16px 16px 0 0';
+                    imgDiv.style.overflow = 'hidden';
+                }
+                if (infoDiv) {
+                    infoDiv.style.flex = '';
+                    infoDiv.style.padding = '0 2px';
+                    // Reset grid to vertical stack
+                    infoDiv.style.display = 'flex';
+                    infoDiv.style.flexDirection = 'column';
+                    infoDiv.style.gap = '2px';
+                    // Reset child overrides
+                    const nameEl = infoDiv.querySelector('.pd-name');
+                    const brandEl = infoDiv.querySelector('.pd-brand');
+                    const colorEl = infoDiv.querySelector('.pd-color');
+                    const priceEl = infoDiv.querySelector('.pd-price');
+                    const catEl = infoDiv.querySelector('.pd-category');
+                    const sizesEl = infoDiv.querySelector('.pd-sizes');
+                    const stockEl = infoDiv.querySelector('.pd-stock');
+                    // Remove labels
+                    removeLabel(nameEl); removeLabel(brandEl); removeLabel(priceEl); removeLabel(catEl); removeLabel(stockEl);
+                    [nameEl, brandEl, colorEl, priceEl, catEl, sizesEl, stockEl].forEach(el => { if (el) { el.style.fontSize = ''; el.style.margin = ''; el.style.lineHeight = ''; } });
+                    if (nameEl) { nameEl.style.gridColumn = ''; }
+                    if (brandEl) { brandEl.style.gridColumn = ''; brandEl.style.textAlign = ''; }
+                    if (colorEl) {
+                        colorEl.style.gridColumn = ''; colorEl.style.textAlign = '';
+                        // Restore color text
+                        if (colorEl.dataset && colorEl.dataset.original) {
+                            colorEl.textContent = colorEl.dataset.original || '—';
+                            delete colorEl.dataset.pills;
+                        }
+                    }
+                    if (priceEl) { priceEl.style.gridColumn = ''; priceEl.style.justifySelf = ''; priceEl.style.marginTop = '6px'; }
+                    if (catEl) { catEl.style.display = 'none'; catEl.style.gridColumn = ''; }
+                    if (sizesEl) {
+                        sizesEl.style.gridColumn = '';
+                        if (sizesEl.dataset && sizesEl.dataset.original) {
+                            sizesEl.textContent = `Sizes: ${sizesEl.dataset.original}`;
+                            delete sizesEl.dataset.pills;
+                        }
+                    }
+                    if (stockEl) { stockEl.style.gridColumn = ''; stockEl.style.marginTop = '-18px'; stockEl.style.justifySelf = ''; }
+                }
+                if (btn) {
+                    // full-bleed bar button in grid mode
+                    btn.style.width = 'calc(100% + 36px)';
+                    btn.style.margin = '8px -18px -18px -18px';
+                    btn.style.borderRadius = '0 0 16px 16px';
+                    btn.style.minWidth = '';
+                    btn.style.height = '32px';
+                    btn.style.fontSize = '0.85rem';
+                    btn.style.padding = '0';
+                }
+            }
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+    const toggleBtn = document.getElementById('toggle-card-view');
+    const icon = document.getElementById('toggle-card-icon');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function(){
+            window.currentCardView = (window.currentCardView === 'grid') ? 'horizontal' : 'grid';
+            applyCardViewToCards(window.currentCardView);
+            // Swap icon
+            if (icon) {
+                icon.classList.remove('fa-th-large','fa-bars');
+                icon.classList.add(window.currentCardView === 'grid' ? 'fa-th-large' : 'fa-bars');
+            }
+        });
+        // Initial apply
+        applyCardViewToCards(window.currentCardView);
+    }
+});
 
 // Category change handler - removed since we show all sizes regardless of category
 
@@ -1226,9 +1549,14 @@ function removeEditImage(event) {
 // Delete current product function
 function deleteCurrentProduct() {
     const productId = document.getElementById('edit-product-id').value;
-    if (confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
-        deleteProduct(productId);
-        closeEditProductModal();
+    // Use the shared delete flow with a single confirmation and close on success
+    const result = deleteProduct(productId);
+    if (result && typeof result.then === 'function') {
+        result.then(res => {
+            if (res && res.success) {
+                closeEditProductModal();
+            }
+        });
     }
 }
 
@@ -1484,29 +1812,41 @@ function editProduct(id) {
     alert(`Edit product ${id} - Feature coming soon`);
 }
 
-function deleteProduct(id) {
-    if (confirm('Are you sure you want to delete this product?')) {
-        fetch(`{{ url('inventory/products') }}/${id}`, {
-            method: 'DELETE',
-            headers: {
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                loadInventoryData(); // Reload data
-                alert('Product deleted successfully!');
-            } else {
-                alert('Error deleting product: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error deleting product');
-        });
+function deleteProduct(id, options = {}) {
+    const { skipConfirm = false } = options;
+    if (!skipConfirm) {
+        const ok = confirm('Are you sure you want to delete this product?');
+        if (!ok) return Promise.resolve({ success: false, cancelled: true });
     }
+    const typeSel = document.getElementById('inventory-type-switcher');
+    const type = typeSel ? typeSel.value : 'pos';
+    const delUrl = new URL(`{{ url('inventory/products') }}/${id}`, window.location.origin);
+    delUrl.searchParams.set('type', type);
+    return fetch(delUrl.toString(), {
+        method: 'DELETE',
+        headers: {
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Optionally show a quick toast before reload
+            showSuccessMessage('Product deleted successfully!');
+            // Hard reload to ensure all views (cards + table) reflect removal
+            setTimeout(() => { window.location.reload(); }, 600);
+            return { success: true };
+        } else {
+            alert('Error deleting product: ' + data.message);
+            return { success: false, message: data.message };
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error deleting product');
+        return { success: false, error };
+    });
 }
 
 // Search functionality
@@ -1599,10 +1939,38 @@ document.addEventListener('DOMContentLoaded', function() {
             currentUrl.searchParams.set('type', selectedType);
             window.location.href = currentUrl.toString();
         });
+        // Wire segmented control
+        const typeToggle = document.getElementById('type-toggle');
+        if (typeToggle) {
+            typeToggle.querySelectorAll('.type-chip').forEach(btn => {
+                btn.addEventListener('click', function(){
+                    const t = this.getAttribute('data-type');
+                    // Update hidden select value and dispatch change
+                    inventoryTypeSwitcher.value = t;
+                    inventoryTypeSwitcher.dispatchEvent(new Event('change'));
+                });
+            });
+        }
     }
     
     // Load real inventory data from database
     loadInventoryData();
+    
+    // Notification bell toggle
+    const bell = document.getElementById('notif-bell');
+    const dd = document.getElementById('notif-dropdown');
+    const badge = document.getElementById('notif-badge');
+    if (bell) {
+        bell.addEventListener('click', function(e){
+            e.stopPropagation();
+            dd.style.display = dd.style.display === 'none' || dd.style.display === '' ? 'block' : 'none';
+            badge.style.display = 'none';
+        });
+        document.addEventListener('click', function(){
+            dd.style.display = 'none';
+        });
+        badge.style.display = 'inline-block';
+    }
 });
 
 // Mock functions for buttons that aren't implemented yet

@@ -6,6 +6,11 @@
 <link rel="stylesheet" href="{{ asset('assets/css/inventory.css') }}">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;600;700;800&family=Roboto+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+<style>
+.logout-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.9rem 1rem;background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:9999px;font-size:.86rem;font-weight:700;cursor:pointer;transition:all .2s ease;text-decoration:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 6px 20px rgba(239,68,68,.35)}
+.logout-btn:hover{filter:brightness(1.05);box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 10px 24px rgba(185,28,28,.45)}
+.logout-btn i{font-size:1rem}
+</style>
 @endpush
 
 @section('content')
@@ -56,7 +61,7 @@
         </div>
         <form id="logout-form" method="POST" action="{{ route('logout') }}" style="display: inline;">
             @csrf
-            <button type="submit" class="logout-btn" style="background: none; border: none; color: inherit; width: 100%; text-align: left;">
+            <button type="submit" class="logout-btn">
                 <i class="fas fa-sign-out-alt"></i>
                 <span>Logout</span>
             </button>
@@ -71,14 +76,26 @@
         <div class="header-left">
             <h1 class="main-title">Supplier Management</h1>
         </div>
-        <div class="header-right">
+        <div class="header-right" style="position:relative;">
             <div class="time-display">
                 <i class="fas fa-clock"></i>
                 <span id="current-time">Loading...</span>
             </div>
-            <div class="date-display">
+            <div class="date-display" style="display:flex;align-items:center;gap:12px;">
                 <i class="fas fa-calendar"></i>
                 <span id="current-date">Loading...</span>
+                <button id="notif-bell" title="Notifications" style="background:none;border:none;cursor:pointer;position:relative;">
+                    <i class="fas fa-bell" style="font-size:1.5rem;"></i>
+                    <span id="notif-badge" style="position:absolute;top:-4px;right:-8px;background:#ef4444;color:#fff;border-radius:999px;padding:2px 6px;font-size:11px;display:none;">3</span>
+                </button>
+                <div id="notif-dropdown" style="display:none;position:absolute;right:0;top:48px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.08);width:320px;z-index:1000;">
+                    <div style="padding:12px 14px;border-bottom:1px solid #f1f5f9;font-weight:700;">Notifications</div>
+                    <div style="max-height:280px;overflow:auto;">
+                        <div style="padding:10px 14px;border-bottom:1px solid #f8fafc;">Low stock: Adidas Ultraboost size 10</div>
+                        <div style="padding:10px 14px;border-bottom:1px solid #f8fafc;">Supplier contract update pending</div>
+                        <div style="padding:10px 14px;">New supplier inquiry received</div>
+                    </div>
+                </div>
             </div>
         </div>
     </header>
@@ -248,5 +265,21 @@ window.addEventListener('click', function(e) {
         e.target.style.display = 'none';
     }
 });
+
+// Notification bell toggle
+const bell = document.getElementById('notif-bell');
+const dd = document.getElementById('notif-dropdown');
+const badge = document.getElementById('notif-badge');
+if (bell) {
+    bell.addEventListener('click', function(e){
+        e.stopPropagation();
+        dd.style.display = dd.style.display === 'none' || dd.style.display === '' ? 'block' : 'none';
+        badge.style.display = 'none';
+    });
+    document.addEventListener('click', function(){
+        dd.style.display = 'none';
+    });
+    badge.style.display = 'inline-block';
+}
 </script>
 @endpush

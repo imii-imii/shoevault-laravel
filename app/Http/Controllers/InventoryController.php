@@ -405,17 +405,24 @@ class InventoryController extends Controller
     /**
      * Delete product
      */
-    public function deleteProduct($id)
+    public function deleteProduct(Request $request, $id)
     {
         try {
-            $product = Product::findOrFail($id);
+            // Determine which inventory type to delete from (default POS)
+            $inventoryType = $request->get('type', $request->get('inventory_type', 'pos'));
+
+            if ($inventoryType === 'reservation') {
+                $product = \App\Models\ReservationProduct::findOrFail($id);
+            } else {
+                $product = Product::findOrFail($id);
+            }
             
             // Delete associated image if exists
             if ($product->image_url && file_exists(public_path($product->image_url))) {
                 unlink(public_path($product->image_url));
             }
             
-            $product->delete(); // This will cascade delete the sizes too
+            $product->delete(); // This should cascade delete the sizes too if configured
             
             return response()->json([
                 'success' => true,
@@ -450,7 +457,7 @@ class InventoryController extends Controller
     {
         try {
             $request->validate([
-                'status' => 'required|string|in:pending,confirmed,ready,completed,cancelled'
+                'status' => 'required|string|in:pending,completed,cancelled'
             ]);
 
             // For now, just return success for UI testing
@@ -460,9 +467,7 @@ class InventoryController extends Controller
                 'message' => 'Reservation status updated successfully (demo mode)',
                 'reservation' => [
                     'id' => $id,
-                    'status' => $request->status,
-                    'customer' => ['name' => 'Demo Customer'],
-                    'product' => ['name' => 'Demo Product']
+                    'status' => $request->status
                 ]
             ]);
 

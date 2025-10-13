@@ -6,6 +6,11 @@
 <link rel="stylesheet" href="{{ asset('assets/css/inventory.css') }}">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;600;700;800&family=Roboto+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+<style>
+.logout-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.9rem 1rem;background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:9999px;font-size:.86rem;font-weight:700;cursor:pointer;transition:all .2s ease;text-decoration:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 6px 20px rgba(239,68,68,.35)}
+.logout-btn:hover{filter:brightness(1.05);box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 10px 24px rgba(185,28,28,.45)}
+.logout-btn i{font-size:1rem}
+</style>
 @endpush
 
 @section('content')
@@ -56,7 +61,7 @@
         </div>
         <form id="logout-form" method="POST" action="{{ route('logout') }}" style="display: inline;">
             @csrf
-            <button type="submit" class="logout-btn" style="background: none; border: none; color: inherit; width: 100%; text-align: left;">
+            <button type="submit" class="logout-btn">
                 <i class="fas fa-sign-out-alt"></i>
                 <span>Logout</span>
             </button>
@@ -71,14 +76,26 @@
         <div class="header-left">
             <h1 class="main-title">Reservation Management</h1>
         </div>
-        <div class="header-right">
+        <div class="header-right" style="position:relative;">
             <div class="time-display">
                 <i class="fas fa-clock"></i>
                 <span id="current-time">Loading...</span>
             </div>
-            <div class="date-display">
+            <div class="date-display" style="display:flex;align-items:center;gap:12px;">
                 <i class="fas fa-calendar"></i>
                 <span id="current-date">Loading...</span>
+                <button id="notif-bell" title="Notifications" style="background:none;border:none;cursor:pointer;position:relative;">
+                    <i class="fas fa-bell" style="font-size:1.5rem;"></i>
+                    <span id="notif-badge" style="position:absolute;top:-4px;right:-8px;background:#ef4444;color:#fff;border-radius:999px;padding:2px 6px;font-size:11px;display:none;">3</span>
+                </button>
+                <div id="notif-dropdown" style="display:none;position:absolute;right:0;top:48px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.08);width:320px;z-index:1000;">
+                    <div style="padding:12px 14px;border-bottom:1px solid #f1f5f9;font-weight:700;">Notifications</div>
+                    <div style="max-height:280px;overflow:auto;">
+                        <div style="padding:10px 14px;border-bottom:1px solid #f8fafc;">Low stock: Nike Air Max 270 size 9</div>
+                        <div style="padding:10px 14px;border-bottom:1px solid #f8fafc;">Reservation REV-DEF456 confirmed</div>
+                        <div style="padding:10px 14px;">New reservation REV-GHI789</div>
+                    </div>
+                </div>
             </div>
         </div>
     </header>
@@ -94,16 +111,16 @@
             <!-- Analytics Cards -->
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin: 20px;">
                 <div style="background: linear-gradient(135deg, #3B82F6 0%, #1E40AF 100%); padding: 24px; border-radius: 12px; color: white;">
-                    <h3 style="font-size: 1.1rem; margin-bottom: 12px;">Incomplete Reservations</h3>
+                    <h3 style="font-size: 1.1rem; margin-bottom: 12px;">Pending Reservations</h3>
                     <p style="font-size: 2rem; font-weight: bold;">{{ $reservationStats['incomplete'] ?? 0 }}</p>
                 </div>
                 <div style="background: linear-gradient(135deg, #F59E0B 0%, #B45309 100%); padding: 24px; border-radius: 12px; color: white;">
-                    <h3 style="font-size: 1.1rem; margin-bottom: 12px;">Expiring Soon</h3>
-                    <p style="font-size: 2rem; font-weight: bold;">{{ $reservationStats['expiring_soon'] ?? 0 }}</p>
+                    <h3 style="font-size: 1.1rem; margin-bottom: 12px;">Completed</h3>
+                    <p style="font-size: 2rem; font-weight: bold;">{{ $reservationStats['completed'] ?? 0 }}</p>
                 </div>
                 <div style="background: linear-gradient(135deg, #EF4444 0%, #991B1B 100%); padding: 24px; border-radius: 12px; color: white;">
-                    <h3 style="font-size: 1.1rem; margin-bottom: 12px;">Expiring Today</h3>
-                    <p style="font-size: 2rem; font-weight: bold;">{{ $reservationStats['expiring_today'] ?? 0 }}</p>
+                    <h3 style="font-size: 1.1rem; margin-bottom: 12px;">Cancelled</h3>
+                    <p style="font-size: 2rem; font-weight: bold;">{{ $reservationStats['cancelled'] ?? 0 }}</p>
                 </div>
             </div>
             
@@ -113,8 +130,6 @@
                 <select id="reservation-status-filter" style="padding: 8px 16px; border: 1px solid #E2E8F0; border-radius: 8px;">
                     <option value="all">All Status</option>
                     <option value="pending">Pending</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="ready">Ready</option>
                     <option value="completed">Completed</option>
                     <option value="cancelled">Cancelled</option>
                 </select>
@@ -155,8 +170,6 @@
                             @php
                                 $statusColors = [
                                     'pending' => 'background-color: #FEF3C7; color: #92400E;',
-                                    'confirmed' => 'background-color: #DBEAFE; color: #1E40AF;',
-                                    'ready' => 'background-color: #D1FAE5; color: #065F46;',
                                     'completed' => 'background-color: #DCFCE7; color: #166534;',
                                     'cancelled' => 'background-color: #FEE2E2; color: #991B1B;'
                                 ];
@@ -167,15 +180,10 @@
                         </div>
                         <div style="display: flex; gap: 8px;">
                             @if($reservation->status === 'pending')
-                                <button onclick="updateReservationStatus('{{ $reservation->id }}', 'confirmed')" style="min-width: 100px; padding: 8px 16px; border-radius: 8px; background-color: #2563EB; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 500;">Confirm</button>
-                            @elseif($reservation->status === 'confirmed')
-                                <button onclick="updateReservationStatus('{{ $reservation->id }}', 'ready')" style="min-width: 100px; padding: 8px 16px; border-radius: 8px; background-color: #059669; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 500;">Ready</button>
-                            @elseif($reservation->status === 'ready')
-                                <button onclick="updateReservationStatus('{{ $reservation->id }}', 'completed')" style="min-width: 100px; padding: 8px 16px; border-radius: 8px; background-color: #2563EB; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 500;">Complete</button>
-                            @endif
-                            
-                            @if($reservation->status !== 'cancelled' && $reservation->status !== 'completed')
-                                <button onclick="updateReservationStatus('{{ $reservation->id }}', 'cancelled')" style="min-width: 100px; padding: 8px 16px; border-radius: 8px; background-color: #DC2626; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 500;">Cancel</button>
+                                <button onclick="updateReservationStatus('{{ $reservation->id }}', 'completed')" style="min-width: 110px; padding: 8px 16px; border-radius: 8px; background-color: #059669; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 600;">Complete</button>
+                                <button onclick="updateReservationStatus('{{ $reservation->id }}', 'cancelled')" style="min-width: 110px; padding: 8px 16px; border-radius: 8px; background-color: #DC2626; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 600;">Cancel</button>
+                            @elseif($reservation->status === 'completed')
+                                <button onclick="updateReservationStatus('{{ $reservation->id }}', 'pending')" style="min-width: 110px; padding: 8px 16px; border-radius: 8px; background-color: #2563EB; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 600;">Uncomplete</button>
                             @endif
                         </div>
                     </div>
@@ -214,11 +222,50 @@ updateDateTime();
 
 // Reservation status update function
 function updateReservationStatus(reservationId, status) {
-    if (confirm(`Are you sure you want to change the status to ${status}?`)) {
-        console.log('Update reservation:', reservationId, 'to status:', status);
-        // Implement reservation status update functionality
-        // This would typically make an AJAX request to update the status
-    }
+    const allowed = ['pending','completed','cancelled'];
+    if (!allowed.includes(status)) { alert('Invalid status'); return; }
+    if (!confirm(`Are you sure you want to change the status to ${status}?`)) return;
+    fetch(`{{ route('inventory.reservations.update-status', ['id' => 'RES_ID']) }}`.replace('RES_ID', reservationId), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({ status })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success) throw new Error(data.message || 'Failed');
+        // Update UI optimistically
+        const card = [...document.querySelectorAll('#reservations-container > div')]
+            .find(div => div.textContent.includes(reservationId));
+        if (card) {
+            // Update status pill text
+            const pill = card.querySelector('span');
+            if (pill) pill.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+            // Re-render action buttons container
+            const actions = card.querySelector('div[style*="display: flex;"]');
+            if (actions) {
+                if (status === 'pending') {
+                    actions.innerHTML = `
+                        <button onclick="updateReservationStatus('${reservationId}', 'completed')" style="min-width: 110px; padding: 8px 16px; border-radius: 8px; background-color: #059669; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 600;">Complete</button>
+                        <button onclick="updateReservationStatus('${reservationId}', 'cancelled')" style="min-width: 110px; padding: 8px 16px; border-radius: 8px; background-color: #DC2626; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 600;">Cancel</button>
+                    `;
+                } else if (status === 'completed') {
+                    actions.innerHTML = `
+                        <button onclick="updateReservationStatus('${reservationId}', 'pending')" style="min-width: 110px; padding: 8px 16px; border-radius: 8px; background-color: #2563EB; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 600;">Uncomplete</button>
+                    `;
+                } else if (status === 'cancelled') {
+                    actions.innerHTML = '';
+                }
+            }
+        }
+        alert('Reservation status updated');
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Failed to update reservation status');
+    });
 }
 
 // Search functionality
@@ -247,5 +294,21 @@ document.getElementById('reservation-status-filter').addEventListener('change', 
         }
     });
 });
+
+// Notification bell toggle
+const bell = document.getElementById('notif-bell');
+const dd = document.getElementById('notif-dropdown');
+const badge = document.getElementById('notif-badge');
+if (bell) {
+    bell.addEventListener('click', function(e){
+        e.stopPropagation();
+        dd.style.display = dd.style.display === 'none' || dd.style.display === '' ? 'block' : 'none';
+        badge.style.display = 'none';
+    });
+    document.addEventListener('click', function(){
+        dd.style.display = 'none';
+    });
+    badge.style.display = 'inline-block';
+}
 </script>
 @endpush

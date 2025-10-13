@@ -6,6 +6,11 @@
 <link rel="stylesheet" href="{{ asset('assets/css/inventory.css') }}">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;600;700;800&family=Roboto+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+<style>
+.logout-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.9rem 1rem;background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:9999px;font-size:.86rem;font-weight:700;cursor:pointer;transition:all .2s ease;text-decoration:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 6px 20px rgba(239,68,68,.35)}
+.logout-btn:hover{filter:brightness(1.05);box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 10px 24px rgba(185,28,28,.45)}
+.logout-btn i{font-size:1rem}
+</style>
 @endpush
 
 @section('content')
@@ -56,7 +61,7 @@
         </div>
         <form id="logout-form" method="POST" action="{{ route('logout') }}" style="display: inline;">
             @csrf
-            <button type="submit" class="logout-btn" style="background: none; border: none; color: inherit; width: 100%; text-align: left;">
+            <button type="submit" class="logout-btn">
                 <i class="fas fa-sign-out-alt"></i>
                 <span>Logout</span>
             </button>
@@ -76,9 +81,21 @@
                 <i class="fas fa-clock"></i>
                 <span id="current-time">Loading...</span>
             </div>
-            <div class="date-display">
+            <div class="date-display" style="display:flex;align-items:center;gap:12px;">
                 <i class="fas fa-calendar"></i>
                 <span id="current-date">Loading...</span>
+                <button id="notif-bell" title="Notifications" style="background:none;border:none;cursor:pointer;position:relative;">
+                    <i class="fas fa-bell" style="font-size:1.5rem;"></i>
+                    <span id="notif-badge" style="position:absolute;top:-4px;right:-8px;background:#ef4444;color:#fff;border-radius:999px;padding:2px 6px;font-size:11px;display:none;">3</span>
+                </button>
+                <div id="notif-dropdown" style="display:none;position:absolute;right:0;top:48px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.08);width:320px;z-index:1000;">
+                    <div style="padding:12px 14px;border-bottom:1px solid #f1f5f9;font-weight:700;">Notifications</div>
+                    <div style="max-height:280px;overflow:auto;">
+                        <div style="padding:10px 14px;border-bottom:1px solid #f8fafc;">Low stock: Nike Air Max 270 size 9</div>
+                        <div style="padding:10px 14px;border-bottom:1px solid #f8fafc;">Reservation REV-ABC123 expiring soon</div>
+                        <div style="padding:10px 14px;">New supplier added: Adidas Distributor</div>
+                    </div>
+                </div>
             </div>
         </div>
     </header>
@@ -94,8 +111,7 @@
                 <div class="settings-tabs" role="tablist">
                     <button class="settings-tab active" data-tab="profile" role="tab"><i class="fas fa-user"></i> Profile</button>
                     <button class="settings-tab" data-tab="security" role="tab"><i class="fas fa-shield-alt"></i> Security</button>
-                    <button class="settings-tab" data-tab="preferences" role="tab"><i class="fas fa-sliders-h"></i> Preferences</button>
-                    <button class="settings-tab" data-tab="notifications" role="tab"><i class="fas fa-bell"></i> Notifications</button>
+                    
                     <button class="settings-tab" data-tab="system" role="tab"><i class="fas fa-tools"></i> System</button>
                 </div>
 
@@ -130,10 +146,7 @@
                                         <label for="settings-phone">Phone</label>
                                         <input id="settings-phone" type="tel" placeholder="+63 900 000 0000" value="{{ auth()->user()->phone ?? '' }}">
                                     </div>
-                                    <div class="form-group full">
-                                        <label for="settings-bio">Bio</label>
-                                        <textarea id="settings-bio" rows="3" placeholder="Tell us about yourself...">{{ auth()->user()->bio ?? '' }}</textarea>
-                                    </div>
+                                    
                                 </div>
                                 <div class="form-actions">
                                     <button class="btn btn-primary" id="settings-profile-save"><i class="fas fa-save"></i> Save Profile</button>
@@ -166,74 +179,7 @@
                         </div>
                     </div>
 
-                    <!-- Preferences -->
-                    <div class="settings-panel" id="settings-panel-preferences">
-                        <div class="settings-grid">
-                            <div class="settings-card">
-                                <div class="card-title"><i class="fas fa-palette"></i> Appearance</div>
-                                <div class="form-grid">
-                                    <div class="form-group">
-                                        <label for="settings-theme">Theme</label>
-                                        <select id="settings-theme">
-                                            <option value="light">Light</option>
-                                            <option value="dark">Dark</option>
-                                            <option value="system">System</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="settings-accent">Accent Color</label>
-                                        <input id="settings-accent" type="color" value="#2a6aff">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="settings-card">
-                                <div class="card-title"><i class="fas fa-language"></i> Localization</div>
-                                <div class="form-grid">
-                                    <div class="form-group">
-                                        <label for="settings-language">Language</label>
-                                        <select id="settings-language">
-                                            <option value="en">English</option>
-                                            <option value="tl">Tagalog</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="settings-currency">Currency</label>
-                                        <select id="settings-currency">
-                                            <option value="PHP">PHP - Philippine Peso</option>
-                                            <option value="USD">USD - US Dollar</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="form-actions">
-                            <button class="btn btn-primary" id="settings-preferences-save"><i class="fas fa-save"></i> Save Preferences</button>
-                        </div>
-                    </div>
-
-                    <!-- Notifications -->
-                    <div class="settings-panel" id="settings-panel-notifications">
-                        <div class="settings-card">
-                            <div class="card-title"><i class="fas fa-bell"></i> Notifications</div>
-                            <div class="toggle-list">
-                                <label class="toggle-item">
-                                    <input type="checkbox" id="notif-sales" checked>
-                                    <span>Sales notifications</span>
-                                </label>
-                                <label class="toggle-item">
-                                    <input type="checkbox" id="notif-inventory" checked>
-                                    <span>Low inventory alerts</span>
-                                </label>
-                                <label class="toggle-item">
-                                    <input type="checkbox" id="notif-reservations" checked>
-                                    <span>Reservation updates</span>
-                                </label>
-                            </div>
-                            <div class="form-actions">
-                                <button class="btn btn-primary" id="settings-notifications-save"><i class="fas fa-save"></i> Save Notifications</button>
-                            </div>
-                        </div>
-                    </div>
+                    
 
                     <!-- System -->
                     <div class="settings-panel" id="settings-panel-system">
@@ -246,9 +192,7 @@
                                 <div><strong>PHP Version:</strong> {{ PHP_VERSION }}</div>
                                 <div><strong>Environment:</strong> {{ app()->environment() }}</div>
                             </div>
-                            <div class="form-actions">
-                                <button class="btn btn-danger" id="settings-reset"><i class="fas fa-trash-alt"></i> Reset All Data</button>
-                            </div>
+                            
                         </div>
                     </div>
                 </div>
@@ -335,18 +279,22 @@ document.getElementById('settings-password-save').addEventListener('click', func
     alert('Password updated!');
 });
 
-document.getElementById('settings-preferences-save').addEventListener('click', function() {
-    alert('Preferences saved!');
-});
-
-document.getElementById('settings-notifications-save').addEventListener('click', function() {
-    alert('Notification settings saved!');
-});
-
-document.getElementById('settings-reset').addEventListener('click', function() {
-    if (confirm('Are you sure you want to reset all data? This action cannot be undone.')) {
-        alert('Data reset functionality would be implemented here.');
-    }
-});
+// Notifications bell toggle (simple demo)
+const bell = document.getElementById('notif-bell');
+const dd = document.getElementById('notif-dropdown');
+const badge = document.getElementById('notif-badge');
+if (bell) {
+    bell.addEventListener('click', function(e){
+        e.stopPropagation();
+        dd.style.display = dd.style.display === 'none' || dd.style.display === '' ? 'block' : 'none';
+        // Mark as read
+        badge.style.display = 'none';
+    });
+    document.addEventListener('click', function(){
+        dd.style.display = 'none';
+    });
+    // Show a badge if there are notifications
+    badge.style.display = 'inline-block';
+}
 </script>
 @endpush
