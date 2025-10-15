@@ -89,56 +89,19 @@ class InventoryController extends Controller
      */
     public function reservationReports()
     {
-        // Mock data for now - implement when reservation system is ready
-        $reservations = collect([
-            (object)[
-                'id' => 1,
-                'reservation_id' => 'REV-ABC123',
-                'status' => 'pending',
-                'created_at' => now()->subDays(1),
-                'pickup_date' => now()->addDays(2),
-                'customer' => (object)[
-                    'name' => 'John Doe',
-                    'email' => 'john.doe@email.com'
-                ],
-                'product' => (object)[
-                    'name' => 'Nike Air Max 270'
-                ]
-            ],
-            (object)[
-                'id' => 2,
-                'reservation_id' => 'REV-DEF456',
-                'status' => 'confirmed',
-                'created_at' => now()->subDays(2),
-                'pickup_date' => now()->addDay(),
-                'customer' => (object)[
-                    'name' => 'Jane Smith',
-                    'email' => 'jane.smith@email.com'
-                ],
-                'product' => (object)[
-                    'name' => 'Adidas Ultraboost 22'
-                ]
-            ],
-            (object)[
-                'id' => 3,
-                'reservation_id' => 'REV-GHI789',
-                'status' => 'completed',
-                'created_at' => now()->subDays(3),
-                'pickup_date' => now()->subDay(),
-                'customer' => (object)[
-                    'name' => 'Mike Johnson',
-                    'email' => 'mike.j@email.com'
-                ],
-                'product' => (object)[
-                    'name' => 'Converse Chuck Taylor'
-                ]
-            ]
-        ]);
+        // Get real reservations from database
+        $reservations = \App\Models\Reservation::orderBy('created_at', 'desc')->get();
+        
+        // If no reservations exist, show empty state with proper message
+        if ($reservations->isEmpty()) {
+            $reservations = collect([]);
+        }
 
+        // Calculate real reservation statistics
         $reservationStats = [
-            'incomplete' => 24,
-            'expiring_soon' => 8,
-            'expiring_today' => 3
+            'incomplete' => \App\Models\Reservation::where('status', 'pending')->count(),
+            'completed' => \App\Models\Reservation::where('status', 'completed')->count(),
+            'cancelled' => \App\Models\Reservation::where('status', 'cancelled')->count()
         ];
 
         return view('inventory.reservation-reports', compact('reservations', 'reservationStats'));
@@ -509,17 +472,25 @@ class InventoryController extends Controller
                 'status' => 'required|string|in:pending,completed,cancelled'
             ]);
 
-            // For now, just return success for UI testing
-            // We'll implement database logic later
+            // Find and update the reservation
+            $reservation = \App\Models\Reservation::findOrFail($id);
+            $reservation->status = $request->status;
+            $reservation->save();
+
             return response()->json([
                 'success' => true,
-                'message' => 'Reservation status updated successfully (demo mode)',
+                'message' => 'Reservation status updated successfully',
                 'reservation' => [
-                    'id' => $id,
-                    'status' => $request->status
+                    'id' => $reservation->id,
+                    'status' => $reservation->status
                 ]
             ]);
 
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Reservation not found'
+            ], 404);
         } catch (\Exception $e) {
             Log::error('Error updating reservation status: ' . $e->getMessage());
             

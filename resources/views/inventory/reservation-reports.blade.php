@@ -137,29 +137,29 @@
 
             <!-- Reservation Cards -->
             <div style="margin: 20px; display: grid; gap: 16px;" id="reservations-container">
-                @foreach($reservations ?? [] as $reservation)
+                @forelse($reservations ?? [] as $reservation)
                 <!-- Reservation Card -->
                 <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                     <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; align-items: center;">
                         <div>
                             <p style="color: #6B7280; font-size: 0.9rem;">Reservation ID</p>
-                            <p style="font-weight: 600;">{{ $reservation->reservation_id }}</p>
+                            <p style="font-weight: 600;">{{ $reservation->reservation_id ?? 'N/A' }}</p>
                         </div>
                         <div>
                             <p style="color: #6B7280; font-size: 0.9rem;">Customer Name</p>
-                            <p style="font-weight: 600;">{{ $reservation->customer->name }}</p>
+                            <p style="font-weight: 600;">{{ $reservation->customer_name ?? 'N/A' }}</p>
                         </div>
                         <div>
                             <p style="color: #6B7280; font-size: 0.9rem;">Email</p>
-                            <p style="font-weight: 600;">{{ $reservation->customer->email ?? 'N/A' }}</p>
+                            <p style="font-weight: 600;">{{ $reservation->customer_email ?? 'N/A' }}</p>
                         </div>
                         <div>
-                            <p style="color: #6B7280; font-size: 0.9rem;">Item Reserved</p>
-                            <p style="font-weight: 600;">{{ $reservation->product->name }}</p>
+                            <p style="color: #6B7280; font-size: 0.9rem;">Product</p>
+                            <p style="font-weight: 600;">{{ $reservation->product_name ?? 'N/A' }}</p>
                         </div>
                         <div>
                             <p style="color: #6B7280; font-size: 0.9rem;">Reservation Date</p>
-                            <p style="font-weight: 600;">{{ $reservation->created_at->format('M d, Y') }}</p>
+                            <p style="font-weight: 600;">{{ $reservation->created_at ? $reservation->created_at->format('M d, Y') : 'N/A' }}</p>
                         </div>
                         <div>
                             <p style="color: #6B7280; font-size: 0.9rem;">Pickup Date</p>
@@ -183,12 +183,21 @@
                                 <button onclick="updateReservationStatus('{{ $reservation->id }}', 'completed')" style="min-width: 110px; padding: 8px 16px; border-radius: 8px; background-color: #059669; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 600;">Complete</button>
                                 <button onclick="updateReservationStatus('{{ $reservation->id }}', 'cancelled')" style="min-width: 110px; padding: 8px 16px; border-radius: 8px; background-color: #DC2626; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 600;">Cancel</button>
                             @elseif($reservation->status === 'completed')
-                                <button onclick="updateReservationStatus('{{ $reservation->id }}', 'pending')" style="min-width: 110px; padding: 8px 16px; border-radius: 8px; background-color: #2563EB; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 600;">Uncomplete</button>
+                                <button onclick="updateReservationStatus('{{ $reservation->id }}', 'pending')" style="min-width: 110px; padding: 8px 16px; border-radius: 8px; background-color: #2563EB; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 600;">Reopen</button>
                             @endif
                         </div>
                     </div>
                 </div>
-                @endforeach
+                @empty
+                <!-- Empty State -->
+                <div style="text-align: center; padding: 60px 20px; background: white; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    <div style="font-size: 3rem; color: #E5E7EB; margin-bottom: 16px;">
+                        <i class="fas fa-clipboard-list"></i>
+                    </div>
+                    <h3 style="color: #6B7280; margin-bottom: 8px;">No Reservations Yet</h3>
+                    <p style="color: #9CA3AF;">Reservations will appear here once customers start making reservations through the portal.</p>
+                </div>
+                @endforelse
             </div>
         </section>
     </div>

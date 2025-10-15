@@ -287,13 +287,20 @@ document.addEventListener('DOMContentLoaded', function() {
         const productData = JSON.parse(this.dataset.productData);
         const selectedSizeData = productData.sizes.find(s => s.id == selectedSize.dataset.sizeId);
         
+        console.log('Product data:', productData); // Debug log
+        console.log('Selected size data:', selectedSizeData); // Debug log
+        
         if (!selectedSizeData || !selectedSizeData.is_available || selectedSizeData.stock <= 0) {
             alert('Selected size is not available');
             return;
         }
         
         // Calculate final price with size adjustment
-        const finalPrice = productData.price + (selectedSizeData.price_adjustment || 0);
+        const basePrice = parseFloat(productData.price) || 0;
+        const sizeAdjustment = parseFloat(selectedSizeData.price_adjustment) || 0;
+        const finalPrice = basePrice + sizeAdjustment;
+        
+        console.log('Price calculation:', { basePrice, sizeAdjustment, finalPrice }); // Debug log
         
         addToCart({
             id: productData.id,
@@ -344,6 +351,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function addToCart(data) {
+        console.log('Adding to cart:', data); // Debug log
         const key = `${data.id}__${data.sizeId}__${data.color}`;
         let existing = cart.find(i => i.key === key);
         
@@ -371,6 +379,8 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
+        console.log('Cart after adding:', cart); // Debug log
+        console.log('Saving to localStorage with key:', 'sv_cart'); // Debug log
         saveCart();
         renderCart();
 
@@ -396,6 +406,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         let total = 0;
         cart.forEach(item => {
+            // Use the priceNumber which already includes size adjustments
             const priceNum = (typeof item.priceNumber === 'number')
                 ? item.priceNumber
                 : parseCurrencyToNumber(item.price);

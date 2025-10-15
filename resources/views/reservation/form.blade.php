@@ -134,6 +134,10 @@
           <label for="phone">Phone Number</label>
           <input id="phone" name="phone" type="tel" required placeholder="09XX XXX XXXX" pattern="^(\+?63|0)9\d{9}$" />
         </div>
+        <div class="field-group">
+          <label for="notes">Additional Notes (Optional)</label>
+          <textarea id="notes" name="notes" placeholder="Any special requests or instructions..." rows="3"></textarea>
+        </div>
         <div class="inline-date-time">
           <div class="field-group">
             <label for="pickupDate">Pick-Up Date</label>
@@ -175,6 +179,7 @@
 
     function renderItems(){
       const cart = loadCart();
+      console.log('Rendering items, cart:', cart); // Debug log
       itemsEl.innerHTML = '';
       if(!cart.length){
         itemsEl.innerHTML = '<div class="empty-note">No items reserved yet. Return to the catalog to add products.</div>';
@@ -183,7 +188,14 @@
       }
       let sum = 0;
       cart.forEach(item => {
-        sum += item.priceNumber * item.qty;
+        // Ensure we use the correct price (priceNumber should include size adjustments)
+        const itemPrice = typeof item.priceNumber === 'number' ? item.priceNumber : 
+                         parseFloat(typeof item.priceNumber === 'string' ? item.priceNumber.replace(/[₱,]/g, '') : item.price || 0);
+        const itemTotal = itemPrice * item.qty;
+        sum += itemTotal;
+        
+        console.log(`Item: ${item.name}, Price: ${itemPrice}, Qty: ${item.qty}, Total: ${itemTotal}`); // Debug log
+        
         const div = document.createElement('div');
         div.className = 'res-item';
         div.innerHTML = `
@@ -194,8 +206,8 @@
               <div class="res-meta">${item.brand} • Size ${item.size} • ${item.color}</div>
             </div>
             <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:8px;">
-              <div class="res-price">${item.price}</div>
-              <div class="res-qty">Qty: ${item.qty}</div>
+              <div class="res-price">${formatCurrency(itemPrice)} × ${item.qty}</div>
+              <div class="res-total">${formatCurrency(itemTotal)}</div>
             </div>
           </div>`;
         itemsEl.appendChild(div);
@@ -219,20 +231,101 @@
       const v = agreeAll.checked; agreeTerms.checked = v; agreePrivacy.checked = v; updateConfirmState();
     });
 
-    // Form submit (placeholder for backend)
-    document.getElementById('reservationForm').addEventListener('submit', (e) => {
+    // Form submit with real backend submission
+    document.getElementById('reservationForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       if(confirmBtn.disabled) return;
+      
       const data = new FormData(e.target);
       const cart = loadCart();
+      
+      // Enhanced debug logging
+      console.log('localStorage sv_cart:', localStorage.getItem('sv_cart'));
+      console.log('Form data entries:', Object.fromEntries(data.entries()));
+      console.log('Cart data:', cart);
+      
+      // Check if cart is empty and warn user
+      if (!cart || cart.length === 0) {
+        alert('Your cart is empty! Please add items to your cart before making a reservation.');
+        return;
+      }
+      
+      // Properly format cart items for the backend
+      const items = cart.map(item => ({
+        id: parseInt(item.id),
+        sizeId: parseInt(item.sizeId),
+        qty: parseInt(item.qty),
+        name: item.name,
+        brand: item.brand,
+        size: item.size,
+        color: item.color,
+        price: item.price,
+        priceNumber: parseFloat(typeof item.priceNumber === 'string' ? 
+                               item.priceNumber.replace(/[₱,]/g, '') : item.priceNumber)
+      }));
+      
       const payload = {
         customer: Object.fromEntries(data.entries()),
-        items: cart.map(({key, ...rest}) => rest),
-        total: cart.reduce((s,i)=> s + i.priceNumber * i.qty, 0)
+        items: items,
+        total: items.reduce((s, i) => s + (i.priceNumber * i.qty), 0)
       };
-      console.log('Reservation submission payload (POST /api/reservations):', payload);
-      alert('Reservation submitted! (Check console for payload)');
-      // Potential future: redirect to success page or clear cart
+      
+      console.log('Processed items:', items);
+      console.log('Final payload:', payload);
+      
+      try {
+        // Show loading state
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Processing...';
+        
+        const response = await fetch('{{ route("api.reservations.store") }}', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        console.log('Reservation response:', result);
+        
+        if (result.success) {
+          // Clear cart
+          localStorage.removeItem(cartKey);
+          
+          // Show success message
+          alert(`Reservation created successfully! Reservation ID: ${result.reservation_id}`);
+          
+          // Show receipt and redirect or reload
+          setTimeout(() => {
+            openReceipt(payload);
+          }, 100);
+          
+        } else {
+          console.error('Reservation error details:', result);
+          let errorMessage = result.message || 'Failed to create reservation';
+          
+          // Show detailed validation errors if available
+          if (result.errors) {
+            const errorList = Object.entries(result.errors)
+              .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+              .join('\n');
+            errorMessage += '\n\nValidation errors:\n' + errorList;
+          }
+          
+          throw new Error(errorMessage);
+        }
+        
+      } catch (error) {
+        console.error('Reservation submission error:', error);
+        alert('Failed to create reservation: ' + error.message);
+      } finally {
+        // Reset button state
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Confirm Reservation';
+        updateConfirmState();
+      }
     });
 
     // Navigation buttons

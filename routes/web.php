@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\InventoryController;
@@ -16,6 +17,9 @@ Route::get('/size-converter', [ReservationController::class, 'sizeConverter'])->
 // AJAX routes for dynamic functionality
 Route::get('/api/products/filter', [ReservationController::class, 'getFilteredProducts'])->name('api.products.filter');
 Route::get('/api/products/{id}/details', [ReservationController::class, 'getProductDetails'])->name('api.products.details');
+
+// Reservation submission endpoint
+Route::post('/api/reservations', [ReservationController::class, 'store'])->name('api.reservations.store');
 
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);

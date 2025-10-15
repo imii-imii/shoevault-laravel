@@ -941,25 +941,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            // Check stock availability
-            if (product.stock <= 0) {
-                showNotification('Sorry, this item is out of stock!');
-                return;
-            }
-            
             const existingItem = cart.find(item => item.id === productId && item.size === selectedSize);
             if (existingItem) {
                 if (existingItem.quantity >= 10) {
                     showNotification('Maximum quantity is 10 per item');
                     return;
                 }
-                if (existingItem.quantity >= product.stock) {
-                    showNotification(`Only ${product.stock} items left in stock!`);
-                    return;
-                }
                 existingItem.quantity += 1;
-                // Decrease stock
-                product.stock -= 1;
                 showNotification(`${product.name} (Size ${selectedSize}) quantity increased`);
             } else {
                 cart.push({
@@ -967,15 +955,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     size: selectedSize,
                     quantity: 1
                 });
-                // Decrease stock
-                product.stock -= 1;
                 showNotification(`${product.name} (Size ${selectedSize}) added to cart`);
             }
             
-            // Update cart display and total
+            // Update cart display and total - DO NOT modify stock
             loadCart();
-            // Reload products to update stock display
-            loadProducts();
             
             // Reset the add to cart button
             const productCard = document.querySelector(`[data-product="${productId}"]`).closest('.product-card');
@@ -1072,25 +1056,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 showNotification('Maximum quantity is 10 per item');
                 return;
             } else {
-                // Handle stock changes
-                const product = findProduct(productId);
-                if (change > 0) {
-                    // Increasing quantity - check stock
-                    if (product.stock <= 0) {
-                        showNotification('Sorry, this item is out of stock!');
-                        return;
-                    }
-                    product.stock -= 1;
-                } else {
-                    // Decreasing quantity - increase stock back
-                    product.stock += 1;
-                }
-                
+                // Handle stock changes - REMOVED: No longer modify stock in cart operations
                 item.quantity = newQuantity;
                 // Update cart display and total
                 loadCart();
-                // Reload products to update stock display
-                loadProducts();
                 showNotification(`Quantity updated to ${newQuantity}`);
             }
         }
@@ -1099,36 +1068,18 @@ document.addEventListener('DOMContentLoaded', function() {
     window.removeFromCart = function(productId, size) {
         const item = cart.find(item => item.id === productId && item.size === size);
         if (item) {
-            // Restore stock
-            const product = findProduct(productId);
-            if (product) {
-                product.stock += item.quantity;
-            }
-            
             cart = cart.filter(item => !(item.id === productId && item.size === size));
             // Update cart display and total
             loadCart();
-            // Reload products to update stock display
-            loadProducts();
             showNotification(`${item.name} (Size ${item.size}) removed from cart`);
         }
     };
 
     // Clear cart
     clearCart.addEventListener('click', function() {
-        // Restore all stock
-        cart.forEach(item => {
-            const product = findProduct(item.id);
-            if (product) {
-                product.stock += item.quantity;
-            }
-        });
-        
         cart = [];
         // Update cart display and total
         loadCart();
-        // Reload products to update stock display
-        loadProducts();
     });
 
     // Cancel order button
