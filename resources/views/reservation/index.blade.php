@@ -60,8 +60,8 @@
                     </div>
                 </div>
                 <div class="welcome-actions">
-                    <a href="{{ route('reservation.portal') }}" class="cta-primary">Explore Collection</a>
-                    <button class="cta-secondary">Contact Us</button>
+                    <a href="{{ route('reservation.portal') }}" class="cta-primary">Reserve Now</a>
+                    <a href="{{ route('reservation.size-converter') }}" class="cta-secondary">Size Converter</a>
                 </div>
             </div>
             

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Shopee Style Reservation Portal</title>
+  <title>ShoeVault Reservation Portal</title>
   <link rel="stylesheet" href="{{ asset('css/reservation-portal.css') }}">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Roboto+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
@@ -60,11 +60,18 @@
       </button>
       <div class="cart-dropdown" id="cartDropdown">
         <div class="cart-dropdown-header">
-          <span>Cart</span>
-          <button class="cart-close-btn" aria-label="Close Cart">&times;</button>
+          <div class="cart-header-title">
+            <i class="fas fa-shopping-cart cart-header-icon" aria-hidden="true"></i>
+            <span>Reservation Cart</span>
+          </div>
+          <button class="cart-clear-btn" type="button" title="Clear all items">Clear all</button>
         </div>
         <div class="cart-dropdown-body" id="cartItems">
-          <div class="cart-empty">Your cart is empty</div>
+          <div class="cart-empty">
+            <div class="cart-empty-icon"><i class="fas fa-bag-shopping"></i></div>
+            <div class="cart-empty-title">Your cart is empty</div>
+            <div class="cart-empty-subtitle">Add some shoes to get started!</div>
+          </div>
         </div>
         <div class="cart-dropdown-footer">
           <div class="cart-total-row">
@@ -116,16 +123,48 @@
         <span class="nav-label">Contact Us</span>
       </button>
     </div>
-    <div class="res-portal-categories">
-      <button class="res-portal-category-btn {{ $selectedCategory === 'All' ? 'active' : '' }}" data-category="All">All</button>
-      @foreach($categories as $category)
-        <button class="res-portal-category-btn {{ $selectedCategory === $category ? 'active' : '' }}" data-category="{{ $category }}">{{ $category }}</button>
-      @endforeach
+    <div class="res-portal-filter-bar">
+      <div class="res-portal-categories">
+        <button class="res-portal-category-btn {{ ($selectedCategory ?? 'All') === 'All' ? 'active' : '' }}" data-category="All">All</button>
+        @php
+          $staticCats = ['men' => 'Men', 'women' => 'Women', 'accessories' => 'Accessories'];
+          $lowerCats = collect($categories ?? [])->map(fn($c) => strtolower($c));
+        @endphp
+        @foreach($staticCats as $value => $label)
+          <button class="res-portal-category-btn {{ (strtolower($selectedCategory ?? '') === $value) ? 'active' : '' }}" data-category="{{ $value }}">{{ $label }}</button>
+        @endforeach
+        @foreach(($categories ?? []) as $category)
+          @if(!in_array(strtolower($category), array_keys($staticCats)))
+            <button class="res-portal-category-btn {{ ($selectedCategory === $category) ? 'active' : '' }}" data-category="{{ $category }}">{{ $category }}</button>
+          @endif
+        @endforeach
+      </div>
+      <div class="res-portal-price-compact">
+        <button type="button" class="price-toggle-btn mobile-only" aria-expanded="false" aria-controls="pricePanel">
+          <i class="fas fa-filter"></i>
+          <span class="toggle-label">Filter</span>
+        </button>
+        <div class="res-portal-price-filter" aria-label="Price Range" id="pricePanel">
+          <i class="fas fa-peso-sign"></i>
+          <input type="number" id="priceMin" class="price-input" placeholder="Min" min="0" step="100">
+          <span class="dash">—</span>
+          <input type="number" id="priceMax" class="price-input" placeholder="Max" min="0" step="100">
+          <button id="priceApply" class="price-apply" title="Apply price filter">
+            <i class="fas fa-filter"></i>
+          </button>
+        </div>
+      </div>
     </div>
   <div class="res-portal-products-grid" id="products">
       @include('reservation.partials.product-grid', ['products' => $products])
     </div>
   </div>
+
+  <!-- Floating Shoe Conversion Button (now inside main container) -->
+  <a href="{{ route('reservation.size-converter') }}" class="floating-conversion-btn" aria-label="Open Shoe Size Conversion" title="Shoe Size Conversion">
+    <i class="fas fa-ruler-horizontal"></i>
+    <span class="floating-conversion-label">Convert Size</span>
+  </a>
 
   <!-- Product Modal -->
   <div class="product-modal" id="productModal" style="display: none;">
@@ -172,31 +211,41 @@
 
   <!-- Mobile Cart Modal -->
   <div class="cart-modal-overlay" id="cartModalOverlay" style="display:none;">
-    <div class="cart-modal-window" role="dialog" aria-label="Cart" aria-modal="true">
+    <div class="cart-modal-window" role="dialog" aria-label="Reservation Cart" aria-modal="true">
       <div class="cart-modal-header">
-        <h3>Cart</h3>
+        <div class="cart-header-title">
+          <i class="fas fa-shopping-cart cart-header-icon" aria-hidden="true"></i>
+          <span>Reservation Cart</span>
+        </div>
         <button class="cart-modal-close" id="cartModalClose" aria-label="Close Cart">&times;</button>
       </div>
       <div class="cart-modal-body">
-        <div class="cart-modal-items" id="cartModalItems"><div class="cart-empty">Your cart is empty</div></div>
+        <div class="cart-modal-items" id="cartModalItems">
+          <div class="cart-empty">
+            <div class="cart-empty-icon"><i class="fas fa-bag-shopping"></i></div>
+            <div class="cart-empty-title">Your cart is empty</div>
+            <div class="cart-empty-subtitle">Add some shoes to get started!</div>
+          </div>
+        </div>
       </div>
-      <div class="cart-modal-footer">
+        <div class="cart-modal-footer">
         <div class="cart-total-row">
           <span>Total:</span>
           <span class="cart-total" id="cartModalTotal">₱ 0.00</span>
         </div>
-  <button class="cart-checkout-btn cart-modal-checkout" disabled>Reserve</button>
+        <div class="cart-modal-actions">
+          <button class="cart-clear-btn cart-modal-clear" type="button" title="Clear all items" disabled>
+            <i class="fas fa-trash-can"></i>
+            <span>Clear all</span>
+          </button>
+          <button class="cart-checkout-btn cart-modal-checkout" disabled>Reserve</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Floating Shoe Conversion Button -->
-  <a href="{{ route('reservation.size-converter') }}" class="floating-conversion-btn" aria-label="Open Shoe Size Conversion" title="Shoe Size Conversion">
-    <i class="fas fa-ruler-horizontal"></i>
-    <span class="floating-conversion-label">Convert Size</span>
-  </a>
+  <!-- Floating Shoe Conversion Button moved inside main container (see below) -->
 
   <!-- Products Data for JavaScript -->
   <script src="{{ asset('js/reservation-portal-laravel.js') }}"></script>
-</body>
-</html>
+  

@@ -62,14 +62,17 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             if (ctaSecondary) {
-                ctaSecondary.addEventListener('click', () => {
-                    // Scroll to contact section
-                    showSection('contact');
-                    const contactElement = document.getElementById('contact');
-                    if (contactElement) {
-                        contactElement.scrollIntoView({ behavior: 'smooth' });
-                    }
-                });
+                // If it's still a button, keep legacy scroll-to-contact behavior.
+                // If it's an anchor (Size Converter), allow normal navigation.
+                if (ctaSecondary.tagName && ctaSecondary.tagName.toLowerCase() === 'button') {
+                    ctaSecondary.addEventListener('click', () => {
+                        showSection('contact');
+                        const contactElement = document.getElementById('contact');
+                        if (contactElement) {
+                            contactElement.scrollIntoView({ behavior: 'smooth' });
+                        }
+                    });
+                }
             }
 
             // Check if there's a stored scroll target

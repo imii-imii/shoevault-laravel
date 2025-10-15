@@ -1,8 +1,40 @@
 document.addEventListener('DOMContentLoaded', function() {
+    // Robustly parse currency-like strings to number (supports commas, multiple dots)
+    function parseCurrencyToNumber(val) {
+        if (typeof val === 'number') return val;
+        if (!val) return 0;
+        let s = String(val).replace(/[^0-9.,]/g, ''); // keep digits, comma, dot
+        // remove commas (treat as thousands)
+        s = s.replace(/,/g, '');
+        // if multiple dots, remove all except the last one (treat earlier as thousands)
+        const parts = s.split('.');
+        if (parts.length > 2) {
+            const last = parts.pop();
+            s = parts.join('') + '.' + last;
+        }
+        const n = parseFloat(s);
+        return isNaN(n) ? 0 : n;
+    }
     // ================= LARAVEL-POWERED CATEGORY FILTERING =================
     const categoryButtons = document.querySelectorAll('.res-portal-category-btn');
     const productsGrid = document.getElementById('products');
     
+    const priceMinEl = document.getElementById('priceMin');
+    const priceMaxEl = document.getElementById('priceMax');
+    const priceApplyBtn = document.getElementById('priceApply');
+    const priceToggleBtn = document.querySelector('.price-toggle-btn');
+    const pricePanel = document.getElementById('pricePanel');
+
+    function buildFilterUrl(category) {
+        const params = new URLSearchParams();
+        if (category) params.set('category', category);
+        const min = priceMinEl && priceMinEl.value ? parseInt(priceMinEl.value, 10) : '';
+        const max = priceMaxEl && priceMaxEl.value ? parseInt(priceMaxEl.value, 10) : '';
+        if (!isNaN(min) && min !== '') params.set('minPrice', min);
+        if (!isNaN(max) && max !== '') params.set('maxPrice', max);
+        return `/api/products/filter?${params.toString()}`;
+    }
+
     categoryButtons.forEach(button => {
         button.addEventListener('click', function() {
             // Update active state
@@ -16,7 +48,7 @@ document.addEventListener('DOMContentLoaded', function() {
             productsGrid.innerHTML = '<div class="loading-spinner">Loading products...</div>';
             
             // Fetch filtered products from Laravel
-            fetch(`/api/products/filter?category=${encodeURIComponent(category)}`, {
+            fetch(buildFilterUrl(category), {
                 method: 'GET',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
@@ -35,6 +67,75 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     });
+
+    if (priceApplyBtn) {
+        const triggerFetch = () => {
+            const activeBtn = document.querySelector('.res-portal-category-btn.active');
+            const category = activeBtn ? activeBtn.dataset.category : 'All';
+            productsGrid.innerHTML = '<div class="loading-spinner">Loading products...</div>';
+            fetch(buildFilterUrl(category), {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' }
+            })
+            .then(r => r.text())
+            .then(html => { productsGrid.innerHTML = html; attachProductCardListeners(); })
+            .catch(() => { productsGrid.innerHTML = '<div class="error-message">Error loading products. Please try again.</div>'; });
+        };
+        priceApplyBtn.addEventListener('click', triggerFetch);
+        [priceMinEl, priceMaxEl].forEach(el => el && el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); triggerFetch(); }}));
+    }
+
+    // Mobile: slide-out price panel toggle
+    if (priceToggleBtn && pricePanel) {
+        const filterBar = document.querySelector('.res-portal-filter-bar');
+
+        function alignPanelLeftOfButton() {
+            const barRect = filterBar ? filterBar.getBoundingClientRect() : null;
+            const btnRect = priceToggleBtn ? priceToggleBtn.getBoundingClientRect() : null;
+            if (!barRect || !btnRect) return;
+            const panelWidth = Math.min(420, Math.round(window.innerWidth * 0.92));
+            // Position panel so its right edge touches the button's left edge
+            let left = (btnRect.left - barRect.left) - panelWidth - 8; // 8px gutter
+            const minLeft = 8;
+            const maxLeft = Math.max(minLeft, (barRect.width - panelWidth) - 8);
+            left = Math.min(Math.max(left, minLeft), maxLeft);
+            const top = (btnRect.top - barRect.top) + (btnRect.height / 2) - (pricePanel.offsetHeight / 2);
+            pricePanel.style.left = `${left}px`;
+            pricePanel.style.top = `${Math.max(0, top)}px`;
+        }
+
+        const closePanel = () => {
+            pricePanel.classList.remove('open');
+            priceToggleBtn.setAttribute('aria-expanded', 'false');
+        };
+        const openPanel = () => {
+            // Ensure size known before aligning
+            pricePanel.style.opacity = '0';
+            pricePanel.style.pointerEvents = 'none';
+            pricePanel.classList.add('open');
+            // Wait a frame to measure height accurately
+            requestAnimationFrame(() => {
+                alignPanelLeftOfButton();
+                pricePanel.style.opacity = '';
+                pricePanel.style.pointerEvents = '';
+            });
+            priceToggleBtn.setAttribute('aria-expanded', 'true');
+        };
+        priceToggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (pricePanel.classList.contains('open')) closePanel(); else openPanel();
+        });
+        document.addEventListener('click', (e) => {
+            if (!pricePanel.contains(e.target) && !priceToggleBtn.contains(e.target)) {
+                closePanel();
+            }
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closePanel();
+        });
+        window.addEventListener('resize', () => { if (pricePanel.classList.contains('open')) alignPanelLeftOfButton(); });
+        window.addEventListener('scroll', () => { if (pricePanel.classList.contains('open')) alignPanelLeftOfButton(); }, true);
+    }
 
     // ================= LARAVEL-POWERED MODAL FUNCTIONALITY =================
     const productModal = document.getElementById('productModal');
@@ -170,12 +271,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Modal close handlers
-    modalOverlay.addEventListener('click', closeModal);
-    modalCloseBtn.addEventListener('click', closeModal);
-    modalCancelBtn.addEventListener('click', closeModal);
+    if (modalOverlay) modalOverlay.addEventListener('click', closeModal);
+    if (modalCloseBtn) modalCloseBtn.addEventListener('click', closeModal);
+    if (modalCancelBtn) modalCancelBtn.addEventListener('click', closeModal);
 
     // ================= ENHANCED ADD TO CART WITH LARAVEL DATA =================
-    modalAddToCartBtn.addEventListener('click', function() {
+    if (modalAddToCartBtn) modalAddToCartBtn.addEventListener('click', function() {
         const selectedSize = document.querySelector('input[name="size"]:checked');
         
         if (!selectedSize) {
@@ -216,7 +317,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const checkoutBtn = document.querySelector('.cart-checkout-btn');
     const cartBtn = document.querySelector('.res-portal-cart-btn');
     const cartDropdown = document.getElementById('cartDropdown');
-    const cartCloseBtn = document.querySelector('.cart-close-btn');
+    const cartClearBtn = document.querySelector('.cart-clear-btn');
+    // Mobile cart modal elements
+    const cartModalOverlay = document.getElementById('cartModalOverlay');
+    const cartModalItemsContainer = document.getElementById('cartModalItems');
+    const cartModalTotalEl = document.getElementById('cartModalTotal');
+    const cartModalCloseBtn = document.getElementById('cartModalClose');
+    const cartModalCheckoutBtn = document.querySelector('.cart-modal-checkout');
+    const cartModalClearBtn = document.querySelector('.cart-modal-clear');
+    const isMobile = () => window.matchMedia('(max-width: 700px)').matches;
     
     let cart = [];
     let cartSticky = false;
@@ -264,63 +373,82 @@ document.addEventListener('DOMContentLoaded', function() {
         
         saveCart();
         renderCart();
-        
-        // Auto open cart & make sticky on first add
-        cartSticky = true;
-        openCart();
-        cartDropdown.classList.add('sticky');
+
+    // Do not automatically open the cart on add-to-cart (per UX request)
     }
 
     function formatCurrency(n) {
         return '₱ ' + n.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
     }
 
-    function renderCart() {
-        cartItemsContainer.innerHTML = '';
+    function renderCartInto(container, totalOutEl) {
+        if (!container || !totalOutEl) return;
+        container.innerHTML = '';
         if (cart.length === 0) {
-            cartItemsContainer.innerHTML = '<div class="cart-empty">Your cart is empty</div>';
-            cartTotalEl.textContent = '₱ 0.00';
-            checkoutBtn.disabled = true;
-            updateCartBadge(0);
+            container.innerHTML = `
+                <div class="cart-empty">
+                    <div class="cart-empty-icon"><i class="fas fa-bag-shopping"></i></div>
+                    <div class="cart-empty-title">Your cart is empty</div>
+                    <div class="cart-empty-subtitle">Add some shoes to get started!</div>
+                </div>`;
+            totalOutEl.textContent = '₱ 0.00';
             return;
         }
-        
-        checkoutBtn.disabled = false;
         let total = 0;
-        let totalItems = 0;
-        
         cart.forEach(item => {
-            total += item.priceNumber * item.qty;
-            totalItems += item.qty;
-            
+            const priceNum = (typeof item.priceNumber === 'number')
+                ? item.priceNumber
+                : parseCurrencyToNumber(item.price);
+            total += priceNum * (item.qty || 0);
             const div = document.createElement('div');
-            div.className = 'cart-item';
+            div.className = 'cart-item trendy';
             div.innerHTML = `
-                <div class="cart-item-img">${item.image ? `<img src="${item.image}" alt="${item.name}">` : '<span>No Img</span>'}</div>
-                <div class="cart-item-info">
-                    <div class="cart-item-title">${item.name}</div>
-                    <div class="cart-item-meta">${item.brand} • Size ${item.size} • ${item.color}</div>
-                    <div class="cart-item-price">${item.price}</div>
-                    <div class="cart-item-meta">Qty: 
-                        <button class="qty-btn ${item.qty <= 1 ? 'disabled' : ''}" data-key="${item.key}" data-delta="-1">−</button>
-                        <span class="qty-val">${item.qty}</span>
-                        <button class="qty-btn ${item.qty >= item.maxStock ? 'disabled' : ''}" data-key="${item.key}" data-delta="1">+</button>
-                        <button class="cart-remove-btn" data-remove="${item.key}">Remove</button>
-                    </div>
+                <div class="cart-item-left">
+                    <div class="cart-item-img">${item.image ? `<img src="${item.image}" alt="${item.name}">` : '<i class=\"fas fa-shoe-prints\"></i>'}</div>
                 </div>
-            `;
-            cartItemsContainer.appendChild(div);
+                <div class="cart-item-center">
+                    <div class="cart-item-title">${item.name}</div>
+                    <div class="cart-item-meta">
+                        <div class="cart-item-info-line">${item.brand} • Size ${item.size} • ${item.color}</div>
+                        <div class="cart-item-actions">
+                            <div class="cart-item-qty">
+                                <button class="qty-btn ${item.qty <= 1 ? 'disabled' : ''}" data-key="${item.key}" data-delta="-1">−</button>
+                                <span class="qty-val">${item.qty}</span>
+                                <button class="qty-btn ${item.qty >= item.maxStock ? 'disabled' : ''}" data-key="${item.key}" data-delta="1">+</button>
+                            </div>
+                            <button class="cart-remove-btn" data-remove="${item.key}" title="Remove"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <div class="cart-item-price">${item.price}</div>
+                </div>`;
+            container.appendChild(div);
         });
-        
-        cartTotalEl.textContent = formatCurrency(total);
-        updateCartBadge(totalItems);
-        
-        // Attach event listeners for quantity and remove buttons
-        attachCartItemListeners();
+        totalOutEl.textContent = formatCurrency(total);
+        attachCartItemListenersFor(container);
     }
 
-    function attachCartItemListeners() {
-        cartItemsContainer.querySelectorAll('.qty-btn').forEach(btn => {
+    function renderCart() {
+        // desktop dropdown
+        if (cartItemsContainer && cartTotalEl) {
+            renderCartInto(cartItemsContainer, cartTotalEl);
+        }
+        // mobile modal
+        if (cartModalItemsContainer && cartModalTotalEl) {
+            renderCartInto(cartModalItemsContainer, cartModalTotalEl);
+        }
+        // enable/disable checkout btns
+    const hasItems = cart.length > 0;
+    if (checkoutBtn) checkoutBtn.disabled = !hasItems;
+    if (cartModalCheckoutBtn) cartModalCheckoutBtn.disabled = !hasItems;
+    if (cartClearBtn) cartClearBtn.disabled = !hasItems;
+    if (cartModalClearBtn) cartModalClearBtn.disabled = !hasItems;
+        // badge count
+        const count = cart.reduce((s,i)=> s + i.qty, 0);
+        updateCartBadge(count);
+    }
+
+    function attachCartItemListenersFor(container) {
+        container.querySelectorAll('.qty-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 if (btn.classList.contains('disabled')) return;
                 
@@ -344,8 +472,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 renderCart();
             });
         });
-        
-        cartItemsContainer.querySelectorAll('.cart-remove-btn').forEach(btn => {
+        container.querySelectorAll('.cart-remove-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const key = btn.getAttribute('data-remove');
                 cart = cart.filter(i => i.key !== key);
@@ -379,27 +506,33 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Cart hover and click handlers
     cartBtn.addEventListener('mouseenter', () => {
-        if (cartSticky) return;
+        if (isMobile() || cartSticky) return;
         clearTimeout(hoverTimeout);
         openCart();
     });
 
     cartBtn.addEventListener('mouseleave', () => {
-        if (cartSticky) return;
+        if (isMobile() || cartSticky) return;
         hoverTimeout = setTimeout(() => closeCart(), 250);
     });
 
-    cartDropdown.addEventListener('mouseenter', () => {
-        clearTimeout(hoverTimeout);
-    });
+    cartDropdown.addEventListener('mouseenter', () => { if (!isMobile()) clearTimeout(hoverTimeout); });
 
     cartDropdown.addEventListener('mouseleave', () => {
-        if (cartSticky) return;
+        if (isMobile() || cartSticky) return;
         hoverTimeout = setTimeout(() => closeCart(), 250);
     });
 
     cartBtn.addEventListener('click', (e) => {
         e.stopPropagation();
+        if (isMobile()) {
+            // open cart modal on mobile
+            if (cartModalOverlay) {
+                document.body.classList.add('cart-modal-open');
+                cartModalOverlay.style.display = 'flex';
+            }
+            return;
+        }
         cartSticky = !cartSticky;
         if (cartSticky) {
             openCart();
@@ -410,17 +543,55 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    cartCloseBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        cartSticky = false;
-        cartDropdown.classList.remove('sticky');
-        closeCart();
-    });
+    // Mobile cart modal close & checkout
+    if (cartModalCloseBtn) {
+        cartModalCloseBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (cartModalOverlay) { cartModalOverlay.style.display = 'none'; document.body.classList.remove('cart-modal-open'); }
+        });
+    }
+    if (cartModalOverlay) {
+        cartModalOverlay.addEventListener('click', (e) => {
+            if (e.target === cartModalOverlay) {
+                cartModalOverlay.style.display = 'none';
+                document.body.classList.remove('cart-modal-open');
+            }
+        });
+    }
+    if (cartModalCheckoutBtn) {
+        cartModalCheckoutBtn.addEventListener('click', () => {
+            window.location.href = '/form';
+        });
+    }
+
+    // Mobile clear all behavior
+    if (cartModalClearBtn) {
+        cartModalClearBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            cart = [];
+            saveCart();
+            renderCart();
+        });
+    }
+
+    // Clear all handler replaces close button
+    if (cartClearBtn) {
+        cartClearBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (cart.length === 0) return;
+            if (!confirm('Clear all items from Reservation Cart?')) return;
+            cart = [];
+            saveCart();
+            renderCart();
+        });
+    }
 
     // Checkout handler
-    checkoutBtn.addEventListener('click', () => {
-        window.location.href = '/form';
-    });
+    if (checkoutBtn) {
+        checkoutBtn.addEventListener('click', () => {
+            window.location.href = '/form';
+        });
+    }
 
     // Navigation handlers (preserved from original)
     const navButtons = document.querySelectorAll('.res-portal-nav-btn');

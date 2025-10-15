@@ -75,6 +75,16 @@ class ReservationController extends Controller
             $query->where('category', $category);
         }
 
+        // Handle price range filtering
+        $minPrice = $request->get('minPrice');
+        $maxPrice = $request->get('maxPrice');
+        if ($minPrice !== null && $minPrice !== '' && is_numeric($minPrice)) {
+            $query->where('price', '>=', (float)$minPrice);
+        }
+        if ($maxPrice !== null && $maxPrice !== '' && is_numeric($maxPrice)) {
+            $query->where('price', '<=', (float)$maxPrice);
+        }
+
         $products = $query->get();
 
         // Return HTML partial for AJAX requests
