@@ -169,6 +169,7 @@ Route::middleware(['auth', 'role:manager,admin'])->prefix('inventory')->name('in
     Route::get('/settings', [InventoryController::class, 'settings'])->name('settings');
     Route::get('/data', [InventoryController::class, 'getInventoryData'])->name('data');
     Route::post('/products', [InventoryController::class, 'addProduct'])->name('products.store');
+    Route::get('/products/{id}', [InventoryController::class, 'getProduct'])->name('products.show');
     Route::put('/products/{id}', [InventoryController::class, 'updateProduct'])->name('products.update');
     Route::delete('/products/{id}', [InventoryController::class, 'deleteProduct'])->name('products.destroy');
     Route::get('/sizes/{category}', [InventoryController::class, 'getSizesByCategory'])->name('sizes.by-category');

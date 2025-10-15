@@ -312,6 +312,55 @@ class InventoryController extends Controller
     }
 
     /**
+     * Get single product with sizes for editing
+     */
+    public function getProduct(Request $request, $id)
+    {
+        try {
+            $inventoryType = $request->get('type', 'pos'); // Default to POS
+            
+            // Determine which model to use based on inventory type
+            if ($inventoryType === 'reservation') {
+                $product = ReservationProduct::with('sizes')->findOrFail($id);
+            } else {
+                $product = Product::with('sizes')->findOrFail($id);
+            }
+            
+            // Format the product data for frontend
+            $formattedProduct = [
+                'id' => $product->id,
+                'name' => $product->name,
+                'brand' => $product->brand,
+                'category' => $product->category,
+                'color' => $product->color,
+                'price' => $product->price,
+                'image_url' => $product->image_url,
+                'sizes' => $product->sizes->map(function($size) {
+                    return [
+                        'id' => $size->id,
+                        'size' => $size->size,
+                        'stock' => $size->stock,
+                        'price_adjustment' => $size->price_adjustment ?? 0,
+                        'is_available' => $size->is_available
+                    ];
+                })
+            ];
+            
+            return response()->json([
+                'success' => true,
+                'product' => $formattedProduct
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error fetching product: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching product: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Update product and sizes
      */
     public function updateProduct(Request $request, $id)

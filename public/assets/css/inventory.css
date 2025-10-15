@@ -1231,6 +1231,11 @@ body {
     padding: 30px;
 }
 
+#product-details-modal {
+    background: transparent;
+    box-shadow: none;
+}
+
 .form-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -2429,5 +2434,66 @@ body {
     .data-table th,
     .data-table td {
         padding: 10px;
+    }
+}
+
+/* ===== PRODUCT DETAILS MODAL IMPROVEMENTS ===== */
+
+/* Increase modal width */
+#product-details-modal {
+    max-width: 900px !important;
+    width: 90vw;
+}
+
+/* Improve modal content layout */
+#product-details-modal .modal-content {
+    min-height: 500px;
+}
+
+/* Enhance image container in product details */
+#product-details-modal .modal-content #product-details-content > div:first-child {
+    flex: 1.5 !important;
+}
+
+/* Better image sizing and fit */
+#product-details-modal .modal-content #product-details-content > div:first-child > div {
+    width: 350px !important;
+    height: 350px !important;
+    border-radius: 16px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
+    border: 3px solid #f1f5f9 !important;
+}
+
+/* Ensure images fill the container properly */
+#product-details-modal .modal-content img {
+    object-fit: cover !important;
+    object-position: center !important;
+    border-radius: 12px !important;
+}
+
+/* Adjust text content area */
+#product-details-modal .modal-content #product-details-content > div:last-child {
+    flex: 2.5 !important;
+    padding-left: 24px;
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+    #product-details-modal {
+        max-width: 95vw !important;
+    }
+    
+    #product-details-modal .modal-content #product-details-content {
+        flex-direction: column !important;
+        gap: 24px !important;
+    }
+    
+    #product-details-modal .modal-content #product-details-content > div:first-child > div {
+        width: 280px !important;
+        height: 280px !important;
+    }
+    
+    #product-details-modal .modal-content #product-details-content > div:last-child {
+        padding-left: 0 !important;
     }
 }
