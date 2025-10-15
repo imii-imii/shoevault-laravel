@@ -1206,7 +1206,9 @@
         <div class="sidebar-footer">
             <div class="user-info">
                 <div class="user-avatar">
-                    <img src="{{ asset('assets/images/profile.png') }}" alt="User">
+                    <img src="{{ auth()->user() && auth()->user()->profile_picture && file_exists(public_path(auth()->user()->profile_picture)) ? asset(auth()->user()->profile_picture) : asset('assets/images/profile.png') }}" 
+                         alt="User" 
+                         class="sidebar-avatar-img">
                 </div>
                 <div class="user-details">
                     <h4>{{ auth()->user()->name }}</h4>

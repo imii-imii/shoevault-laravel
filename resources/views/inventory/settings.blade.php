@@ -52,7 +52,9 @@
     <div class="sidebar-footer">
         <div class="user-info">
             <div class="user-avatar">
-                <img src="{{ asset('assets/images/profile.png') }}" alt="Manager">
+                <img src="{{ auth()->user() && auth()->user()->profile_picture && file_exists(public_path(auth()->user()->profile_picture)) ? asset(auth()->user()->profile_picture) : asset('assets/images/profile.png') }}" 
+                     alt="Manager" 
+                     class="sidebar-avatar-img">
             </div>
             <div class="user-details">
                 <h4>{{ auth()->user()->name }}</h4>
@@ -122,7 +124,10 @@
                             <div class="settings-card">
                                 <div class="card-title"><i class="fas fa-id-card"></i> User Information</div>
                                 <div class="avatar-row">
-                                    <img id="settings-avatar-preview" src="{{ asset('assets/images/profile.png') }}" alt="Avatar" class="avatar-preview">
+                                    <img id="settings-avatar-preview" 
+                                         src="{{ auth()->user() && auth()->user()->profile_picture && file_exists(public_path(auth()->user()->profile_picture)) ? asset(auth()->user()->profile_picture) : asset('assets/images/profile.png') }}" 
+                                         alt="Avatar" 
+                                         class="avatar-preview settings-avatar-img">
                                     <div class="avatar-actions">
                                         <input type="file" id="settings-avatar" accept="image/*" hidden>
                                         <button class="btn btn-secondary btn-sm" id="settings-avatar-btn"><i class="fas fa-upload"></i> Upload</button>
@@ -162,15 +167,15 @@
                             <div class="form-grid">
                                 <div class="form-group">
                                     <label for="settings-current-password">Current Password</label>
-                                    <input id="settings-current-password" type="password" placeholder="Current password">
+                                    <input id="settings-current-password" type="password" placeholder="Current password" autocomplete="off">
                                 </div>
                                 <div class="form-group">
                                     <label for="settings-new-password">New Password</label>
-                                    <input id="settings-new-password" type="password" placeholder="New password">
+                                    <input id="settings-new-password" type="password" placeholder="New password" autocomplete="new-password">
                                 </div>
                                 <div class="form-group">
                                     <label for="settings-confirm-password">Confirm Password</label>
-                                    <input id="settings-confirm-password" type="password" placeholder="Confirm new password">
+                                    <input id="settings-confirm-password" type="password" placeholder="Confirm new password" autocomplete="new-password">
                                 </div>
                             </div>
                             <div class="form-actions">
@@ -249,6 +254,25 @@ function initializeSettings() {
 
 initializeSettings();
 
+// Handle profile picture errors - fallback to default image
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle sidebar avatar errors
+    const sidebarAvatar = document.querySelector('.sidebar-avatar-img');
+    if (sidebarAvatar) {
+        sidebarAvatar.addEventListener('error', function() {
+            this.src = '{{ asset("assets/images/profile.png") }}';
+        });
+    }
+    
+    // Handle settings avatar errors
+    const settingsAvatar = document.querySelector('.settings-avatar-img');
+    if (settingsAvatar) {
+        settingsAvatar.addEventListener('error', function() {
+            this.src = '{{ asset("assets/images/profile.png") }}';
+        });
+    }
+});
+
 // Avatar upload functionality
 document.getElementById('settings-avatar-btn').addEventListener('click', function() {
     document.getElementById('settings-avatar').click();
@@ -266,17 +290,235 @@ document.getElementById('settings-avatar').addEventListener('change', function(e
 });
 
 document.getElementById('settings-avatar-remove').addEventListener('click', function() {
-    document.getElementById('settings-avatar-preview').src = '{{ asset("assets/images/profile.png") }}';
-    document.getElementById('settings-avatar').value = '';
+    if (confirm('Are you sure you want to remove your profile picture?')) {
+        fetch('{{ route("inventory.profile.picture.remove") }}', {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const defaultProfilePic = '{{ asset("assets/images/profile.png") }}';
+                document.getElementById('settings-avatar-preview').src = defaultProfilePic;
+                document.getElementById('settings-avatar').value = '';
+                
+                // Also update sidebar avatar
+                const sidebarAvatar = document.querySelector('.sidebar .user-avatar img');
+                if (sidebarAvatar) {
+                    sidebarAvatar.src = defaultProfilePic;
+                }
+                
+                showNotification(data.message, 'success');
+            } else {
+                showNotification(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('An error occurred while removing profile picture', 'error');
+        });
+    }
 });
 
 // Save functions
 document.getElementById('settings-profile-save').addEventListener('click', function() {
-    alert('Profile settings saved!');
+    const formData = new FormData();
+    
+    // Get form values
+    const name = document.getElementById('settings-name').value;
+    const username = document.getElementById('settings-username').value;
+    const email = document.getElementById('settings-email').value;
+    const phone = document.getElementById('settings-phone').value;
+    const profilePicture = document.getElementById('settings-avatar').files[0];
+    
+    // Validate required fields
+    if (!name || !username || !email) {
+        showNotification('Please fill in all required fields', 'error');
+        return;
+    }
+    
+    // Append data to FormData
+    formData.append('name', name);
+    formData.append('username', username);
+    formData.append('email', email);
+    formData.append('phone', phone);
+    if (profilePicture) {
+        formData.append('profile_picture', profilePicture);
+    }
+    
+    // Show loading state
+    const saveBtn = document.getElementById('settings-profile-save');
+    const originalText = saveBtn.innerHTML;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    saveBtn.disabled = true;
+    
+    // Send request
+    fetch('{{ route("inventory.profile.update") }}', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            
+            // Update UI with new data
+            if (data.user.profile_picture) {
+                const avatarImg = document.getElementById('settings-avatar-preview');
+                avatarImg.src = data.user.profile_picture;
+                
+                // Update sidebar avatar too
+                const sidebarAvatar = document.querySelector('.sidebar .user-avatar img');
+                if (sidebarAvatar) {
+                    sidebarAvatar.src = data.user.profile_picture;
+                }
+                
+                // Add error handling to both images
+                [avatarImg, sidebarAvatar].forEach(img => {
+                    if (img) {
+                        img.onerror = function() {
+                            this.src = '{{ asset("assets/images/profile.png") }}';
+                            this.onerror = null; // Prevent infinite loops
+                        };
+                    }
+                });
+            }
+            
+            // Update sidebar user name
+            const sidebarName = document.querySelector('.sidebar .user-details h4');
+            if (sidebarName) {
+                sidebarName.textContent = data.user.name;
+            }
+        } else {
+            showNotification(data.message, 'error');
+            if (data.errors) {
+                const errorMessages = Object.values(data.errors).flat().join('\n');
+                showNotification(errorMessages, 'error');
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('An error occurred while saving profile', 'error');
+    })
+    .finally(() => {
+        // Restore button state
+        saveBtn.innerHTML = originalText;
+        saveBtn.disabled = false;
+    });
 });
 
+// Notification function
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 20px;
+        border-radius: 5px;
+        color: white;
+        font-weight: 500;
+        z-index: 10000;
+        max-width: 400px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    `;
+    
+    switch(type) {
+        case 'success':
+            notification.style.background = '#28a745';
+            break;
+        case 'error':
+            notification.style.background = '#dc3545';
+            break;
+        default:
+            notification.style.background = '#17a2b8';
+    }
+    
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    // Remove after 5 seconds
+    setTimeout(() => {
+        notification.remove();
+    }, 5000);
+}
+
 document.getElementById('settings-password-save').addEventListener('click', function() {
-    alert('Password updated!');
+    const currentPassword = document.getElementById('settings-current-password').value;
+    const newPassword = document.getElementById('settings-new-password').value;
+    const confirmPassword = document.getElementById('settings-confirm-password').value;
+    
+    // Validate required fields
+    if (!currentPassword || !newPassword || !confirmPassword) {
+        showNotification('Please fill in all password fields', 'error');
+        return;
+    }
+    
+    // Check password length
+    if (newPassword.length < 8) {
+        showNotification('New password must be at least 8 characters long', 'error');
+        return;
+    }
+    
+    // Check password confirmation
+    if (newPassword !== confirmPassword) {
+        showNotification('New password and confirmation do not match', 'error');
+        return;
+    }
+    
+    // Show loading state
+    const saveBtn = document.getElementById('settings-password-save');
+    const originalText = saveBtn.innerHTML;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+    saveBtn.disabled = true;
+    
+    // Prepare form data
+    const formData = new FormData();
+    formData.append('current_password', currentPassword);
+    formData.append('new_password', newPassword);
+    formData.append('new_password_confirmation', confirmPassword);
+    
+    // Send request
+    fetch('{{ route("inventory.password.update") }}', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            
+            // Clear password fields
+            document.getElementById('settings-current-password').value = '';
+            document.getElementById('settings-new-password').value = '';
+            document.getElementById('settings-confirm-password').value = '';
+        } else {
+            showNotification(data.message, 'error');
+            if (data.errors) {
+                const errorMessages = Object.values(data.errors).flat().join('\n');
+                showNotification(errorMessages, 'error');
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('An error occurred while updating password', 'error');
+    })
+    .finally(() => {
+        // Restore button state
+        saveBtn.innerHTML = originalText;
+        saveBtn.disabled = false;
+    });
 });
 
 // Notifications bell toggle (simple demo)

@@ -115,7 +115,9 @@
         <div class="sidebar-footer">
             <div class="user-info">
                 <div class="user-avatar">
-                    <img src="{{ asset('assets/images/profile.png') }}" alt="User">
+                    <img src="{{ auth()->user() && auth()->user()->profile_picture && file_exists(public_path(auth()->user()->profile_picture)) ? asset(auth()->user()->profile_picture) : asset('assets/images/profile.png') }}" 
+                         alt="User" 
+                         class="sidebar-avatar-img">
                 </div>
                 <div class="user-details">
                     <h4>{{ auth()->user()->name }}</h4>
@@ -173,7 +175,10 @@
                         <div class="settings-card">
                             <div class="card-title"><i class="fas fa-id-card"></i> User Information</div>
                             <div class="avatar-row">
-                                <img id="settings-avatar-preview" src="{{ asset('assets/images/profile.png') }}" alt="Avatar" class="avatar-preview">
+                                <img id="settings-avatar-preview" 
+                                     src="{{ auth()->user() && auth()->user()->profile_picture && file_exists(public_path(auth()->user()->profile_picture)) ? asset(auth()->user()->profile_picture) : asset('assets/images/profile.png') }}" 
+                                     alt="Avatar" 
+                                     class="avatar-preview settings-avatar-img">
                                 <div class="avatar-actions">
                                     <input type="file" id="settings-avatar" accept="image/*" hidden>
                                     <button class="btn btn-secondary btn-sm" id="settings-avatar-btn"><i class="fas fa-upload"></i> Upload</button>
@@ -209,25 +214,23 @@
                     <div class="settings-panel" id="settings-panel-security">
                         <div class="settings-card">
                             <div class="card-title"><i class="fas fa-key"></i> Change Password</div>
-                            <form id="change-password-form">
-                                @csrf
-                                <div class="form-grid">
-                                    <div class="form-group full">
-                                        <label for="current-password">Current Password</label>
-                                        <input id="current-password" type="password" placeholder="Enter current password">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="new-password">New Password</label>
-                                        <input id="new-password" type="password" placeholder="Enter new password">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="confirm-password">Confirm Password</label>
-                                        <input id="confirm-password" type="password" placeholder="Confirm new password">
-                                    </div>
+                            <div class="form-grid">
+                                <div class="form-group full">
+                                    <label for="settings-current-password">Current Password</label>
+                                    <input id="settings-current-password" type="password" placeholder="Enter current password" autocomplete="off">
                                 </div>
-                                <div class="form-actions">
-                                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Update Password</button>
+                                <div class="form-group">
+                                    <label for="settings-new-password">New Password</label>
+                                    <input id="settings-new-password" type="password" placeholder="Enter new password" autocomplete="new-password">
                                 </div>
+                                <div class="form-group">
+                                    <label for="settings-confirm-password">Confirm Password</label>
+                                    <input id="settings-confirm-password" type="password" placeholder="Confirm new password" autocomplete="new-password">
+                                </div>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-primary" id="settings-password-save"><i class="fas fa-save"></i> Update Password</button>
+                            </div>
                             </form>
                         </div>
                     </div>
@@ -297,15 +300,71 @@
     });
 
     // Password change
-    document.getElementById('change-password-form').addEventListener('submit', function(e){
-        e.preventDefault();
-        const currentPassword = document.getElementById('current-password').value;
-        const newPassword = document.getElementById('new-password').value;
-        const confirmPassword = document.getElementById('confirm-password').value;
-        if (!currentPassword || !newPassword || !confirmPassword){ alert('Please fill in all password fields.'); return; }
-        if (newPassword !== confirmPassword){ alert('New password and confirmation do not match.'); return; }
-        if (newPassword.length < 8){ alert('New password must be at least 8 characters long.'); return; }
-        alert('Password updated successfully!'); this.reset();
+    document.getElementById('settings-password-save').addEventListener('click', function() {
+        const currentPassword = document.getElementById('settings-current-password').value;
+        const newPassword = document.getElementById('settings-new-password').value;
+        const confirmPassword = document.getElementById('settings-confirm-password').value;
+        
+        // Validate required fields
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            alert('Please fill in all password fields');
+            return;
+        }
+        
+        // Check password length
+        if (newPassword.length < 8) {
+            alert('New password must be at least 8 characters long');
+            return;
+        }
+        
+        // Check password confirmation
+        if (newPassword !== confirmPassword) {
+            alert('New password and confirmation do not match');
+            return;
+        }
+        
+        // Show loading state
+        const saveBtn = document.getElementById('settings-password-save');
+        const originalText = saveBtn.innerHTML;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+        saveBtn.disabled = true;
+        
+        // Prepare form data
+        const formData = new FormData();
+        formData.append('current_password', currentPassword);
+        formData.append('new_password', newPassword);
+        formData.append('new_password_confirmation', confirmPassword);
+        
+        // Send request
+        fetch('{{ route("pos.password.update") }}', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Password updated successfully!');
+                
+                // Clear password fields
+                document.getElementById('settings-current-password').value = '';
+                document.getElementById('settings-new-password').value = '';
+                document.getElementById('settings-confirm-password').value = '';
+            } else {
+                alert(data.message || 'Failed to update password');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while updating password');
+        })
+        .finally(() => {
+            // Restore button state
+            saveBtn.innerHTML = originalText;
+            saveBtn.disabled = false;
+        });
     });
 
     // System reset button removed per request

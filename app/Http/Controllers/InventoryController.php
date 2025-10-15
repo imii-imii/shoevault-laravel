@@ -10,6 +10,7 @@ use App\Models\ReservationProductSize;
 use App\Models\Supplier;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class InventoryController extends Controller
 {
@@ -113,6 +114,175 @@ class InventoryController extends Controller
     public function settings()
     {
         return view('inventory.settings');
+    }
+
+    /**
+     * Update user profile
+     */
+    public function updateProfile(Request $request)
+    {
+        try {
+            $user = $request->user();
+            
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'username' => 'required|string|max:255|unique:users,username,' . $user->id,
+                'email' => 'required|email|max:255|unique:users,email,' . $user->id,
+                'phone' => 'nullable|string|max:20',
+                'profile_picture' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
+            ]);
+            
+            // Handle profile picture upload
+            if ($request->hasFile('profile_picture')) {
+                // Delete old profile picture if it exists
+                if ($user->profile_picture && file_exists(public_path($user->profile_picture))) {
+                    unlink(public_path($user->profile_picture));
+                }
+                
+                // Upload new profile picture
+                $file = $request->file('profile_picture');
+                $fileName = 'profile_' . $user->id . '_' . time() . '.' . $file->getClientOriginalExtension();
+                $filePath = 'assets/images/profiles/' . $fileName;
+                
+                // Create directory if it doesn't exist
+                $directory = public_path('assets/images/profiles');
+                if (!file_exists($directory)) {
+                    mkdir($directory, 0755, true);
+                }
+                
+                $file->move($directory, $fileName);
+                $validated['profile_picture'] = $filePath;
+            }
+
+            // Update user data
+            $user->update($validated);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Profile updated successfully!',
+                'user' => [
+                    'name' => $user->name,
+                    'username' => $user->username,
+                    'email' => $user->email,
+                    'phone' => $user->phone,
+                    'profile_picture' => $this->getProfilePictureUrl($user)
+                ]
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update profile: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Remove user profile picture
+     */
+    public function removeProfilePicture(Request $request)
+    {
+        try {
+            $user = $request->user();
+            
+            // Delete old profile picture if it exists
+            if ($user->profile_picture && file_exists(public_path($user->profile_picture))) {
+                unlink(public_path($user->profile_picture));
+            }
+            
+            // Update user record to remove profile picture
+            $user->update(['profile_picture' => null]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Profile picture removed successfully!',
+                'user' => [
+                    'name' => $user->name,
+                    'username' => $user->username,
+                    'email' => $user->email,
+                    'phone' => $user->phone,
+                    'profile_picture' => $this->getProfilePictureUrl($user)
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to remove profile picture: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update user password
+     */
+    public function updatePassword(Request $request)
+    {
+        try {
+            $user = $request->user();
+            
+            $validated = $request->validate([
+                'current_password' => 'required|string',
+                'new_password' => 'required|string|min:8|confirmed',
+                'new_password_confirmation' => 'required|string'
+            ]);
+
+            // Check if current password is correct
+            if (!Hash::check($validated['current_password'], $user->password)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Current password is incorrect',
+                    'errors' => [
+                        'current_password' => ['Current password is incorrect']
+                    ]
+                ], 422);
+            }
+
+            // Update password
+            $user->update([
+                'password' => Hash::make($validated['new_password'])
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Password updated successfully!'
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update password: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get profile picture URL with fallback to default
+     */
+    private function getProfilePictureUrl($user)
+    {
+        if (!$user->profile_picture) {
+            return asset('assets/images/profile.png');
+        }
+        
+        $profilePicturePath = public_path($user->profile_picture);
+        if (!file_exists($profilePicturePath)) {
+            return asset('assets/images/profile.png');
+        }
+        
+        return asset($user->profile_picture);
     }
 
     /**

@@ -31,6 +31,9 @@ Route::middleware(['auth', 'role:cashier,admin'])->prefix('pos')->name('pos.')->
     Route::get('/dashboard', [PosController::class, 'dashboard'])->name('dashboard');
     Route::get('/reservations', [PosController::class, 'reservations'])->name('reservations');
     Route::get('/settings', [PosController::class, 'settings'])->name('settings');
+    Route::post('/profile/update', [PosController::class, 'updateProfile'])->name('profile.update');
+    Route::delete('/profile/picture', [PosController::class, 'removeProfilePicture'])->name('profile.picture.remove');
+    Route::post('/password/update', [PosController::class, 'updatePassword'])->name('password.update');
     Route::get('/products', [PosController::class, 'getProducts'])->name('products');
     Route::post('/process-sale', [PosController::class, 'processSale'])->name('process-sale');
 });
@@ -171,6 +174,9 @@ Route::middleware(['auth', 'role:manager,admin'])->prefix('inventory')->name('in
     Route::get('/suppliers', [InventoryController::class, 'suppliers'])->name('suppliers');
     Route::get('/reservation-reports', [InventoryController::class, 'reservationReports'])->name('reservation-reports');
     Route::get('/settings', [InventoryController::class, 'settings'])->name('settings');
+    Route::post('/profile/update', [InventoryController::class, 'updateProfile'])->name('profile.update');
+    Route::delete('/profile/picture', [InventoryController::class, 'removeProfilePicture'])->name('profile.picture.remove');
+    Route::post('/password/update', [InventoryController::class, 'updatePassword'])->name('password.update');
     Route::get('/data', [InventoryController::class, 'getInventoryData'])->name('data');
     Route::post('/products', [InventoryController::class, 'addProduct'])->name('products.store');
     Route::get('/products/{id}', [InventoryController::class, 'getProduct'])->name('products.show');
@@ -191,6 +197,9 @@ Route::middleware(['auth', 'role:owner,admin'])->prefix('owner')->name('owner.')
     Route::get('/supply-logs', [OwnerController::class, 'supplyLogs'])->name('supply-logs');
     Route::get('/inventory-overview', [OwnerController::class, 'inventoryOverview'])->name('inventory-overview');
     Route::get('/settings', [OwnerController::class, 'settings'])->name('settings');
+    Route::post('/profile/update', [OwnerController::class, 'updateProfile'])->name('profile.update');
+    Route::delete('/profile/picture', [OwnerController::class, 'removeProfilePicture'])->name('profile.picture.remove');
+    Route::post('/password/update', [OwnerController::class, 'updatePassword'])->name('password.update');
 });
 
 // Analytics routes (for owners and admin) - Future implementation  

@@ -93,7 +93,9 @@
     <div class="sidebar-footer">
         <div class="user-info">
             <div class="user-avatar">
-                <img src="{{ asset('assets/images/profile.png') }}" alt="Manager">
+                <img src="{{ auth()->user() && auth()->user()->profile_picture && file_exists(public_path(auth()->user()->profile_picture)) ? asset(auth()->user()->profile_picture) : asset('assets/images/profile.png') }}" 
+                     alt="Manager" 
+                     class="sidebar-avatar-img">
             </div>
             <div class="user-details">
                 <h4>{{ auth()->user()->name }}</h4>
@@ -1165,6 +1167,15 @@ function applyCardViewToCards(mode) {
 }
 
 document.addEventListener('DOMContentLoaded', function(){
+    // Handle profile picture errors - fallback to default image
+    const sidebarAvatar = document.querySelector('.sidebar-avatar-img');
+    if (sidebarAvatar) {
+        sidebarAvatar.addEventListener('error', function() {
+            this.src = '{{ asset("assets/images/profile.png") }}';
+            this.onerror = null; // Prevent infinite loops
+        });
+    }
+    
     const toggleBtn = document.getElementById('toggle-card-view');
     const icon = document.getElementById('toggle-card-icon');
     if (toggleBtn) {
