@@ -670,4 +670,73 @@ class InventoryController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get a reservation with items for modal details
+     */
+    public function getReservationDetails(Request $request, $id)
+    {
+        try {
+            $reservation = \App\Models\Reservation::findOrFail($id);
+
+            // Try to load items from a pivot/items table if available; fall back to single product fields
+            $items = [];
+            if (method_exists($reservation, 'items')) {
+                $items = $reservation->items()->get()->map(function($item){
+                    return [
+                        'name' => $item->product_name ?? ($item->product->name ?? 'Product'),
+                        'brand' => $item->product_brand ?? ($item->product->brand ?? null),
+                        'color' => $item->product_color ?? ($item->product->color ?? null),
+                        'size' => $item->product_size ?? null,
+                        'quantity' => $item->quantity ?? 1,
+                        'price' => (float)($item->price ?? 0)
+                    ];
+                })->toArray();
+            }
+
+            if (empty($items)) {
+                // Use embedded product info if present
+                $items = [[
+                    'name' => $reservation->product_name ?? 'Product',
+                    'brand' => $reservation->product_brand ?? null,
+                    'color' => $reservation->product_color ?? null,
+                    'size' => $reservation->product_size ?? null,
+                    'quantity' => $reservation->quantity ?? 1,
+                    'price' => (float)($reservation->product_price ?? 0)
+                ]];
+            }
+
+            $total = $reservation->total_amount ?? collect($items)->sum(function($i){
+                return ($i['price'] ?? 0) * ($i['quantity'] ?? 1);
+            });
+
+            return response()->json([
+                'success' => true,
+                'reservation' => [
+                    'id' => $reservation->id,
+                    'reservation_id' => $reservation->reservation_id,
+                    'customer_name' => $reservation->customer_name,
+                    'customer_email' => $reservation->customer_email,
+                    'customer_phone' => $reservation->customer_phone,
+                    'pickup_date' => optional($reservation->pickup_date)->format('M d, Y'),
+                    'pickup_time' => $reservation->pickup_time,
+                    'status' => $reservation->status,
+                    'created_at' => optional($reservation->created_at)->format('M d, Y h:i A'),
+                    'total_amount' => (float)$total
+                ],
+                'items' => $items
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Reservation not found'
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Error getting reservation details: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error getting reservation details'
+            ], 500);
+        }
+    }
 }

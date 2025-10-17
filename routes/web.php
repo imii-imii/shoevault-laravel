@@ -186,6 +186,8 @@ Route::middleware(['auth', 'role:manager,admin'])->prefix('inventory')->name('in
     
     // Reservation management routes
     Route::post('/reservations/{id}/status', [InventoryController::class, 'updateReservationStatus'])->name('reservations.update-status');
+    // Reservation details API for inventory (modal)
+    Route::get('/api/reservations/{id}', [InventoryController::class, 'getReservationDetails'])->name('api.reservations.show');
 });
 
 // Owner routes (for owners and admin)

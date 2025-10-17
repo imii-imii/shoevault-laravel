@@ -202,7 +202,7 @@
                     data-sizes="{{ $product->sizes->pluck('size')->implode(', ') }}" 
                     data-color="{{ $product->color }}"
                     data-image="{{ $product->image_url }}"
-                    style="position:relative;min-width:220px;max-width:220px;height:340px;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(67,56,202,0.08);padding:18px;cursor:pointer;" onclick="openProductDetailsModal({{ $product->id }})">>
+                    style="position:relative;min-width:220px;max-width:220px;height:340px;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(67,56,202,0.08);padding:0px 18px 18px 18px;cursor:pointer;" onclick="openProductDetailsModal({{ $product->id }})">
 
                     <!-- Category tag top-right -->
                     @php $cat = strtolower($product->category ?? ''); @endphp
@@ -492,7 +492,7 @@
                         <div style="position:relative;display:flex;align-items:center;gap:8px;width:100%;">
                             <input type="number" id="edit-product-size-input" placeholder="Size" min="1" max="50" style="width:100px;font-size:0.9rem;">
                             <input type="number" id="edit-product-stock-input" placeholder="Stock" min="0" style="width:100px;font-size:0.9rem;">
-                            <button type="button" id="edit-product-size-stock-add" style="background:#2a6aff;color:white;border:none;border-radius:4px;padding:6px 12px;cursor:pointer;font-size:0.9rem;">
+                            <button type="button" id="edit-product-size-stock-add" style="background:#2a6aff;color:white;border:none;border-radius:4px;padding:12px 15px;cursor:pointer;font-size:0.9rem;">
                                 Add Size
                             </button>
                         </div>
@@ -754,7 +754,7 @@ function addProductToCardView(product) {
     newCard.setAttribute('data-sizes', product.available_sizes ? product.available_sizes.join(', ') : '');
     newCard.setAttribute('data-color', product.color);
     newCard.setAttribute('data-image', product.image_url);
-    newCard.style.cssText = 'min-width:220px;max-width:220px;height:340px;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(67,56,202,0.08);padding:18px;cursor:pointer;';
+    newCard.style.cssText = 'min-width:220px;max-width:220px;height:340px;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(67,56,202,0.08);padding:0px 18px 18px 18px;cursor:pointer;';
     newCard.setAttribute('onclick', `openProductDetailsModal('${product.id}')`);
     
     const catLower = (product.category || '').toLowerCase();
