@@ -36,6 +36,10 @@ Route::middleware(['auth', 'role:cashier,admin'])->prefix('pos')->name('pos.')->
     Route::post('/password/update', [PosController::class, 'updatePassword'])->name('password.update');
     Route::get('/products', [PosController::class, 'getProducts'])->name('products');
     Route::post('/process-sale', [PosController::class, 'processSale'])->name('process-sale');
+
+    // POS reservation management endpoints (reuse same database)
+    Route::post('/reservations/{id}/status', [InventoryController::class, 'updateReservationStatus'])->name('reservations.update-status');
+    Route::get('/api/reservations/{id}', [InventoryController::class, 'getReservationDetails'])->name('api.reservations.show');
 });
 
 // Inventory routes (for managers and admin)

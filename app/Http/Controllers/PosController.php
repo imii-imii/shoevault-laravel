@@ -26,7 +26,18 @@ class PosController extends Controller
      */
     public function reservations()
     {
-        return view('pos.reservations');
+        // Load same reservations and stats as inventory reservation reports
+        $reservations = \App\Models\Reservation::orderBy('created_at', 'desc')->get();
+        if ($reservations->isEmpty()) {
+            $reservations = collect([]);
+        }
+        $reservationStats = [
+            'incomplete' => \App\Models\Reservation::where('status', 'pending')->count(),
+            'completed' => \App\Models\Reservation::where('status', 'completed')->count(),
+            'cancelled' => \App\Models\Reservation::where('status', 'cancelled')->count()
+        ];
+
+        return view('pos.reservations', compact('reservations', 'reservationStats'));
     }
 
     /**

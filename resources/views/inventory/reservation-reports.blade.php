@@ -209,6 +209,22 @@
         <!-- Buttons injected via JS depending on status -->
     </div>
  </div>
+
+<!-- Transaction Modal (Instant POS) -->
+<div id="transaction-modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;z-index:10010;"></div>
+<div id="transaction-modal" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:12px;box-shadow:0 20px 40px rgba(0,0,0,.2);width:min(900px,94vw);max-height:90vh;overflow:auto;display:none;z-index:10011;">
+    <div style="padding:16px 20px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+        <h3 style="margin:0;font-size:1.05rem;font-weight:800;">Complete Reservation</h3>
+        <button id="transaction-modal-close" style="background:none;border:none;font-size:1.2rem;cursor:pointer;">&times;</button>
+    </div>
+    <div id="transaction-modal-body" style="padding:16px 20px;">
+        <!-- Filled dynamically -->
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid #f1f5f9;display:flex;justify-content:flex-end;gap:10px;">
+        <button id="transaction-cancel-btn" style="padding:10px 14px;border-radius:8px;background:#6b7280;color:#fff;border:none;font-weight:700;">Cancel</button>
+        <button id="transaction-pay-btn" disabled style="padding:10px 14px;border-radius:8px;background:#2a6aff;color:#fff;border:none;font-weight:700;">Pay & Receipt</button>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -371,17 +387,162 @@ function renderReservationModalActions(reservationId, status) {
     if (!actions) return;
     if (status === 'pending') {
         actions.innerHTML = `
-            <button onclick=\"updateReservationStatus('${reservationId}','completed')\" style=\"min-width:120px;padding:10px 16px;border-radius:8px;background:#059669;color:#fff;border:none;font-weight:700;\">Complete</button>
+            <button onclick=\"openTransactionModal('${reservationId}')\" style=\"min-width:120px;padding:10px 16px;border-radius:8px;background:#059669;color:#fff;border:none;font-weight:700;\">Complete</button>
             <button onclick=\"updateReservationStatus('${reservationId}','cancelled')\" style=\"min-width:120px;padding:10px 16px;border-radius:8px;background:#DC2626;color:#fff;border:none;font-weight:700;\">Cancel</button>
         `;
     } else if (status === 'completed') {
         actions.innerHTML = `
-            <button onclick=\"updateReservationStatus('${reservationId}','pending')\" style=\"min-width:120px;padding:10px 16px;border-radius:8px;background:#2563EB;color:#fff;border:none;font-weight:700;\">Reopen</button>
+              <button onclick=\"updateReservationStatus('${reservationId}','pending')\" style=\"min-width:120px;padding:10px 16px;border-radius:8px;background:#2563EB;color:#fff;border:none;font-weight:700;\">Revert</button>
         `;
     } else {
         actions.innerHTML = '';
     }
 }
+
+// Transaction Modal logic
+const txModal = document.getElementById('transaction-modal');
+const txOverlay = document.getElementById('transaction-modal-overlay');
+const txBody = document.getElementById('transaction-modal-body');
+const txClose = document.getElementById('transaction-modal-close');
+const txCancel = document.getElementById('transaction-cancel-btn');
+const txPay = document.getElementById('transaction-pay-btn');
+
+let txContext = { reservationId: null, total: 0 };
+
+function openTransactionModal(reservationId) {
+    txContext = { reservationId, total: 0 };
+    // Reuse the details endpoint to fetch items and total
+    fetch(`{{ route('inventory.api.reservations.show', ['id' => 'RES_ID']) }}`.replace('RES_ID', reservationId))
+        .then(r => r.json())
+        .then(data => {
+            const items = data.items || [];
+            const total = data.reservation?.total_amount != null
+                ? Number(data.reservation.total_amount)
+                : items.reduce((s,i)=>s + (Number(i.price||0) * Number(i.quantity||1)),0);
+            txContext.total = total;
+
+            txBody.innerHTML = `
+                <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:start;">
+                    <div>
+                        <h4 style=\"margin:0 0 8px 0;\">Products</h4>
+                        <div style=\"display:grid;gap:8px;\">
+                            ${items.length ? items.map(i => `
+                                <div style=\"display:flex;justify-content:space-between;border:1px solid #f1f5f9;border-radius:8px;padding:10px;\">
+                                    <div>
+                                        <div style=\"font-weight:700;\">${i.name}</div>
+                                        <div style=\"color:#6b7280;font-size:0.85rem;\">${i.brand||''} ${i.color?('• '+i.color):''} ${i.size?('• Size '+i.size):''}</div>
+                                    </div>
+                                    <div style=\"text-align:right;\">x${i.quantity||1}<br>₱${Number(i.price||0).toLocaleString()}</div>
+                                </div>
+                            `).join('') : '<div style=\"color:#6b7280;\">No items</div>'}
+                        </div>
+                    </div>
+                    <div style="border:1px solid #e5e7eb;border-radius:12px;padding:12px;">
+                        <div style="display:flex;justify-content:space-between;font-weight:800;margin-bottom:10px;">
+                            <span>Total</span>
+                            <span id="tx-total">₱ ${total.toLocaleString()}</span>
+                        </div>
+                        <label for="tx-payment" style="font-size:0.9rem;color:#374151;">Amount Paid</label>
+                        <input id="tx-payment" type="text" placeholder="0.00" style="width:100%;margin:6px 0 8px 0;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;">
+                        <div style="display:flex;justify-content:space-between;font-weight:700;">
+                            <span>Change</span>
+                            <span id="tx-change">₱ 0</span>
+                        </div>
+                        <small style="display:block;color:#6b7280;margin-top:8px;">Enter amount equal or greater than total to enable Pay.</small>
+                    </div>
+                </div>
+            `;
+
+            // Bind payment input
+            const input = txBody.querySelector('#tx-payment');
+            txPay.disabled = true;
+            input.addEventListener('input', () => {
+                const cleaned = input.value.replace(/[^0-9.]/g, '');
+                const parts = cleaned.split('.');
+                const normalized = parts.length > 1 ? parts[0] + '.' + parts[1].slice(0, 2) : parts[0];
+                if (input.value !== normalized) input.value = normalized;
+                const paid = parseFloat(normalized || '0');
+                const change = Math.max(0, paid - txContext.total);
+                txBody.querySelector('#tx-change').textContent = `₱ ${change.toLocaleString()}`;
+                txPay.disabled = !(paid >= txContext.total);
+            });
+
+            txOverlay.style.display = 'block';
+            txModal.style.display = 'block';
+        })
+        .catch(() => {
+            alert('Unable to load reservation details.');
+        });
+}
+
+function closeTransactionModal(){
+    txModal.style.display = 'none';
+    txOverlay.style.display = 'none';
+}
+
+if (txClose) txClose.addEventListener('click', closeTransactionModal);
+if (txCancel) txCancel.addEventListener('click', closeTransactionModal);
+if (txOverlay) txOverlay.addEventListener('click', closeTransactionModal);
+
+// Print POS-like receipt and mark as completed
+if (txPay) txPay.addEventListener('click', async function(){
+    const paidRaw = (txBody.querySelector('#tx-payment')?.value || '').trim();
+    const paid = parseFloat(paidRaw || '0');
+    if (!(paid >= txContext.total)) return;
+
+    // Optional: mark reservation completed first
+    try { await updateReservationStatus(txContext.reservationId, 'completed'); } catch (e) {}
+
+    // Build a simple receipt content similar to POS
+    const receiptWin = window.open('', '_blank', 'width=480,height=640');
+    const now = new Date();
+    const stamp = now.toLocaleString();
+    const total = txContext.total;
+    const change = Math.max(0, paid - total);
+
+    // For items, reuse last fetched data in DOM
+    const itemRows = Array.from(txBody.querySelectorAll('[style*="justify-content:space-between"][style*="padding:10px"]'))
+        .map(row => {
+            const name = row.querySelector('div div')?.textContent || 'Item';
+            const meta = row.querySelector('div div + div')?.textContent || '';
+            const qtyPrice = row.querySelector('div:last-child')?.innerHTML || '';
+            return `<tr><td style="padding:4px 0;border-bottom:1px dotted #e5e7eb;">${name}<div style="color:#6b7280;font-size:10px;">${meta}</div></td><td style="text-align:right;white-space:nowrap;">${qtyPrice}</td></tr>`;
+        }).join('');
+
+    receiptWin.document.write(`
+        <html><head><title>Receipt</title>
+        <style>
+            body{font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; padding:16px; color:#111827}
+            .sep{border-top:1px dotted #9ca3af; margin:10px 0}
+            table{width:100%; border-collapse:collapse;}
+            td{font-size:12px}
+        </style></head><body>
+            <div style="text-align:center; margin-bottom:8px;">
+                <h3 style="margin:0; font-size:16px; font-weight:800;">ShoeVault Batangas</h3>
+                <div style="color:#6b7280; font-size:11px;">Reservation Payment Receipt</div>
+                <div style="color:#6b7280; font-size:11px;">${stamp}</div>
+            </div>
+            <div class="sep"></div>
+            <table>${itemRows}</table>
+            <div class="sep"></div>
+            <div style="display:flex; justify-content:space-between; font-size:13px;">
+                <div>Total</div>
+                <div>₱ ${total.toLocaleString()}</div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:13px;">
+                <div>Cash</div>
+                <div>₱ ${paid.toLocaleString()}</div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-weight:700; font-size:14px;">
+                <div>Change</div>
+                <div>₱ ${change.toLocaleString()}</div>
+            </div>
+            <script>window.onload = function(){ window.print(); setTimeout(()=>window.close(), 300); }<\/script>
+        </body></html>
+    `);
+    receiptWin.document.close();
+    closeTransactionModal();
+});
 
 function closeReservationModal() {
     modalEl.style.display = 'none';
