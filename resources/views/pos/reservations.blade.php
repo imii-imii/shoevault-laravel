@@ -641,6 +641,32 @@
                 overflow-x: auto;
             }
         }
+
+        /* Custom scrollbar styles for reservations container */
+        #reservations-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #reservations-container::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+
+        #reservations-container::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+            transition: background-color 0.2s ease;
+        }
+
+        #reservations-container::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* For Firefox */
+        #reservations-container {
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 #f1f5f9;
+        }
     </style>
 </head>
 
@@ -755,7 +781,7 @@
                     </div>
                 </div>
                 <!-- Reservation List (from Inventory Reservation Reports) -->
-                <div style="width: 100%; display: grid; gap: 12px;" id="reservations-container">
+                <div style="width: 100%; display: grid; gap: 12px; max-height: calc(100vh - 320px); overflow-y: auto; padding-right: 8px;" id="reservations-container">
                     @forelse($reservations ?? [] as $reservation)
                     <!-- Reservation Card - Compact Layout -->
                     <div class="reservation-card" data-res-id="{{ $reservation->id }}" data-res-number="{{ $reservation->reservation_id }}" data-res-date="{{ $reservation->created_at ? $reservation->created_at->format('M d, Y h:i A') : 'N/A' }}" data-customer-name="{{ $reservation->customer_name }}" data-customer-email="{{ $reservation->customer_email }}" data-customer-phone="{{ $reservation->customer_phone }}" data-pickup-date="{{ $reservation->pickup_date ? $reservation->pickup_date->format('M d, Y') : 'TBD' }}" data-pickup-time="{{ $reservation->pickup_time ?? 'TBD' }}" data-status="{{ $reservation->status }}" style="background: #F9FAFB; padding: 16px 20px; border-radius: 8px; border: 1px solid #E5E7EB;">

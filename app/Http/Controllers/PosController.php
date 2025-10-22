@@ -9,8 +9,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Models\Product;
 use App\Models\ProductSize;
-use App\Models\ReservationProduct;
-use App\Models\ReservationProductSize;
 use App\Models\Sale;
 
 class PosController extends Controller
@@ -212,8 +210,8 @@ class PosController extends Controller
         try {
             $category = $request->get('category', 'all');
             
-            $query = ReservationProduct::with(['sizes' => function($query) {
-                $query->where('stock', '>', 0);
+            $query = Product::with(['sizes' => function($query) {
+                $query->where('stock', '>', 0)->where('is_available', true);
             }])->where('is_active', true);
             
             if ($category !== 'all') {
@@ -240,7 +238,7 @@ class PosController extends Controller
                         'stock' => (int) $size->stock,
                         'price_adjustment' => (float) ($size->price_adjustment ?? 0),
                         'effective_price' => (float) ($product->price + ($size->price_adjustment ?? 0)),
-                        'is_available' => $size->stock > 0
+                        'is_available' => $size->stock > 0 && $size->is_available
                     ];
                 });
 
@@ -300,12 +298,12 @@ class PosController extends Controller
             
             // Process each item and verify stock
             foreach ($validated['items'] as $item) {
-                $product = ReservationProduct::find($item['id']);
+                $product = Product::find($item['id']);
                 if (!$product) {
                     throw new \Exception("Product not found: {$item['id']}");
                 }
                 
-                $size = ReservationProductSize::where('reservation_product_id', $item['id'])
+                $size = ProductSize::where('product_id', $item['id'])
                     ->where('size', $item['size'])
                     ->first();
                     
@@ -350,28 +348,24 @@ class PosController extends Controller
             // Create sale record with enhanced data
             $sale = Sale::create([
                 'transaction_id' => Sale::generateTransactionId(),
-                'receipt_number' => Sale::generateReceiptNumber(),
                 'sale_type' => 'pos',
                 'reservation_id' => null,
                 'user_id' => Auth::id(),
                 'subtotal' => $validated['subtotal'],
-                'tax' => $validated['tax'] ?? 0,
+                'tax_amount' => $validated['tax'] ?? 0,
                 'discount_amount' => $validated['discount'] ?? 0,
-                'total' => $validated['total'],
+                'total_amount' => $validated['total'],
                 'amount_paid' => $validated['amount_paid'],
-                'change_amount' => $change,
+                'change_given' => $change,
                 'payment_method' => $validated['payment_method'],
                 'items' => $saleItems, // Store detailed items array
-                'total_items' => $totalItems,
-                'total_quantity' => $totalQuantity,
-                'status' => 'completed',
                 'sale_date' => now(),
                 'notes' => $request->notes ?? null
             ]);
             
             // Deduct stock for all items
             foreach ($saleItems as $item) {
-                $size = ReservationProductSize::find($item['size_id']);
+                $size = ProductSize::find($item['size_id']);
                 if ($size) {
                     $size->decrement('stock', $item['quantity']);
                 }
@@ -381,8 +375,9 @@ class PosController extends Controller
             
             Log::info('POS Sale processed successfully', [
                 'transaction_id' => $sale->transaction_id,
-                'total_amount' => $sale->total,
-                'items_count' => count($saleItems),
+                'total_amount' => $sale->total_amount,
+                'items_count' => $sale->total_items,
+                'total_quantity' => $sale->total_quantity,
                 'cashier_id' => Auth::id()
             ]);
             
@@ -390,7 +385,6 @@ class PosController extends Controller
                 'success' => true,
                 'message' => 'Sale processed successfully',
                 'transaction_id' => $sale->transaction_id,
-                'receipt_number' => $sale->receipt_number,
                 'change' => $change
             ]);
             
