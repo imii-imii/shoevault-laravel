@@ -9,16 +9,10 @@ class Reservation extends Model
 {
     protected $fillable = [
         'reservation_id',
-        'product_id',
-        'product_name',
-        'product_brand',
-        'product_size',
-        'product_color',
-        'product_price',
+        'items', // JSON field for multiple products
         'customer_name',
         'customer_email',
         'customer_phone',
-        'quantity',
         'total_amount',
         'pickup_date',
         'pickup_time',
@@ -30,8 +24,8 @@ class Reservation extends Model
     protected $casts = [
         'pickup_date' => 'date',
         'reserved_at' => 'datetime',
-        'product_price' => 'decimal:2',
         'total_amount' => 'decimal:2',
+        'items' => 'array', // Cast JSON to array automatically
     ];
 
     public function product(): BelongsTo

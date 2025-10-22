@@ -1742,34 +1742,59 @@ function openReceiptPreview({ summary, paymentAmount }) {
 
 async function processSaleAndPrint(summary, paymentAmount) {
     const saleData = {
-        items: cart.map(item => ({ id: item.id, size: item.size || '', quantity: item.quantity })),
+        items: cart.map(item => ({ 
+            id: item.id, 
+            size: item.size || '', 
+            quantity: item.quantity 
+        })),
         subtotal: summary.subtotal,
-        tax: summary.tax,
+        tax: summary.tax || 0,
+        discount: 0, // Can be enhanced later for discount functionality
         total: summary.total,
         amount_paid: paymentAmount,
-        payment_method: 'cash'
+        payment_method: 'cash' // Can be enhanced to allow selection
     };
+    
     try {
+        console.log('Processing sale with data:', saleData);
+        
         const response = await fetch('{{ route("pos.process-sale") }}', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+            headers: { 
+                'Content-Type': 'application/json', 
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json'
+            },
             body: JSON.stringify(saleData)
         });
+        
         const result = await response.json();
-        if (!result.success) { alert('Error processing sale: ' + result.message); return; }
-        // Print the preview
+        console.log('Sale response:', result);
+        
+        if (!result.success) { 
+            alert('Error processing sale: ' + result.message); 
+            return; 
+        }
+        
+        // Show success message with transaction details
+        alert(`Sale processed successfully!\nTransaction ID: ${result.transaction_id}\nReceipt #: ${result.receipt_number}`);
+        
+        // Print the receipt
         window.print();
+        
         // After print: clear cart and close modal
         cart = [];
         updateCartDisplay();
-        loadProducts();
+        loadProducts(); // Refresh products to update stock
         document.getElementById('payment-amount').value = '';
         updatePaymentUi();
+        
         const modal = document.getElementById('receipt-modal');
         if (modal) modal.classList.remove('open');
+        
     } catch (e) {
-        console.error(e);
-        alert('Error processing sale. Please try again.');
+        console.error('Sale processing error:', e);
+        alert('Error processing sale. Please check your connection and try again.');
     }
 }
 

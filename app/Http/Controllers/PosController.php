@@ -5,8 +5,12 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Models\Product;
 use App\Models\ProductSize;
+use App\Models\ReservationProduct;
+use App\Models\ReservationProductSize;
 use App\Models\Sale;
 
 class PosController extends Controller
@@ -205,144 +209,200 @@ class PosController extends Controller
      */
     public function getProducts(Request $request)
     {
-        $query = Product::with('sizes')->active();
-        
-        if ($request->has('category') && $request->category !== 'all') {
-            $query->where('category', $request->category);
-        }
-        
-        if ($request->has('search') && $request->search) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('brand', 'like', "%{$search}%")
-                  ->orWhere('sku', 'like', "%{$search}%");
-            });
-        }
-        
-        $products = $query->get();
+        try {
+            $category = $request->get('category', 'all');
+            
+            $query = ReservationProduct::with(['sizes' => function($query) {
+                $query->where('stock', '>', 0);
+            }])->where('is_active', true);
+            
+            if ($category !== 'all') {
+                $query->where('category', $category);
+            }
+            
+            if ($request->has('search') && $request->search) {
+                $search = $request->search;
+                $query->where(function($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                      ->orWhere('brand', 'like', "%{$search}%")
+                      ->orWhere('sku', 'like', "%{$search}%");
+                });
+            }
+            
+            $products = $query->get();
 
-        // Transform products to include sizes summary and avoid exposing unnecessary fields
-        $transformed = $products->map(function ($product) {
-            $sizes = $product->sizes->map(function ($size) use ($product) {
+            // Transform products to include sizes summary
+            $transformed = $products->map(function ($product) {
+                $sizes = $product->sizes->map(function ($size) use ($product) {
+                    return [
+                        'id' => $size->id,
+                        'size' => $size->size,
+                        'stock' => (int) $size->stock,
+                        'price_adjustment' => (float) ($size->price_adjustment ?? 0),
+                        'effective_price' => (float) ($product->price + ($size->price_adjustment ?? 0)),
+                        'is_available' => $size->stock > 0
+                    ];
+                });
+
                 return [
-                    'id' => $size->id,
-                    'size' => $size->size,
-                    'stock' => (int) $size->stock,
-                    'is_available' => (bool) $size->is_available,
-                    'price_adjustment' => (float) $size->price_adjustment,
-                    // effective price = base price + adjustment
-                    'effective_price' => (float) ($product->price + $size->price_adjustment),
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'brand' => $product->brand,
+                    'category' => $product->category,
+                    'color' => $product->color,
+                    'price' => (float) $product->price,
+                    'total_stock' => (int) $product->sizes->sum('stock'),
+                    'sizes' => $sizes,
                 ];
-            });
+            })->filter(function ($product) {
+                return $product['total_stock'] > 0; // Only show products with stock
+            })->values();
 
-            return [
-                'id' => $product->id,
-                'product_id' => $product->product_id,
-                'name' => $product->name,
-                'brand' => $product->brand,
-                'category' => $product->category,
-                'color' => $product->color,
-                'price' => (float) $product->price,
-                'image_url' => $product->image_url,
-                'is_active' => (bool) $product->is_active,
-                'total_stock' => (int) $product->sizes->sum('stock'),
-                'sizes' => $sizes,
-            ];
-        })->values();
-
-        return response()->json([
-            'success' => true,
-            'products' => $transformed
-        ]);
+            return response()->json([
+                'success' => true,
+                'products' => $transformed
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error loading products: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error loading products: ' . $e->getMessage(),
+                'products' => []
+            ]);
+        }
     }
 
     /**
-     * Process sale transaction
+     * Process sale transaction with enhanced functionality
      */
     public function processSale(Request $request)
     {
-        $request->validate([
-            'items' => 'required|array|min:1',
-            'items.*.id' => 'required|exists:products,id',
-            'items.*.size' => 'required|string',
-            'items.*.quantity' => 'required|integer|min:1',
-            'subtotal' => 'required|numeric|min:0',
-            'tax' => 'required|numeric|min:0',
-            'total' => 'required|numeric|min:0',
-            'amount_paid' => 'required|numeric|min:0',
-            'payment_method' => 'required|in:cash,card,gcash,maya'
-        ]);
+        DB::beginTransaction();
+        
+        try {
+            $validated = $request->validate([
+                'items' => 'required|array|min:1',
+                'items.*.id' => 'required|integer',
+                'items.*.size' => 'required|string',
+                'items.*.quantity' => 'required|integer|min:1',
+                'subtotal' => 'required|numeric|min:0',
+                'tax' => 'numeric|min:0',
+                'discount' => 'numeric|min:0',
+                'total' => 'required|numeric|min:0',
+                'amount_paid' => 'required|numeric|min:0',
+                'payment_method' => 'required|string|in:cash,card,gcash,bank_transfer'
+            ]);
 
-        // Verify stock availability
-        foreach ($request->items as $item) {
-            $product = Product::find($item['id']);
-            if (!$product) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Product not found'
-                ], 404);
+            $saleItems = [];
+            $totalQuantity = 0;
+            $totalItems = 0;
+            
+            // Process each item and verify stock
+            foreach ($validated['items'] as $item) {
+                $product = ReservationProduct::find($item['id']);
+                if (!$product) {
+                    throw new \Exception("Product not found: {$item['id']}");
+                }
+                
+                $size = ReservationProductSize::where('reservation_product_id', $item['id'])
+                    ->where('size', $item['size'])
+                    ->first();
+                    
+                if (!$size) {
+                    throw new \Exception("Size {$item['size']} not found for product {$product->name}");
+                }
+                
+                if ($size->stock < $item['quantity']) {
+                    throw new \Exception("Insufficient stock for {$product->name} size {$item['size']}. Available: {$size->stock}");
+                }
+                
+                // Calculate effective price with size adjustment
+                $unitPrice = $product->price + ($size->price_adjustment ?? 0);
+                $subtotal = $unitPrice * $item['quantity'];
+                
+                // Build detailed item record for the sale
+                $saleItems[] = [
+                    'product_id' => $product->id,
+                    'size_id' => $size->id,
+                    'product_name' => $product->name,
+                    'product_brand' => $product->brand,
+                    'product_size' => $size->size,
+                    'product_color' => $product->color,
+                    'product_category' => $product->category,
+                    'unit_price' => $unitPrice,
+                    'quantity' => $item['quantity'],
+                    'subtotal' => $subtotal,
+                    'cost_price' => $product->cost_price ?? 0,
+                    'sku' => $product->sku ?? null
+                ];
+                
+                $totalQuantity += $item['quantity'];
+                $totalItems++;
             }
 
-            $size = ProductSize::where('product_id', $product->id)
-                ->where('size', $item['size'])
-                ->first();
-
-            if (!$size) {
-                return response()->json([
-                    'success' => false,
-                    'message' => "Size {$item['size']} not found for {$product->name}"
-                ], 400);
+            // Validate payment amount
+            $change = $validated['amount_paid'] - $validated['total'];
+            if ($change < 0) {
+                throw new \Exception('Insufficient payment amount');
             }
-
-            if (!$size->is_available || $size->stock < $item['quantity']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => "Insufficient stock for {$product->name} size {$item['size']}. Available: {$size->stock}"
-                ], 400);
+            
+            // Create sale record with enhanced data
+            $sale = Sale::create([
+                'transaction_id' => Sale::generateTransactionId(),
+                'receipt_number' => Sale::generateReceiptNumber(),
+                'sale_type' => 'pos',
+                'reservation_id' => null,
+                'user_id' => Auth::id(),
+                'subtotal' => $validated['subtotal'],
+                'tax' => $validated['tax'] ?? 0,
+                'discount_amount' => $validated['discount'] ?? 0,
+                'total' => $validated['total'],
+                'amount_paid' => $validated['amount_paid'],
+                'change_amount' => $change,
+                'payment_method' => $validated['payment_method'],
+                'items' => $saleItems, // Store detailed items array
+                'total_items' => $totalItems,
+                'total_quantity' => $totalQuantity,
+                'status' => 'completed',
+                'sale_date' => now(),
+                'notes' => $request->notes ?? null
+            ]);
+            
+            // Deduct stock for all items
+            foreach ($saleItems as $item) {
+                $size = ReservationProductSize::find($item['size_id']);
+                if ($size) {
+                    $size->decrement('stock', $item['quantity']);
+                }
             }
-        }
-
-        // Calculate change
-        $change = $request->amount_paid - $request->total;
-        if ($change < 0) {
+            
+            DB::commit();
+            
+            Log::info('POS Sale processed successfully', [
+                'transaction_id' => $sale->transaction_id,
+                'total_amount' => $sale->total,
+                'items_count' => count($saleItems),
+                'cashier_id' => Auth::id()
+            ]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Sale processed successfully',
+                'transaction_id' => $sale->transaction_id,
+                'receipt_number' => $sale->receipt_number,
+                'change' => $change
+            ]);
+            
+        } catch (\Exception $e) {
+            DB::rollback();
+            Log::error('POS Sale processing failed: ' . $e->getMessage());
+            
             return response()->json([
                 'success' => false,
-                'message' => 'Insufficient payment amount'
+                'message' => $e->getMessage()
             ], 400);
         }
-
-        // Create sale record
-        $sale = Sale::create([
-            'transaction_id' => Sale::generateTransactionId(),
-            'user_id' => Auth::id(),
-            'subtotal' => $request->subtotal,
-            'tax' => $request->tax,
-            'total' => $request->total,
-            'amount_paid' => $request->amount_paid,
-            'change_amount' => $change,
-            'payment_method' => $request->payment_method,
-            'items' => $request->items,
-            'notes' => $request->notes ?? null
-        ]);
-
-        // Update product stock
-        foreach ($request->items as $item) {
-            $product = Product::find($item['id']);
-            $size = ProductSize::where('product_id', $product->id)
-                ->where('size', $item['size'])
-                ->first();
-            if ($size) {
-                $size->decrement('stock', $item['quantity']);
-            }
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Sale processed successfully',
-            'transaction_id' => $sale->transaction_id,
-            'change' => $change
-        ]);
     }
 
     /**

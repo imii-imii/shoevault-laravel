@@ -162,52 +162,55 @@ class ReservationController extends Controller
                 }
             }
 
-            // Create reservations for each item
-            $baseReservationId = $this->generateBaseReservationId();
-            $reservations = [];
-            $itemIndex = 1;
-
+            // Prepare items array for JSON storage
+            $reservationId = $this->generateBaseReservationId();
+            $itemsData = [];
+            
             foreach ($validated['items'] as $item) {
                 $product = ReservationProduct::findOrFail($item['id']);
                 $size = \App\Models\ReservationProductSize::findOrFail($item['sizeId']);
                 
                 // Calculate final price with size adjustment
                 $finalPrice = $product->price + ($size->price_adjustment ?? 0);
-
-                // Create unique reservation ID for each item
-                $uniqueReservationId = $baseReservationId . '-' . str_pad($itemIndex, 2, '0', STR_PAD_LEFT);
-
-                $reservation = \App\Models\Reservation::create([
-                    'reservation_id' => $uniqueReservationId,
+                
+                $itemsData[] = [
                     'product_id' => $item['id'],
+                    'size_id' => $item['sizeId'], // Store size ID for stock management
                     'product_name' => $product->name,
                     'product_brand' => $product->brand,
                     'product_size' => $size->size,
                     'product_color' => $product->color ?? 'Default',
                     'product_price' => $finalPrice,
-                    'customer_name' => $validated['customer']['fullName'],
-                    'customer_email' => $validated['customer']['email'],
-                    'customer_phone' => $validated['customer']['phone'],
                     'quantity' => $item['qty'],
-                    'total_amount' => $finalPrice * $item['qty'],
-                    'pickup_date' => $validated['customer']['pickupDate'],
-                    'pickup_time' => $validated['customer']['pickupTime'],
-                    'notes' => $validated['customer']['notes'],
-                    'status' => 'pending',
-                    'reserved_at' => now()
-                ]);
-
-                $reservations[] = $reservation;
-                $itemIndex++;
+                    'subtotal' => $finalPrice * $item['qty']
+                ];
             }
 
+            // Create single reservation with JSON items
+            $reservation = \App\Models\Reservation::create([
+                'reservation_id' => $reservationId,
+                'items' => $itemsData,
+                'customer_name' => $validated['customer']['fullName'],
+                'customer_email' => $validated['customer']['email'],
+                'customer_phone' => $validated['customer']['phone'],
+                'total_amount' => $validated['total'],
+                'pickup_date' => $validated['customer']['pickupDate'],
+                'pickup_time' => $validated['customer']['pickupTime'],
+                'notes' => $validated['customer']['notes'],
+                'status' => 'pending',
+                'reserved_at' => now()
+            ]);
+
+            // Stock will be held (not deducted) until reservation is completed
+            // This allows for better inventory management and prevents stock lockup
+            
             DB::commit();
 
             return response()->json([
                 'success' => true,
                 'message' => 'Reservation created successfully!',
-                'reservation_id' => $baseReservationId,
-                'reservations' => $reservations
+                'reservation_id' => $reservationId,
+                'reservation' => $reservation
             ], 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {

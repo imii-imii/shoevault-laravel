@@ -11,6 +11,7 @@ use App\Models\Supplier;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
 
 class InventoryController extends Controller
 {
@@ -642,10 +643,28 @@ class InventoryController extends Controller
                 'status' => 'required|string|in:pending,completed,cancelled'
             ]);
 
-            // Find and update the reservation
+            // Find the reservation
             $reservation = \App\Models\Reservation::findOrFail($id);
-            $reservation->status = $request->status;
+            $oldStatus = $reservation->status;
+            $newStatus = $request->status;
+
+            DB::beginTransaction();
+
+            // Handle stock changes based on status transitions
+            if ($oldStatus !== $newStatus) {
+                $this->handleStockChanges($reservation, $oldStatus, $newStatus);
+            }
+
+            // Create sale record when reservation is completed
+            if ($oldStatus !== 'completed' && $newStatus === 'completed') {
+                $this->createSaleFromReservation($reservation);
+            }
+
+            // Update the reservation status
+            $reservation->status = $newStatus;
             $reservation->save();
+
+            DB::commit();
 
             return response()->json([
                 'success' => true,
@@ -657,17 +676,176 @@ class InventoryController extends Controller
             ]);
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Reservation not found'
             ], 404);
         } catch (\Exception $e) {
+            DB::rollBack();
             Log::error('Error updating reservation status: ' . $e->getMessage());
             
             return response()->json([
                 'success' => false,
                 'message' => 'Error updating reservation status: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Handle stock changes based on reservation status transitions
+     */
+    private function handleStockChanges($reservation, $oldStatus, $newStatus)
+    {
+        // Only process if reservation has items
+        if (!$reservation->items || !is_array($reservation->items)) {
+            return;
+        }
+
+        // Status transition: pending -> completed (deduct stock)
+        if ($oldStatus === 'pending' && $newStatus === 'completed') {
+            foreach ($reservation->items as $item) {
+                $sizeId = $item['size_id'] ?? null;
+                if (!$sizeId) {
+                    throw new \Exception("Size ID not found for item: {$item['product_name']}");
+                }
+                
+                $size = ReservationProductSize::find($sizeId);
+                if ($size && $size->stock >= $item['quantity']) {
+                    $size->decrement('stock', $item['quantity']);
+                    Log::info("Stock deducted: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
+                } else {
+                    throw new \Exception("Insufficient stock for {$item['product_name']} (Size: {$item['product_size']}). Available: " . ($size ? $size->stock : 0) . ", Required: {$item['quantity']}");
+                }
+            }
+        }
+
+        // Status transition: completed -> pending (restore stock)
+        elseif ($oldStatus === 'completed' && $newStatus === 'pending') {
+            foreach ($reservation->items as $item) {
+                $sizeId = $item['size_id'] ?? null;
+                if ($sizeId) {
+                    $size = ReservationProductSize::find($sizeId);
+                    if ($size) {
+                        $size->increment('stock', $item['quantity']);
+                        Log::info("Stock restored: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
+                    }
+                }
+            }
+        }
+
+        // Status transition: completed -> cancelled (restore stock)
+        elseif ($oldStatus === 'completed' && $newStatus === 'cancelled') {
+            foreach ($reservation->items as $item) {
+                $sizeId = $item['size_id'] ?? null;
+                if ($sizeId) {
+                    $size = ReservationProductSize::find($sizeId);
+                    if ($size) {
+                        $size->increment('stock', $item['quantity']);
+                        Log::info("Stock restored due to cancellation: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
+                    }
+                }
+            }
+        }
+
+        // Status transition: pending -> cancelled (no stock change needed since stock wasn't deducted)
+        // Status transition: cancelled -> pending (no stock change needed)
+        // Status transition: cancelled -> completed (deduct stock like pending -> completed)
+        elseif ($oldStatus === 'cancelled' && $newStatus === 'completed') {
+            foreach ($reservation->items as $item) {
+                $sizeId = $item['size_id'] ?? null;
+                if (!$sizeId) {
+                    throw new \Exception("Size ID not found for item: {$item['product_name']}");
+                }
+                
+                $size = ReservationProductSize::find($sizeId);
+                if ($size && $size->stock >= $item['quantity']) {
+                    $size->decrement('stock', $item['quantity']);
+                    Log::info("Stock deducted from cancelled to completed: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
+                } else {
+                    throw new \Exception("Insufficient stock for {$item['product_name']} (Size: {$item['product_size']}). Available: " . ($size ? $size->stock : 0) . ", Required: {$item['quantity']}");
+                }
+            }
+        }
+    }
+
+    /**
+     * Create a sale record from a completed reservation
+     */
+    private function createSaleFromReservation($reservation)
+    {
+        try {
+            // Validate that reservation has items
+            if (!$reservation->items || !is_array($reservation->items) || empty($reservation->items)) {
+                Log::warning("Cannot create sale from reservation {$reservation->id}: No items found");
+                return;
+            }
+
+            // Calculate totals
+            $subtotal = 0;
+            $totalQuantity = 0;
+            $itemCount = 0;
+
+            // Process items and ensure they have all required fields
+            $saleItems = [];
+            foreach ($reservation->items as $item) {
+                $quantity = (int) ($item['quantity'] ?? 1);
+                $unitPrice = (float) ($item['unit_price'] ?? $item['price'] ?? 0);
+                $itemSubtotal = $quantity * $unitPrice;
+
+                $saleItems[] = [
+                    'product_id' => $item['product_id'] ?? null,
+                    'size_id' => $item['size_id'] ?? null,
+                    'product_name' => $item['product_name'] ?? 'Unknown Product',
+                    'product_brand' => $item['product_brand'] ?? '',
+                    'product_size' => $item['product_size'] ?? '',
+                    'product_color' => $item['product_color'] ?? '',
+                    'product_category' => $item['product_category'] ?? 'uncategorized',
+                    'unit_price' => $unitPrice,
+                    'quantity' => $quantity,
+                    'subtotal' => $itemSubtotal,
+                    'cost_price' => $item['cost_price'] ?? null, // For future profit analysis
+                ];
+
+                $subtotal += $itemSubtotal;
+                $totalQuantity += $quantity;
+                $itemCount++;
+            }
+
+            // Create the sale record
+            $sale = \App\Models\Sale::create([
+                'transaction_id' => \App\Models\Sale::generateTransactionId(),
+                'receipt_number' => \App\Models\Sale::generateReceiptNumber(),
+                'sale_type' => 'reservation', // Distinguish from POS sales
+                'reservation_id' => $reservation->id,
+                'user_id' => Auth::id(), // Current user who marked it complete
+                'subtotal' => $subtotal,
+                'tax' => 0, // No tax for reservation completions
+                'discount_amount' => 0, // No discount for reservation completions
+                'total' => $subtotal,
+                'amount_paid' => $subtotal, // Assume full payment for completed reservations
+                'change_amount' => 0,
+                'payment_method' => 'cash', // Default to cash for reservation completions
+                'items' => $saleItems,
+                'total_items' => $itemCount,
+                'total_quantity' => $totalQuantity,
+                'status' => 'completed',
+                'sale_date' => now(),
+                'notes' => "Sale created from completed reservation #{$reservation->reservation_id}"
+            ]);
+
+            Log::info("Sale record created from reservation completion", [
+                'reservation_id' => $reservation->id,
+                'sale_id' => $sale->id,
+                'transaction_id' => $sale->transaction_id,
+                'total_amount' => $subtotal,
+                'items_count' => $itemCount
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("Failed to create sale from reservation {$reservation->id}: " . $e->getMessage());
+            // Don't throw the exception to avoid breaking the reservation completion
+            // The reservation status update should still succeed even if sale creation fails
         }
     }
 
@@ -679,31 +857,19 @@ class InventoryController extends Controller
         try {
             $reservation = \App\Models\Reservation::findOrFail($id);
 
-            // Try to load items from a pivot/items table if available; fall back to single product fields
+            // Get items from JSON field
             $items = [];
-            if (method_exists($reservation, 'items')) {
-                $items = $reservation->items()->get()->map(function($item){
+            if ($reservation->items && is_array($reservation->items)) {
+                $items = collect($reservation->items)->map(function($item) {
                     return [
-                        'name' => $item->product_name ?? ($item->product->name ?? 'Product'),
-                        'brand' => $item->product_brand ?? ($item->product->brand ?? null),
-                        'color' => $item->product_color ?? ($item->product->color ?? null),
-                        'size' => $item->product_size ?? null,
-                        'quantity' => $item->quantity ?? 1,
-                        'price' => (float)($item->price ?? 0)
+                        'name' => $item['product_name'] ?? 'Product',
+                        'brand' => $item['product_brand'] ?? null,
+                        'color' => $item['product_color'] ?? null,
+                        'size' => $item['product_size'] ?? null,
+                        'quantity' => $item['quantity'] ?? 1,
+                        'price' => (float)($item['product_price'] ?? 0)
                     ];
                 })->toArray();
-            }
-
-            if (empty($items)) {
-                // Use embedded product info if present
-                $items = [[
-                    'name' => $reservation->product_name ?? 'Product',
-                    'brand' => $reservation->product_brand ?? null,
-                    'color' => $reservation->product_color ?? null,
-                    'size' => $reservation->product_size ?? null,
-                    'quantity' => $reservation->quantity ?? 1,
-                    'price' => (float)($reservation->product_price ?? 0)
-                ]];
             }
 
             $total = $reservation->total_amount ?? collect($items)->sum(function($i){
