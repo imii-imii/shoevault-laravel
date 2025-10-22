@@ -920,6 +920,15 @@
             font-size: 0.9rem;
         }
 
+        /* Right column for controls + total stacked vertically */
+        .item-right {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            min-width: 78px;
+        }
+
         .cart-summary {
             padding: var(--spacing-sm); /* Compact summary */
             border-top: 1px solid var(--gray-200);
@@ -1564,13 +1573,15 @@ function updateCartDisplay() {
                     <h5>${item.name} <span style="color:#718096; font-weight:500">• Size ${item.size || ''}</span></h5>
                     <p>₱${item.price.toLocaleString()}</p>
                 </div>
-                <div class="item-controls">
-                    <button onclick="updateQuantityByKey('${item.key}', -1)">-</button>
-                    <span>${item.quantity}</span>
-                    <button onclick="updateQuantityByKey('${item.key}', 1)">+</button>
-                </div>
-                <div class="item-total">
-                    ₱${(item.price * item.quantity).toLocaleString()}
+                <div class="item-right">
+                    <div class="item-controls">
+                        <button onclick="updateQuantityByKey('${item.key}', -1)">-</button>
+                        <span>${item.quantity}</span>
+                        <button onclick="updateQuantityByKey('${item.key}', 1)">+</button>
+                    </div>
+                    <div class="item-total">
+                        ₱${(item.price * item.quantity).toLocaleString()}
+                    </div>
                 </div>
             </div>
         `).join('');
