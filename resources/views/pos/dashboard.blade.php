@@ -989,6 +989,16 @@
             background: var(--white);
         }
 
+        /* Discount type select styling */
+        .payment-input-group select {
+            width: 100%;
+            padding: var(--spacing-sm);
+            border: 1px solid var(--gray-300);
+            border-radius: var(--radius-lg);
+            font-size: 0.875rem;
+            background: var(--white);
+        }
+
         .change-display {
             display: flex;
             justify-content: space-between;
@@ -1327,12 +1337,31 @@
                 </div>
             </div>
             <div class="cart-summary">
+                <div class="summary-row" id="discount-row" style="display:none;">
+                    <span>Discount</span>
+                    <span id="discount-amount">- ₱ 0.00</span>
+                </div>
                 <div class="summary-row total">
                     <span>Total:</span>
                     <span id="total-amount">₱ 0.00</span>
                 </div>
             </div>
             <div class="payment-section">
+                <h3><i class="fas fa-tags"></i> Discount</h3>
+                <div class="payment-input-group">
+                    <label for="discount-type">Type:</label>
+                    <select id="discount-type">
+                        <option value="amount">Amount (₱)</option>
+                        <option value="percent">Percent (%)</option>
+                    </select>
+                </div>
+                <div class="payment-input-group">
+                    <label for="discount-value">Value:</label>
+                    <div class="payment-input-container">
+                        <input type="text" id="discount-value" placeholder="0.00">
+                    </div>
+                </div>
+
                 <h3><i class="fas fa-credit-card"></i> Payment</h3>
                 <div class="payment-input-group">
                     <label for="payment-amount">Cash Received:</label>
@@ -1579,12 +1608,42 @@ function updateQuantityByKey(key, change) {
 function updateCartSummary() {
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const tax = 0;
-    const total = subtotal;
-    
-    // Subtotal row removed from UI; total equals subtotal
+
+    // Read discount inputs
+    const typeEl = document.getElementById('discount-type');
+    const valEl = document.getElementById('discount-value');
+    let discountType = typeEl ? typeEl.value : 'amount';
+    let raw = valEl ? (valEl.value || '').trim().replace(/[^0-9.]/g, '') : '0';
+    let discountValue = parseFloat(raw || '0') || 0;
+
+    let discountAmount = 0;
+    if (discountType === 'percent') {
+        discountValue = Math.min(100, Math.max(0, discountValue));
+        discountAmount = subtotal * (discountValue / 100);
+    } else {
+        discountValue = Math.max(0, discountValue);
+        discountAmount = Math.min(subtotal, discountValue);
+    }
+    discountAmount = Math.round(discountAmount * 100) / 100;
+
+    const total = Math.max(0, subtotal - discountAmount);
+
+    // Update UI
+    const discountRow = document.getElementById('discount-row');
+    const discountAmtEl = document.getElementById('discount-amount');
+    if (discountRow && discountAmtEl) {
+        if (discountAmount > 0) {
+            discountRow.style.display = 'flex';
+            discountAmtEl.textContent = `- ₱ ${discountAmount.toLocaleString()}`;
+        } else {
+            discountRow.style.display = 'none';
+            discountAmtEl.textContent = '- ₱ 0.00';
+        }
+    }
+
     document.getElementById('total-amount').textContent = `₱ ${total.toLocaleString()}`;
     
-    return { subtotal, tax, total };
+    return { subtotal, tax, total, discountAmount, discountType, discountValue };
 }
 
 // Clear cart
@@ -1622,6 +1681,10 @@ document.getElementById('quick-cancel').addEventListener('click', function() {
         cart = [];
         updateCartDisplay();
         document.getElementById('payment-amount').value = '';
+        const dt = document.getElementById('discount-type');
+        const dv = document.getElementById('discount-value');
+        if (dt) dt.value = 'amount';
+        if (dv) dv.value = '';
         updatePaymentUi();
     }
 });
@@ -1656,6 +1719,7 @@ document.getElementById('clear-search').addEventListener('click', function() {
 document.addEventListener('DOMContentLoaded', function() {
     loadProducts();
     bindPaymentInput();
+    bindDiscountInputs();
     // Expand search to overlap tabs on focus for a seamless visual transition
     const searchContainer = document.querySelector('.search-container');
     if (searchContainer) {
@@ -1688,6 +1752,34 @@ function bindPaymentInput() {
         updatePaymentUi();
     });
     updatePaymentUi();
+}
+
+// ===== Discount input wiring =====
+function bindDiscountInputs() {
+    const typeEl = document.getElementById('discount-type');
+    const valEl = document.getElementById('discount-value');
+    if (!typeEl || !valEl) return;
+
+    typeEl.addEventListener('change', () => {
+        // Reset value when switching types for clarity
+        valEl.value = '';
+        valEl.placeholder = typeEl.value === 'percent' ? '0 - 100' : '0.00';
+        updatePaymentUi();
+    });
+
+    valEl.addEventListener('input', () => {
+        // Sanitize input
+        const cleaned = valEl.value.replace(/[^0-9.]/g, '');
+        const parts = cleaned.split('.');
+        let normalized = parts.length > 1 ? parts[0] + '.' + parts[1].slice(0, 2) : parts[0];
+        // Clamp percent to 0..100
+        if ((document.getElementById('discount-type')?.value) === 'percent') {
+            const num = parseFloat(normalized || '0') || 0;
+            normalized = Math.max(0, Math.min(100, num)).toString();
+        }
+        if (valEl.value !== normalized) valEl.value = normalized;
+        updatePaymentUi();
+    });
 }
 
 function updatePaymentUi() {
@@ -1730,6 +1822,7 @@ function openReceiptPreview({ summary, paymentAmount }) {
                 <div class="receipt-sep"></div>
                 <div class="receipt-totals">
                     <div class="receipt-row"><span>Subtotal</span><span>₱ ${summary.subtotal.toLocaleString()}</span></div>
+                    ${summary.discountAmount && summary.discountAmount > 0 ? `<div class=\"receipt-row\"><span>Discount</span><span>- ₱ ${summary.discountAmount.toLocaleString()}</span></div>` : ''}
                     <div class="receipt-row total"><span>Total</span><span>₱ ${summary.total.toLocaleString()}</span></div>
                     <div class="receipt-row"><span>Cash</span><span>₱ ${paymentAmount.toLocaleString()}</span></div>
                     <div class="receipt-row"><span>Change</span><span>₱ ${(paymentAmount - summary.total).toLocaleString()}</span></div>
@@ -1771,7 +1864,9 @@ async function processSaleAndPrint(summary, paymentAmount) {
         })),
         subtotal: summary.subtotal,
         tax: summary.tax || 0,
-        discount: 0, // Can be enhanced later for discount functionality
+        discount_type: summary.discountType,
+        discount_value: summary.discountValue,
+        discount_amount: summary.discountAmount,
         total: summary.total,
         amount_paid: paymentAmount,
         payment_method: 'cash' // Can be enhanced to allow selection
