@@ -466,23 +466,9 @@
             display: flex;
             align-items: center;
             background: var(--white);
-            transition: box-shadow var(--transition-normal), transform var(--transition-normal);
         }
 
-        /* Expanded search overlays category tabs for a seamless focus experience */
-        .search-container.expanded {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            max-width: none;
-            z-index: 20;
-        }
 
-        .search-container.expanded .search-box {
-            box-shadow: var(--shadow-lg);
-            transform: translateY(-1px);
-        }
 
         .search-box i {
             position: absolute;
@@ -569,7 +555,7 @@
             border: none;
             display: flex;
             flex-direction: column;
-            height: 230px;
+            height: 245px;
             padding: var(--spacing-md);
         }
 

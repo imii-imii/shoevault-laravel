@@ -14,6 +14,16 @@
     
     <!-- Owner CSS -->
     <link href="{{ asset('css/owner.css') }}" rel="stylesheet">
+    <style>
+        .notification-wrapper { position: relative; }
+        .notification-bell { width:36px; height:36px; display:flex; align-items:center; justify-content:center; background:none; border:none; color:#6b7280; border-radius:10px; cursor:pointer; transition: all .2s ease; }
+        .notification-bell:hover { background:#f3f4f6; color:#1f2937; }
+        .notification-count { position:absolute; top:-4px; right:-4px; background:#ef4444; color:#fff; border-radius:999px; padding:0 6px; height:16px; min-width:16px; line-height:16px; font-size:0.65rem; font-weight:700; border:2px solid #fff; }
+        .notification-dropdown { position:absolute; top:calc(100% + 8px); right:0; width:280px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,.08); display:none; overflow:hidden; z-index:200; }
+        .notification-wrapper.open .notification-dropdown { display:block; }
+        .notification-list { max-height:300px; overflow-y:auto; }
+        .notification-empty { padding:12px; color:#6b7280; text-align:center; display:flex; align-items:center; justify-content:center; gap:8px; }
+    </style>
     
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -42,7 +52,7 @@
             </a>
         </li>
         <li class="nav-item" data-section="settings">
-            <a href="#" class="nav-link" onclick="showSection('settings'); return false;">
+            <a href="{{ route('owner.settings') }}" class="nav-link">
                 <i class="fas fa-cog"></i>
                 <span>Master Controls</span>
             </a>
@@ -83,6 +93,17 @@
             <div class="date-display">
                 <i class="fas fa-calendar"></i>
                 <span id="current-date">Loading...</span>
+            </div>
+            <div class="notification-wrapper">
+                <button class="notification-bell" aria-label="Notifications">
+                    <i class="fas fa-bell"></i>
+                    <span class="notification-count" style="display:none;">0</span>
+                </button>
+                <div class="notification-dropdown">
+                    <div class="notification-list">
+                        <div class="notification-empty"><i class="fas fa-inbox"></i> No new notifications</div>
+                    </div>
+                </div>
             </div>
         </div>
     </header>
@@ -196,160 +217,6 @@
             </div>
         </section>
 
-        <!-- Settings Section -->
-        <section id="settings" class="content-section">
-            <div class="section-header">
-                <h2><i class="fas fa-cog"></i> Master Controls</h2>
-            </div>
-            <div class="settings-container">
-                <div class="settings-tabs" role="tablist">
-                    <button class="settings-tab active" data-tab="user-accounts" role="tab">
-                        <i class="fas fa-users"></i> User Account Management
-                    </button>
-                    <button class="settings-tab" data-tab="profile" role="tab">
-                        <i class="fas fa-user"></i> Profile
-                    </button>
-                    <button class="settings-tab" data-tab="security" role="tab">
-                        <i class="fas fa-shield-alt"></i> Security
-                    </button>
-                    <button class="settings-tab" data-tab="preferences" role="tab">
-                        <i class="fas fa-sliders-h"></i> Preferences
-                    </button>
-                    <button class="settings-tab" data-tab="notifications" role="tab">
-                        <i class="fas fa-bell"></i> Notifications
-                    </button>
-                    <button class="settings-tab" data-tab="system" role="tab">
-                        <i class="fas fa-tools"></i> System
-                    </button>
-                </div>
-
-                <div class="settings-panels">
-                    <!-- User Account Management -->
-                    <div class="settings-panel active" id="settings-panel-user-accounts">
-                        <div style="display:flex; gap:12px; align-items:center; margin-bottom:18px;">
-                            <input type="text" id="user-search" placeholder="Search users..." class="search-input" style="flex:1; min-width:180px;">
-                            <button class="btn btn-primary" id="add-user-btn">
-                                <i class="fas fa-user-plus"></i> Add User
-                            </button>
-                        </div>
-                        <div id="user-list" style="display:flex; flex-direction:column; gap:16px;">
-                            <!-- User cards will be rendered here by JavaScript -->
-                        </div>
-                    </div>
-
-                    <!-- Profile -->
-                    <div class="settings-panel" id="settings-panel-profile">
-                        <div class="settings-grid">
-                            <div class="settings-card">
-                                <div class="card-title">
-                                    <i class="fas fa-id-card"></i> User Information
-                                </div>
-                                <div class="avatar-row">
-                                    <img id="settings-avatar-preview" src="{{ asset('images/profile.png') }}" alt="Avatar" class="avatar-preview">
-                                    <div class="avatar-actions">
-                                        <input type="file" id="settings-avatar" accept="image/*" hidden>
-                                        <button class="btn btn-secondary btn-sm" id="settings-avatar-btn">
-                                            <i class="fas fa-upload"></i> Upload
-                                        </button>
-                                        <button class="btn btn-danger btn-sm" id="settings-avatar-remove">
-                                            <i class="fas fa-trash"></i> Remove
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="form-grid">
-                                    <div class="form-group">
-                                        <label for="settings-name">Full Name</label>
-                                        <input id="settings-name" type="text" placeholder="Your name" value="{{ auth()->user()->name ?? '' }}">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="settings-username">Username</label>
-                                        <input id="settings-username" type="text" placeholder="Username" value="{{ auth()->user()->username ?? '' }}">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="settings-email">Email</label>
-                                        <input id="settings-email" type="email" placeholder="name@example.com" value="{{ auth()->user()->email ?? '' }}">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="settings-phone">Phone</label>
-                                        <input id="settings-phone" type="tel" placeholder="+63 900 000 0000">
-                                    </div>
-                                    <div class="form-group full">
-                                        <label for="settings-bio">Bio</label>
-                                        <textarea id="settings-bio" rows="3" placeholder="Tell us about yourself..."></textarea>
-                                    </div>
-                                </div>
-                                <div class="form-actions">
-                                    <button class="btn btn-primary" id="settings-profile-save">
-                                        <i class="fas fa-save"></i> Save Profile
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Security -->
-                    <div class="settings-panel" id="settings-panel-security">
-                        <div class="settings-grid">
-                            <div class="settings-card">
-                                <div class="card-title">
-                                    <i class="fas fa-key"></i> Change Password
-                                </div>
-                                <form id="change-password-form">
-                                    @csrf
-                                    <div class="form-grid">
-                                        <div class="form-group full">
-                                            <label for="current-password">Current Password</label>
-                                            <input id="current-password" type="password" placeholder="Enter current password">
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="new-password">New Password</label>
-                                            <input id="new-password" type="password" placeholder="Enter new password">
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="confirm-password">Confirm Password</label>
-                                            <input id="confirm-password" type="password" placeholder="Confirm new password">
-                                        </div>
-                                    </div>
-                                    <div class="form-actions">
-                                        <button type="submit" class="btn btn-primary">
-                                            <i class="fas fa-save"></i> Update Password
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Other settings panels can be added here -->
-                    <div class="settings-panel" id="settings-panel-preferences">
-                        <div class="settings-card">
-                            <div class="card-title">
-                                <i class="fas fa-sliders-h"></i> System Preferences
-                            </div>
-                            <p>Preferences settings will be implemented here.</p>
-                        </div>
-                    </div>
-
-                    <div class="settings-panel" id="settings-panel-notifications">
-                        <div class="settings-card">
-                            <div class="card-title">
-                                <i class="fas fa-bell"></i> Notification Settings
-                            </div>
-                            <p>Notification settings will be implemented here.</p>
-                        </div>
-                    </div>
-
-                    <div class="settings-panel" id="settings-panel-system">
-                        <div class="settings-card">
-                            <div class="card-title">
-                                <i class="fas fa-tools"></i> System Configuration
-                            </div>
-                            <p>System configuration options will be implemented here.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
     </div>
 </main>
 
@@ -400,6 +267,20 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeDashboard();
     updateDateTime();
     setInterval(updateDateTime, 1000); // Update time every second
+    // Simple notifications toggle
+    (function initNotifications(){
+        document.querySelectorAll('.notification-wrapper').forEach(wrapper => {
+            const bell = wrapper.querySelector('.notification-bell');
+            if (!bell) return;
+            bell.addEventListener('click', (e) => {
+                e.stopPropagation();
+                wrapper.classList.toggle('open');
+            });
+        });
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.notification-wrapper.open').forEach(w => w.classList.remove('open'));
+        });
+    })();
 });
 
 function updateDateTime() {

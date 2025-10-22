@@ -10,6 +10,15 @@
     <link href="{{ asset('css/owner.css') }}" rel="stylesheet">
     <style>
         body { overflow: hidden; }
+        /* Notifications */
+        .notification-wrapper { position: relative; }
+        .notification-bell { width:36px; height:36px; display:flex; align-items:center; justify-content:center; background:none; border:none; color:#6b7280; border-radius:10px; cursor:pointer; transition: all .2s ease; }
+        .notification-bell:hover { background:#f3f4f6; color:#1f2937; }
+        .notification-count { position:absolute; top:-4px; right:-4px; background:#ef4444; color:#fff; border-radius:999px; padding:0 6px; height:16px; min-width:16px; line-height:16px; font-size:0.65rem; font-weight:700; border:2px solid #fff; }
+        .notification-dropdown { position:absolute; top:calc(100% + 8px); right:0; width:280px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,.08); display:none; overflow:hidden; z-index:200; }
+        .notification-wrapper.open .notification-dropdown { display:block; }
+        .notification-list { max-height:300px; overflow-y:auto; }
+        .notification-empty { padding:12px; color:#6b7280; text-align:center; display:flex; align-items:center; justify-content:center; gap:8px; }
         .switch-tabs { display:inline-flex; gap:6px; background:#eef4ff; padding:6px; border-radius:999px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.6); }
         .switch-tab { border:0; background:transparent; padding:8px 14px; border-radius:999px; font-size:12px; font-weight:600; color:#3b5bfd; cursor:pointer; transition:all .2s ease; line-height:1; }
         .switch-tab:hover { background:#e0e9ff; }
@@ -118,6 +127,17 @@
         <div class="header-right">
             <div class="time-display"><i class="fas fa-clock"></i><span id="current-time">Loading...</span></div>
             <div class="date-display"><i class="fas fa-calendar"></i><span id="current-date">Loading...</span></div>
+            <div class="notification-wrapper">
+                <button class="notification-bell" aria-label="Notifications">
+                    <i class="fas fa-bell"></i>
+                    <span class="notification-count" style="display:none;">0</span>
+                </button>
+                <div class="notification-dropdown">
+                    <div class="notification-list">
+                        <div class="notification-empty"><i class="fas fa-inbox"></i> No new notifications</div>
+                    </div>
+                </div>
+            </div>
         </div>
     </header>
     <div class="content-grid">
@@ -303,6 +323,20 @@
         }
         updateDateTime();
         setInterval(updateDateTime, 1000);
+        // Notifications toggle
+        (function initNotifications(){
+            document.querySelectorAll('.notification-wrapper').forEach(wrapper => {
+                const bell = wrapper.querySelector('.notification-bell');
+                if (!bell) return;
+                bell.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    wrapper.classList.toggle('open');
+                });
+            });
+            document.addEventListener('click', () => {
+                document.querySelectorAll('.notification-wrapper.open').forEach(w => w.classList.remove('open'));
+            });
+        })();
     });
 </script>
 

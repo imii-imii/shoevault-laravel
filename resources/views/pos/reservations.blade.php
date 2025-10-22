@@ -752,35 +752,34 @@
                     </div>
                 </div>
                 <!-- Reservation List (from Inventory Reservation Reports) -->
-                <div style="margin: 20px; display: grid; gap: 16px;" id="reservations-container">
+                <div style="width: 100%; display: grid; gap: 12px;" id="reservations-container">
                     @forelse($reservations ?? [] as $reservation)
-                    <!-- Reservation Card (4x2 grid) -->
-                    <div class="reservation-card" data-res-id="{{ $reservation->id }}" data-res-number="{{ $reservation->reservation_id }}" data-res-date="{{ $reservation->created_at ? $reservation->created_at->format('M d, Y h:i A') : 'N/A' }}" data-customer-name="{{ $reservation->customer_name }}" data-customer-email="{{ $reservation->customer_email }}" data-customer-phone="{{ $reservation->customer_phone }}" data-pickup-date="{{ $reservation->pickup_date ? $reservation->pickup_date->format('M d, Y') : 'TBD' }}" data-pickup-time="{{ $reservation->pickup_time ?? 'TBD' }}" data-status="{{ $reservation->status }}" style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; align-items: start;">
-                            <!-- Col 1 -->
-                            <div>
-                                <p style="color: #6B7280; font-size: 0.9rem;">Reservation ID</p>
-                                <p style="font-weight: 600;">{{ $reservation->reservation_id ?? 'N/A' }}</p>
-                                <p style="color: #6B7280; font-size: 0.9rem; margin-top: 12px;">Reservation Date</p>
-                                <p style="font-weight: 600;">{{ $reservation->created_at ? $reservation->created_at->format('M d, Y') : 'N/A' }}</p>
+                    <!-- Reservation Card - Compact Layout -->
+                    <div class="reservation-card" data-res-id="{{ $reservation->id }}" data-res-number="{{ $reservation->reservation_id }}" data-res-date="{{ $reservation->created_at ? $reservation->created_at->format('M d, Y h:i A') : 'N/A' }}" data-customer-name="{{ $reservation->customer_name }}" data-customer-email="{{ $reservation->customer_email }}" data-customer-phone="{{ $reservation->customer_phone }}" data-pickup-date="{{ $reservation->pickup_date ? $reservation->pickup_date->format('M d, Y') : 'TBD' }}" data-pickup-time="{{ $reservation->pickup_time ?? 'TBD' }}" data-status="{{ $reservation->status }}" style="background: #F9FAFB; padding: 16px 20px; border-radius: 8px; border: 1px solid #E5E7EB;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 24px; align-items: center; width: 100%;">
+                            <!-- Col 1: Reservation ID -->
+                            <div style="min-width: 200px;">
+                                <p style="color: #6B7280; font-size: 0.75rem; margin-bottom: 2px;">Reservation ID</p>
+                                <p style="font-weight: 700; font-size: 0.875rem; color: #111827;">{{ $reservation->reservation_id ?? 'N/A' }}</p>
+                                <p style="color: #6B7280; font-size: 0.75rem; margin-top: 8px; margin-bottom: 2px;">Reservation Date</p>
+                                <p style="font-weight: 600; font-size: 0.8rem; color: #374151;">{{ $reservation->created_at ? $reservation->created_at->format('M d, Y') : 'N/A' }}</p>
                             </div>
-                            <!-- Col 2 -->
-                            <div>
-                                <p style="color: #6B7280; font-size: 0.9rem;">Customer Name</p>
-                                <p style="font-weight: 600;">{{ $reservation->customer_name ?? 'N/A' }}</p>
-                                <p style="color: #6B7280; font-size: 0.9rem; margin-top: 12px;">Pickup Date</p>
-                                <p style="font-weight: 600;">{{ $reservation->pickup_date ? $reservation->pickup_date->format('M d, Y') : 'TBD' }}</p>
+                            <!-- Col 2: Name + Pickup Date -->
+                            <div style="min-width: 160px;">
+                                <p style="color: #6B7280; font-size: 0.75rem; margin-bottom: 2px;">Customer Name</p>
+                                <p style="font-weight: 600; font-size: 0.8rem; color: #111827; margin-bottom: 4px;">{{ $reservation->customer_name ?? 'N/A' }}</p>
+                                <p style="color: #6B7280; font-size: 0.75rem; margin-bottom: 2px;">Pickup Date</p>
+                                <p style="font-weight: 600; font-size: 0.8rem; color: #111827;">{{ $reservation->pickup_date ? $reservation->pickup_date->format('M d, Y') : 'TBD' }}</p>
                             </div>
-                            <!-- Col 3 -->
-                            <div>
-                                <p style="color: #6B7280; font-size: 0.9rem;">Email</p>
-                                <p style="font-weight: 600;">{{ $reservation->customer_email ?? 'N/A' }}</p>
-                                <p style="color: #6B7280; font-size: 0.9rem; margin-top: 12px;">Phone Number</p>
-                                <p style="font-weight: 600;">{{ $reservation->customer_phone ?? 'N/A' }}</p>
+                            <!-- Col 3: Email + Phone -->
+                            <div style="min-width: 180px;">
+                                <p style="color: #6B7280; font-size: 0.75rem; margin-bottom: 2px;">Email</p>
+                                <p style="font-weight: 600; font-size: 0.8rem; color: #111827; margin-bottom: 4px;">{{ $reservation->customer_email ?? 'N/A' }}</p>
+                                <p style="color: #6B7280; font-size: 0.75rem; margin-bottom: 2px;">Phone Number</p>
+                                <p style="font-weight: 600; font-size: 0.8rem; color: #111827;">{{ $reservation->customer_phone ?? 'N/A' }}</p>
                             </div>
-                            <!-- Col 4 -->
-                            <div style="text-align:right;">
-                                <p style="color: #6B7280; font-size: 0.9rem;">Status</p>
+                            <!-- Col 4: Status & Action -->
+                            <div style="text-align: right; min-width: 150px;">
                                 @php
                                     $statusColors = [
                                         'pending' => 'background-color: #FEF3C7; color: #92400E;',
@@ -788,11 +787,11 @@
                                         'cancelled' => 'background-color: #FEE2E2; color: #991B1B;'
                                     ];
                                 @endphp
-                                <span class="status-pill" style="display: inline-block; padding: 4px 12px; border-radius: 9999px; {{ $statusColors[$reservation->status] ?? $statusColors['pending'] }} font-weight: 500; font-size: 0.9rem;">
+                                <span class="status-pill" style="display: inline-block; padding: 3px 10px; border-radius: 9999px; {{ $statusColors[$reservation->status] ?? $statusColors['pending'] }} font-weight: 600; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 8px;">
                                     {{ ucfirst($reservation->status) }}
                                 </span>
-                                <div style="margin-top: 12px; display:flex; justify-content:flex-end;">
-                                    <button class="view-reservation-btn" data-id="{{ $reservation->id }}" style="min-width: 110px; padding: 8px 16px; border-radius: 8px; background-color: #2563EB; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 600;">View</button>
+                                <div>
+                                    <button class="view-reservation-btn" data-id="{{ $reservation->id }}" style="width: 50%; padding: 7px 14px; border-radius: 6px; background-color: #2563EB; color: white; border: none; cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: background-color 0.2s;">View</button>
                                 </div>
                             </div>
                         </div>

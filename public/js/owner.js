@@ -288,13 +288,23 @@ async function loadDashboardData() {
 
 async function loadSettings() {
     try {
-        const response = await fetch(laravelRoutes.settings);
+        // Prefer a dedicated JSON API if provided; otherwise, skip to avoid parsing HTML views as JSON
+        const apiUrl = laravelRoutes.settingsApi || laravelRoutes.ownerSettingsApi;
+        if (!apiUrl) {
+            return; // No API endpoint configured for settings; nothing to fetch
+        }
+
+        const response = await fetch(apiUrl, { headers: { 'Accept': 'application/json' } });
+        const contentType = response.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json');
+        if (!isJson) {
+            return; // Avoid JSON parse on non-JSON responses
+        }
         const data = await response.json();
-        
         if (response.ok) {
             updateSystemStats(data);
         } else {
-            console.error('Failed to load settings:', data.message);
+            console.error('Failed to load settings:', data.message || response.statusText);
         }
     } catch (error) {
         console.error('Error loading settings:', error);
