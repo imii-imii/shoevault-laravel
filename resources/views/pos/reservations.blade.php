@@ -331,16 +331,18 @@
 
         /* ===== RESERVATION TAB STYLES ===== */
         .reservation-full {
-            width: calc(100vw - var(--sidebar-width));
-            max-width: 100vw;
+            /* Fill the available main-content width end-to-end */
+            width: 100%;
+            max-width: 100%;
         }
         .reservation-full .reservation-section {
-            margin: 20px;
-            width: 98vw;
-            max-width: 1200px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+              /* Apply a modest outer margin while keeping full-width layout inside */
+              margin: 20px;
+              width: calc(100% - 40px); /* account for the 20px left/right margin */
+              max-width: 100%;
+              display: flex;
+              flex-direction: column;
+              align-items: stretch;
         }
         .reservation-full .reservation-cards {
             width: 100%;
@@ -348,8 +350,8 @@
         }
         .reservation-full .reservation-table-wrapper {
             width: 100%;
-            max-width: 1200px;
-            margin: 0 auto;
+            max-width: 100%;
+            margin: 0;
         }
         .reservation-full .reservation-filter {
             display: flex;
@@ -362,7 +364,8 @@
             background: var(--bg-card);
             border-radius: var(--radius-2xl);
             box-shadow: var(--shadow-lg);
-            margin: 20px;
+            /* No outer margin for end-to-end */
+            margin: 20;
             min-height: 0;
             height: 100%;
             display: flex;

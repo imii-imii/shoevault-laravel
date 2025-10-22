@@ -524,7 +524,8 @@
         .products-grid {
             flex: 1;
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            /* Limit to 4 columns on large screens for better sizing at 100% scale */
+            grid-template-columns: repeat(4, minmax(0, 1fr));
             gap: var(--spacing-md);
             overflow-y: auto;
             padding: var(--spacing-sm);
@@ -555,7 +556,8 @@
             border: none;
             display: flex;
             flex-direction: column;
-            height: 245px;
+            /* Increased height to avoid content overflow at 100% scale */
+            height: 280px;
             padding: var(--spacing-md);
         }
 
@@ -1153,7 +1155,27 @@
             }
 
             .products-grid {
+                /* Step down to 2 columns on tablets */
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        /* Single column on small phones */
+        @media (max-width: 600px) {
+            .products-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Restore previous layout specifically around 125% scale on desktops
+           - Use resolution-based media queries to target OS/browser scaling ~1.25x
+           - Keep width breakpoint so mobile/tablet rules still apply */
+        @media (min-width: 769px) and (min-resolution: 1.2dppx) and (max-resolution: 1.3dppx),
+               (min-width: 769px) and (min-resolution: 120dpi) and (max-resolution: 130dpi) {
+            .products-grid {
                 grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            }
+            .product-card {
+                height: 245px; /* previous height for 125% scale */
             }
         }
     </style>
