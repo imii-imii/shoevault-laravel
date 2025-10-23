@@ -86,7 +86,7 @@
     display: flex !important;
     justify-content: center !important;
     align-items: stretch !important;
-    background: var(--white) !important;
+    background: linear-gradient(90deg, #020d27 0%, #092c80 100%) !important;
     padding: 10px !important;
     margin: 6px 0 !important;
     width: fit-content !important;
@@ -116,7 +116,7 @@
   }
   
   .res-portal-nav-btn.active {
-    background: var(--gray-100) !important;
+    background: linear-gradient(90deg, #021c58 0%, #0a3bad 100%) !important;
     transform: translateY(0) !important;
   }
   
@@ -125,7 +125,7 @@
   }
   
   .res-portal-nav-btn.active .nav-label {
-    color: var(--primary) !important;
+    color: white !important;
     font-weight: 500 !important;
   }
   .res-portal-nav-btn::after {
@@ -136,7 +136,7 @@
   }
   .res-portal-nav-btn .nav-icon {
     font-size: 14px !important;
-    background: linear-gradient(135deg, #2a6aff 0%, #43e97b 100%) !important;
+    background: white !important;
     -webkit-background-clip: text !important;
     background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
@@ -148,7 +148,7 @@
     font-size: 7px !important;
     line-height: 1.2 !important;
     font-weight: normal !important;
-    color: var(--primary) !important;
+    color: white !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
@@ -302,7 +302,7 @@ html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavi
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: linear-gradient(90deg, #112c70 0%, #2a6aff 100%);
+  background: linear-gradient(90deg, #020d27 0%, #092c80 100%);
   padding: 1.2vw 3vw;
   box-shadow: var(--shadow-md);
   width: 100%;
@@ -375,8 +375,8 @@ html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavi
 }
 
 .res-portal-banner {
-  width: 85%;
-  margin: 9vw auto 2vw auto;
+  width: 90%;
+  margin: 9vw auto 3vw auto;
   background: #05070d;
   display: flex;
   align-items: center;
@@ -586,7 +586,7 @@ html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavi
   justify-content: center;
   font-size: 1.7rem;
   margin-bottom: 4px;
-  background: linear-gradient(135deg, #2a6aff 0%, #43e97b 100%);
+  background: linear-gradient(135deg, #000e2e 0%, #2343ce 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
