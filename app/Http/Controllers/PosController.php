@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Product;
 use App\Models\ProductSize;
 use App\Models\Sale;
+use App\Models\SaleItem;
 
 class PosController extends Controller
 {
@@ -345,23 +346,40 @@ class PosController extends Controller
                 throw new \Exception('Insufficient payment amount');
             }
             
-            // Create sale record with enhanced data
+            // Create sale record with simplified structure
             $sale = Sale::create([
                 'transaction_id' => Sale::generateTransactionId(),
                 'sale_type' => 'pos',
                 'reservation_id' => null,
-                'user_id' => Auth::id(),
+                'cashier_id' => Auth::id(),
                 'subtotal' => $validated['subtotal'],
-                'tax_amount' => $validated['tax'] ?? 0,
                 'discount_amount' => $validated['discount'] ?? 0,
                 'total_amount' => $validated['total'],
                 'amount_paid' => $validated['amount_paid'],
                 'change_given' => $change,
-                'payment_method' => $validated['payment_method'],
-                'items' => $saleItems, // Store detailed items array
                 'sale_date' => now(),
                 'notes' => $request->notes ?? null
             ]);
+
+            // Create individual sale items
+            foreach ($saleItems as $item) {
+                SaleItem::create([
+                    'sale_id' => $sale->id,
+                    'product_id' => $item['product_id'],
+                    'size_id' => $item['size_id'],
+                    'product_name' => $item['product_name'],
+                    'product_brand' => $item['product_brand'],
+                    'product_size' => $item['product_size'],
+                    'product_color' => $item['product_color'],
+                    'product_category' => $item['product_category'],
+                    'sku' => $item['sku'] ?? null,
+                    'unit_price' => $item['unit_price'],
+                    'cost_price' => $item['cost_price'] ?? 0,
+                    'quantity' => $item['quantity'],
+                    'size' => $item['product_size'], // Populate the size field with the same value as product_size
+                    'subtotal' => $item['subtotal']
+                ]);
+            }
             
             // Deduct stock for all items
             foreach ($saleItems as $item) {

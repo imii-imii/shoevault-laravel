@@ -1905,7 +1905,7 @@ async function processSaleAndPrint(summary, paymentAmount) {
         }
         
         // Show success message with transaction details
-        alert(`Sale processed successfully!\nTransaction ID: ${result.transaction_id}\nReceipt #: ${result.receipt_number}`);
+        alert(`Sale processed successfully!\nTransaction ID: ${result.transaction_id}`);
         
         // Print the receipt
         window.print();

@@ -10,17 +10,27 @@ class SaleItem extends Model
     protected $fillable = [
         'sale_id',
         'product_id',
+        'size_id',
+        'product_name',
+        'product_brand',
+        'product_size',
+        'product_color',
+        'product_category',
+        'sku',
+        'unit_price',
+        'cost_price',
         'quantity',
         'size',
-        'unit_price',
-        'total_price'
+        'subtotal'
     ];
 
     protected $casts = [
         'unit_price' => 'decimal:2',
-        'total_price' => 'decimal:2',
+        'cost_price' => 'decimal:2',
+        'subtotal' => 'decimal:2'
     ];
 
+    // Relationships
     public function sale(): BelongsTo
     {
         return $this->belongsTo(Sale::class);
@@ -29,5 +39,10 @@ class SaleItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function productSize(): BelongsTo
+    {
+        return $this->belongsTo(ProductSize::class, 'size_id');
     }
 }

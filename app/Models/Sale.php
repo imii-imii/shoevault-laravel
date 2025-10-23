@@ -12,42 +12,49 @@ class Sale extends Model
 
     protected $fillable = [
         'transaction_id',
-        'receipt_number',
         'sale_type',
         'reservation_id',
-        'user_id',
+        'cashier_id',
         'subtotal',
-        'tax',
         'discount_amount',
-        'total',
+        'total_amount',
         'amount_paid',
-        'change_amount',
-        'payment_method',
-        'items',
-        'total_items',
-        'total_quantity',
-        'status',
+        'change_given',
         'sale_date',
         'notes'
     ];
 
     protected $casts = [
         'subtotal' => 'decimal:2',
-        'tax' => 'decimal:2',
         'discount_amount' => 'decimal:2',
-        'total' => 'decimal:2',
+        'total_amount' => 'decimal:2',
         'amount_paid' => 'decimal:2',
-        'change_amount' => 'decimal:2',
-        'items' => 'array',
+        'change_given' => 'decimal:2',
         'sale_date' => 'datetime'
     ];
 
     /**
-     * Get the user (cashier) who made this sale
+     * Get the cashier who made this sale
      */
-    public function user()
+    public function cashier()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'cashier_id');
+    }
+
+    /**
+     * Get the reservation associated with this sale
+     */
+    public function reservation()
+    {
+        return $this->belongsTo(Reservation::class, 'reservation_id', 'reservation_id');
+    }
+
+    /**
+     * Get the sale items for this sale
+     */
+    public function items()
+    {
+        return $this->hasMany(SaleItem::class);
     }
 
     /**
@@ -61,49 +68,42 @@ class Sale extends Model
     }
 
     /**
-     * Generate unique receipt number
+     * Computed Properties (calculated from relationships)
      */
-    public static function generateReceiptNumber()
+    public function getTotalItemsAttribute()
     {
-        $count = self::count() + 1;
-        return 'RCP-' . str_pad($count, 6, '0', STR_PAD_LEFT);
+        return $this->items()->count();
+    }
+
+    public function getTotalQuantityAttribute()
+    {
+        return $this->items()->sum('quantity');
     }
 
     /**
-     * Calculate total profit from items (for future analytics)
+     * Calculate total profit from items (for analytics)
      */
     public function getTotalProfitAttribute()
     {
-        return collect($this->items)->sum(function ($item) {
-            $costPrice = $item['cost_price'] ?? 0;
-            return ($item['unit_price'] - $costPrice) * $item['quantity'];
+        return $this->items()->get()->sum(function ($item) {
+            return ($item->unit_price - ($item->cost_price ?? 0)) * $item->quantity;
         });
     }
 
     /**
-     * Set items with validation
+     * Status is always 'completed' for sales (refunds would be separate records)
      */
-    public function setItemsAttribute($value)
+    public function getStatusAttribute()
     {
-        // Ensure each item has required fields
-        $validatedItems = array_map(function($item) {
-            return [
-                'product_id' => $item['product_id'] ?? null,
-                'size_id' => $item['size_id'] ?? null,
-                'product_name' => $item['product_name'] ?? 'Unknown Product',
-                'product_brand' => $item['product_brand'] ?? '',
-                'product_size' => $item['product_size'] ?? '',
-                'product_color' => $item['product_color'] ?? '',
-                'product_category' => $item['product_category'] ?? 'uncategorized',
-                'unit_price' => (float) ($item['unit_price'] ?? 0),
-                'quantity' => (int) ($item['quantity'] ?? 1),
-                'subtotal' => (float) ($item['subtotal'] ?? 0),
-                'cost_price' => (float) ($item['cost_price'] ?? 0),
-                'sku' => $item['sku'] ?? null
-            ];
-        }, is_array($value) ? $value : []);
-        
-        $this->attributes['items'] = json_encode($validatedItems);
+        return 'completed';
+    }
+
+    /**
+     * Payment method is always cash for this POS system
+     */
+    public function getPaymentMethodAttribute()
+    {
+        return 'cash';
     }
 
     /**
@@ -111,12 +111,30 @@ class Sale extends Model
      */
     public function getFormattedTotalAttribute()
     {
-        return '₱' . number_format($this->total, 2);
+        return '₱' . number_format($this->total_amount, 2);
     }
 
     public function getFormattedSubtotalAttribute()
     {
         return '₱' . number_format($this->subtotal, 2);
+    }
+
+    /**
+     * Analytics methods
+     */
+    public static function getDailySalesData($date = null)
+    {
+        $date = $date ?? Carbon::today();
+        
+        return self::whereDate('sale_date', $date)
+            ->withCount('items as total_items_count')
+            ->withSum('items as total_quantity_sum', 'quantity')
+            ->selectRaw('
+                COUNT(*) as total_transactions,
+                SUM(total_amount) as total_revenue,
+                AVG(total_amount) as avg_transaction_value
+            ')
+            ->first();
     }
 
     public function getFormattedTaxAttribute()

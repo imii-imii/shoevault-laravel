@@ -812,27 +812,40 @@ class InventoryController extends Controller
                 $itemCount++;
             }
 
-            // Create the sale record
+            // Create the sale record with simplified structure
             $sale = \App\Models\Sale::create([
                 'transaction_id' => \App\Models\Sale::generateTransactionId(),
-                'receipt_number' => \App\Models\Sale::generateReceiptNumber(),
                 'sale_type' => 'reservation', // Distinguish from POS sales
-                'reservation_id' => $reservation->id,
-                'user_id' => Auth::id(), // Current user who marked it complete
+                'reservation_id' => $reservation->reservation_id,
+                'cashier_id' => Auth::id(), // Current user who marked it complete
                 'subtotal' => $subtotal,
-                'tax' => 0, // No tax for reservation completions
                 'discount_amount' => 0, // No discount for reservation completions
-                'total' => $subtotal,
+                'total_amount' => $subtotal,
                 'amount_paid' => $subtotal, // Assume full payment for completed reservations
-                'change_amount' => 0,
-                'payment_method' => 'cash', // Default to cash for reservation completions
-                'items' => $saleItems,
-                'total_items' => $itemCount,
-                'total_quantity' => $totalQuantity,
-                'status' => 'completed',
+                'change_given' => 0,
                 'sale_date' => now(),
                 'notes' => "Sale created from completed reservation #{$reservation->reservation_id}"
             ]);
+
+            // Create individual sale items
+            foreach ($saleItems as $item) {
+                \App\Models\SaleItem::create([
+                    'sale_id' => $sale->id,
+                    'product_id' => $item['product_id'],
+                    'size_id' => $item['size_id'],
+                    'product_name' => $item['product_name'],
+                    'product_brand' => $item['product_brand'],
+                    'product_size' => $item['product_size'],
+                    'product_color' => $item['product_color'],
+                    'product_category' => $item['product_category'],
+                    'sku' => $item['sku'] ?? null,
+                    'unit_price' => $item['unit_price'],
+                    'cost_price' => $item['cost_price'] ?? 0,
+                    'quantity' => $item['quantity'],
+                    'size' => $item['product_size'], // Populate the size field with the same value as product_size
+                    'subtotal' => $item['subtotal']
+                ]);
+            }
 
             Log::info("Sale record created from reservation completion", [
                 'reservation_id' => $reservation->id,
