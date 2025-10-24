@@ -44,10 +44,13 @@ class OwnerController extends Controller
         
         $salesData = $this->getSalesData($period);
         $topProducts = $this->getTopSellingProducts();
-        
+        // Fetch latest transactional rows with required columns
+        $transactions = $this->getRecentSalesTransactions($period);
+
         return response()->json([
             'salesData' => $salesData,
             'topProducts' => $topProducts,
+            'transactions' => $transactions,
             'period' => $period
         ]);
     }
@@ -451,6 +454,65 @@ class OwnerController extends Controller
                      ->orderBy('total_sold', 'desc')
                      ->limit(5)
                      ->get();
+    }
+
+    /**
+     * Get recent sales transactions with required fields for the Sales History table.
+     */
+    private function getRecentSalesTransactions(string $period)
+    {
+        // Resolve dynamic column names
+        $dateCol = $this->salesDateColumn(); // sale_date or created_at
+        $cashierCol = Schema::hasColumn('sales', 'cashier_id') ? 'cashier_id' : (Schema::hasColumn('sales', 'user_id') ? 'user_id' : null);
+        $totalCol = Schema::hasColumn('sales', 'total_amount') ? 'total_amount' : (Schema::hasColumn('sales', 'total') ? 'total' : null);
+        $changeCol = Schema::hasColumn('sales', 'change_given') ? 'change_given' : (Schema::hasColumn('sales', 'change_amount') ? 'change_amount' : null);
+        $discountExists = Schema::hasColumn('sales', 'discount_amount');
+
+        // Aggregate sale items into a semicolon-separated list with quantities
+        $itemsAgg = DB::table('sale_items')
+            ->select('sale_id', DB::raw("GROUP_CONCAT(CONCAT(product_name, ' x', quantity) ORDER BY product_name SEPARATOR '; ') as products"))
+            ->groupBy('sale_id');
+
+        $query = DB::table('sales as s')
+            ->leftJoin('users as u', function ($join) use ($cashierCol) {
+                if ($cashierCol) {
+                    $join->on('u.id', '=', DB::raw("s.$cashierCol"));
+                }
+            })
+            ->leftJoinSub($itemsAgg, 'items_agg', function ($join) {
+                $join->on('items_agg.sale_id', '=', 's.id');
+            })
+            ->select([
+                's.transaction_id',
+                DB::raw("COALESCE(s.sale_type, 'pos') as sale_type"),
+                DB::raw('COALESCE(u.name, "System") as cashier_name'),
+                DB::raw(($discountExists ? 's.discount_amount' : '0') . ' as discount_amount'),
+                DB::raw(($totalCol ? "s.$totalCol" : '0') . ' as total_amount'),
+                's.amount_paid',
+                DB::raw(($changeCol ? "s.$changeCol" : '0') . ' as change_given'),
+                DB::raw("s.$dateCol as sale_datetime"),
+                DB::raw('COALESCE(items_agg.products, "") as products'),
+            ]);
+
+        // Time window similar to charts
+        switch ($period) {
+            case 'daily':
+                $query->where($dateCol, '>=', Carbon::now()->subDays(7));
+                break;
+            case 'weekly':
+                $query->where($dateCol, '>=', Carbon::now()->subWeeks(4));
+                break;
+            case 'monthly':
+                $query->where($dateCol, '>=', Carbon::now()->subMonths(12));
+                break;
+            case 'yearly':
+                $query->where($dateCol, '>=', Carbon::now()->subYears(3));
+                break;
+        }
+
+        return $query->orderByDesc($dateCol)
+            ->limit(200)
+            ->get();
     }
 
     /**

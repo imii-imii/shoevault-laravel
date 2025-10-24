@@ -182,12 +182,14 @@
                     <thead>
                         <tr>
                             <th>Transaction ID</th>
-                            <th>Type</th>
+                            <th>Sale Type</th>
+                            <th>Processed By</th>
                             <th>Products</th>
-                            <th>Quantity</th>
-                            <th>Total Amount</th>
-                            <th>Payment Method</th>
-                            <th>Date</th>
+                            <th>Discount</th>
+                            <th>Total</th>
+                            <th>Amount Paid</th>
+                            <th>Change</th>
+                            <th>Date & Time</th>
                         </tr>
                     </thead>
                     <tbody id="sales-history-tbody"></tbody>

@@ -200,7 +200,12 @@ async function loadSalesHistory(period = 'weekly') {
             updateSalesKPIs(data);
             renderSalesChart(data.salesData, period);
             renderTopSellingProducts(data.topProducts);
-            renderSalesTable(data.salesData);
+            // Prefer transactional rows if provided; fallback to aggregated structure
+            if (Array.isArray(data.transactions)) {
+                renderSalesTable(data.transactions);
+            } else {
+                renderSalesTable([]);
+            }
         } else {
             console.error('Failed to load sales history:', data.message);
         }
@@ -706,21 +711,45 @@ function updateDashboardKPIs(data) {
 }
 
 // --- Table Rendering Functions ---
-function renderSalesTable(salesData) {
+function renderSalesTable(transactions) {
     const tbody = document.getElementById('sales-history-tbody');
     if (!tbody) return;
 
-    tbody.innerHTML = salesData.map((sale, index) => `
+    const fmt = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 2 });
+    const money = (v) => {
+        const n = Number(v ?? 0);
+        try { return fmt.format(n); } catch { return `₱${n.toFixed(2)}`; }
+    };
+    const formatDateTime = (value) => {
+        if (!value) return 'N/A';
+        const d = new Date(value);
+        const date = d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+        const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return `${date} ${time}`;
+    };
+
+    if (!Array.isArray(transactions) || transactions.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="color:#6b7280; text-align:center;">No sales found for the selected period.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = transactions.map((t) => {
+        const products = t.products || '';
+        const cashier = t.cashier_name || '—';
+        const stype = (t.sale_type || '').toString().toUpperCase();
+        return `
         <tr>
-            <td>TXN-${String(index + 1).padStart(4, '0')}</td>
-            <td>${(index % 2 === 0) ? 'In-Store' : 'Reservation'}</td>
-            <td>Sample Product</td>
-            <td>${sale.transactions}</td>
-            <td>₱${parseFloat(sale.total).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-            <td>Cash</td>
-            <td>${formatDate(sale.date)}</td>
-        </tr>
-    `).join('');
+            <td>${t.transaction_id || ''}</td>
+            <td>${stype}</td>
+            <td>${cashier}</td>
+            <td>${products}</td>
+            <td>${money(t.discount_amount)}</td>
+            <td>${money(t.total_amount)}</td>
+            <td>${money(t.amount_paid)}</td>
+            <td>${money(t.change_given)}</td>
+            <td>${formatDateTime(t.sale_datetime || t.date || t.created_at)}</td>
+        </tr>`;
+    }).join('');
 }
 
 function renderReservationTable(reservationData) {
