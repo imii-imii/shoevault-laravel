@@ -35,7 +35,9 @@
         .user-avatar img{width:100%;height:100%;object-fit:cover}
         .user-details h4{color:#fff;font-size:.85rem;font-weight:600;margin-bottom:.25rem}
         .user-details span{color:rgba(255,255,255,.8);font-size:.75rem}
-        .logout-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.75rem;background:rgba(220,38,38,.2);color:#fff;border:1px solid rgba(220,38,38,.4);border-radius:12px;cursor:pointer}
+    .logout-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.9rem 1rem;background:linear-gradient(to top right,#112c70 0%,#2a6aff 100%);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:9999px;font-size:.86rem;font-weight:700;cursor:pointer;transition:all .2s ease;text-decoration:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 6px 20px rgba(42,106,255,.35)}
+    .logout-btn:hover{background:linear-gradient(135deg,#ef4444,#b91c1c);filter:brightness(1.05);box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 10px 24px rgba(185,28,28,.45)}
+    .logout-btn i{font-size:1rem}
 
         .main-content{flex:1;margin-left:var(--sidebar-width);display:flex;flex-direction:column;height:100vh}
         .header{height:var(--header-height);background:#fff;box-shadow:var(--shadow-sm);border-bottom:1px solid var(--gray-200);display:flex;align-items:center;justify-content:space-between;padding:0 var(--spacing-xl);position:sticky;top:0;z-index:100}
@@ -82,6 +84,21 @@
         .btn-sm{padding:.4rem .7rem;font-size:.85rem}
         .back-button{background:#4a5568;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-flex;align-items:center;gap:.5rem;margin-bottom:1rem}
         .back-button:hover{background:#2d3748}
+        
+        /* Loading state */
+        .loading-settings {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 300px;
+            color: var(--gray-500);
+        }
+
+        .loading-settings i {
+            font-size: 2rem;
+            margin-bottom: var(--spacing-md);
+        }
     </style>
 </head>
 

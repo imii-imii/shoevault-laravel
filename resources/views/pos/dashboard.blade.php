@@ -245,30 +245,9 @@
             font-size: 0.75rem;
         }
 
-        .logout-btn {
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: var(--spacing-sm);
-            padding: var(--spacing-md);
-            background: rgba(220, 38, 38, 0.2);
-            color: rgba(255, 255, 255, 0.9);
-            border: 1px solid rgba(220, 38, 38, 0.4);
-            border-radius: var(--radius-lg);
-            font-size: 0.75rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all var(--transition-normal);
-            text-decoration: none;
-        }
-
-        .logout-btn:hover {
-            background: rgba(220, 38, 38, 0.4);
-            color: var(--white);
-            border-color: rgba(220, 38, 38, 0.6);
-            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);
-        }
+        .logout-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.9rem 1rem;background:linear-gradient(to top right,#112c70 0%,#2a6aff 100%);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:9999px;font-size:.86rem;font-weight:700;cursor:pointer;transition:all .2s ease;text-decoration:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 6px 20px rgba(42,106,255,.35)}
+        .logout-btn:hover{background:linear-gradient(135deg,#ef4444,#b91c1c);filter:brightness(1.05);box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 10px 24px rgba(185,28,28,.45)}
+        .logout-btn i{font-size:1rem}
 
         /* ===== MAIN CONTENT STYLES ===== */
         .main-content {

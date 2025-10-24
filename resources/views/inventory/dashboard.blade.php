@@ -77,6 +77,129 @@
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
     overflow: hidden;
 }
+
+/* Filter Bar Styles */
+.filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    background: #fff;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(67, 56, 202, 0.08);
+}
+
+.filter-search {
+    flex: 1;
+    position: relative;
+}
+
+.filter-search input {
+    width: 100%;
+    padding: 10px 14px 10px 40px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    transition: border-color 0.2s;
+}
+
+.filter-search input:focus {
+    outline: none;
+    border-color: #2a6aff;
+}
+
+.filter-search i {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    font-size: 0.9rem;
+}
+
+.filter-categories {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.filter-categories span {
+    color: #64748b;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.filter-btn {
+    padding: 8px 16px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.filter-btn:hover {
+    border-color: #2a6aff;
+    color: #2a6aff;
+}
+
+.filter-btn.active {
+    background: #2a6aff;
+    border-color: #2a6aff;
+    color: #fff;
+}
+
+/* Upload box stacked (vertical) layout */
+.upload-drop {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    padding: 18px !important;
+    text-align: center !important;
+}
+
+.upload-drop i {
+    font-size: 2rem !important;
+    color: #2a6aff !important;
+    margin: 0 !important;
+}
+
+.upload-drop h4 {
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+    color: #1e293b !important;
+    margin: 0 !important;
+}
+
+.upload-drop p {
+    font-size: 0.85rem !important;
+    color: #64748b !important;
+    margin: 0 !important;
+}
+
+.upload-drop .or-text {
+    color: #94a3b8 !important;
+    font-size: 0.85rem !important;
+    margin: 0 !important;
+}
+
+.upload-drop .browse-link {
+    color: #2a6aff !important;
+    font-weight: 600 !important;
+    font-size: 0.85rem !important;
+    cursor: pointer !important;
+    margin-top: 4px !important;
+}
+
+/* State: when an image is present, hide placeholder and show preview only */
+.upload-box.has-image .upload-drop { display: none !important; }
+.upload-box.has-image .image-preview { display: block !important; }
 </style>
 @endpush
 
@@ -203,6 +326,21 @@
                     </select>
                 </div>
             </div>
+
+            <!-- Filter Bar -->
+            <div class="filter-bar">
+                <div class="filter-search">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="product-search" placeholder="Search shoes by name, brand, or model...">
+                </div>
+                <div class="filter-categories">
+                    <span>Category:</span>
+                    <button class="filter-btn active" data-category="all">All Products</button>
+                    <button class="filter-btn" data-category="men">Men</button>
+                    <button class="filter-btn" data-category="women">Women</button>
+                    <button class="filter-btn" data-category="accessories">Accessories</button>
+                </div>
+            </div>
             
             <div class="toggle">
                 <button id="toggle-card-view" style="position:absolute;right: 20px; bottom: 20px; z-index:10;background:#2a6aff;color:#fff;border:none;border-radius:50%;width:48px;height:48px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(67,56,202,0.18);font-size:1.2rem;cursor:pointer;">
@@ -210,9 +348,9 @@
                 </button>
             </div>
             
-            <div class="add-inventory-list" style="position:relative; display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; justify-content: flex-start;">
+            <div class="add-inventory-list" style="position:relative; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; align-items: start; align-content: start; padding: 0; width:100%;">
                 <!-- Add Product Card/Button (card mode reference) -->
-                <div class="product-card add-product-card" style="position:relative;min-width:220px;max-width:220px;height:340px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:16px;background:#f8fbff;box-shadow:none;padding:18px;cursor:pointer;border:2px dashed #a3bffa;" onclick="openAddProductModal()">
+                <div class="product-card add-product-card" style="position:relative;min-width:220px;max-width:240px;height:340px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:16px;background:#f8fbff;box-shadow:none;padding:18px;cursor:pointer;border:2px dashed #a3bffa;" onclick="openAddProductModal()">
                     <div class="icon-box" style="width:48px;height:48px;border-radius:12px;background:#e6efff;display:flex;align-items:center;justify-content:center;margin-bottom:10px;">
                         <i class="fas fa-plus" style="font-size:1.2rem;color:#2a6aff;"></i>
                     </div>
@@ -230,7 +368,7 @@
                     data-sizes="{{ $product->sizes->pluck('size')->implode(', ') }}" 
                     data-color="{{ $product->color }}"
                     data-image="{{ $product->image_url }}"
-                    style="position:relative;min-width:220px;max-width:220px;height:340px;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(67,56,202,0.08);padding:0px 18px 18px 18px;cursor:pointer;" onclick="openProductDetailsModal({{ $product->id }})">
+                    style="position:relative;min-width:240px;max-width:220px;height:340px;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(67,56,202,0.08);padding:0px 18px 18px 18px;cursor:pointer;" onclick="openProductDetailsModal({{ $product->id }})">
 
                     <!-- Category tag top-right -->
                     @php $cat = strtolower($product->category ?? ''); @endphp
@@ -389,8 +527,10 @@
                 <div class="upload-box" role="button" tabindex="0" style="flex:1;" onclick="document.getElementById('product-image').click()">
                     <div class="upload-drop" id="upload-placeholder">
                         <i class="fas fa-cloud-upload-alt"></i>
-                        <h4>Drop files here</h4>
-                        <p>Supported format: PNG, JPG</p>
+                        <div style="display:flex;flex-direction:column;gap:2px;">
+                            <h4>Drop files</h4>
+                            <p>Supported format: PNG, JPG</p>
+                        </div>
                         <span class="or-text">OR</span>
                         <span class="browse-link">Browse files</span>
                     </div>
@@ -472,8 +612,10 @@
                 <div class="upload-box" role="button" tabindex="0" style="flex:1;" onclick="document.getElementById('edit-product-image').click()">
                     <div class="upload-drop" id="edit-upload-placeholder" style="display: none;">
                         <i class="fas fa-cloud-upload-alt"></i>
-                        <h4>Drop files here</h4>
-                        <p>Supported format: PNG, JPG</p>
+                        <div style="display:flex;flex-direction:column;gap:2px;">
+                            <h4>Drop files</h4>
+                            <p>Supported format: PNG, JPG</p>
+                        </div>
                         <span class="or-text">OR</span>
                         <span class="browse-link">Browse files</span>
                     </div>
@@ -782,7 +924,7 @@ function addProductToCardView(product) {
     newCard.setAttribute('data-sizes', product.available_sizes ? product.available_sizes.join(', ') : '');
     newCard.setAttribute('data-color', product.color);
     newCard.setAttribute('data-image', product.image_url);
-    newCard.style.cssText = 'min-width:220px;max-width:220px;height:340px;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(67,56,202,0.08);padding:0px 18px 18px 18px;cursor:pointer;';
+    newCard.style.cssText = 'min-width:240px;max-width:220px;height:340px;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(67,56,202,0.08);padding:0px 18px 18px 18px;cursor:pointer;';
     newCard.setAttribute('onclick', `openProductDetailsModal('${product.id}')`);
     
     const catLower = (product.category || '').toLowerCase();
@@ -885,7 +1027,8 @@ function closeAddProductModal() {
     document.getElementById('add-product-modal').style.display = 'none';
     document.getElementById('add-product-form').reset();
     // Reset image preview
-    document.getElementById('image-preview').style.display = 'none';
+    const addUploadBox = document.querySelector('#add-product-form .upload-box');
+    if (addUploadBox) addUploadBox.classList.remove('has-image');
     document.getElementById('preview-img').src = '';
     // Reset size selections
     document.querySelectorAll('input[name="size_enabled[]"]').forEach(checkbox => {
@@ -965,15 +1108,19 @@ function applyCardViewToCards(mode) {
     const cards = Array.from(container.querySelectorAll('.product-card'));
     // Adjust container layout
     if (mode === 'horizontal') {
+        // switch to a vertical list
+        container.style.display = 'flex';
         container.style.flexDirection = 'column';
         container.style.flexWrap = 'nowrap';
         container.style.alignItems = 'stretch';
         container.style.gap = '12px';
     } else {
-        container.style.flexDirection = 'row';
-        container.style.flexWrap = 'wrap';
-        container.style.alignItems = 'flex-start';
-        container.style.gap = '16px';
+        // grid layout for cards
+        container.style.display = 'grid';
+        container.style.gridTemplateColumns = 'repeat(auto-fill, minmax(220px, 1fr))';
+        container.style.gap = '20px';
+        container.style.alignItems = 'start';
+        container.style.alignContent = 'start';
     }
 
     // helper to add a label before content once
@@ -1111,7 +1258,7 @@ function applyCardViewToCards(mode) {
             if (isAddCard) {
                 // Restore to centered small dashed card
                 card.style.minWidth = '220px';
-                card.style.maxWidth = '220px';
+                card.style.maxWidth = '240px';
                 card.style.height = '340px';
                 card.style.display = 'flex';
                 card.style.flexDirection = 'column';
@@ -1124,21 +1271,25 @@ function applyCardViewToCards(mode) {
                 if (text) { text.style.fontSize = '1rem'; }
             } else {
                 card.style.minWidth = '220px';
-                card.style.maxWidth = '220px';
+                card.style.maxWidth = '240px';
                 card.style.height = '340px';
                 card.style.display = 'flex';
                 card.style.flexDirection = 'column';
                 card.style.alignItems = 'stretch';
                 card.style.justifyContent = 'flex-start';
-                card.style.padding = '18px';
+                card.style.padding = '0px 18px 18px 18px';
 
                 if (catTag) catTag.style.display = '';
                 if (imgDiv) {
                     imgDiv.style.width = 'calc(100% + 36px)';
                     imgDiv.style.height = '200px';
-                    imgDiv.style.margin = '-18px -18px 10px -18px';
+                    imgDiv.style.margin = '0px -18px 10px -18px';
                     imgDiv.style.borderRadius = '16px 16px 0 0';
                     imgDiv.style.overflow = 'hidden';
+                    imgDiv.style.display = 'flex';
+                    imgDiv.style.alignItems = 'center';
+                    imgDiv.style.justifyContent = 'center';
+                    
                 }
                 if (infoDiv) {
                     infoDiv.style.flex = '';
@@ -1219,6 +1370,56 @@ document.addEventListener('DOMContentLoaded', function(){
         // Initial apply
         applyCardViewToCards(window.currentCardView);
     }
+
+    // Filter Bar Functionality
+    const searchInput = document.getElementById('product-search');
+    const filterBtns = document.querySelectorAll('.filter-btn');
+    let activeCategory = 'all';
+
+    // Search filter
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            filterProducts();
+        });
+    }
+
+    // Category filter buttons
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            // Update active button
+            filterBtns.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            activeCategory = this.getAttribute('data-category');
+            filterProducts();
+        });
+    });
+
+    function filterProducts() {
+        const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+        const productCards = document.querySelectorAll('.product-card:not(.add-product-card)');
+
+        productCards.forEach(card => {
+            const name = card.getAttribute('data-name')?.toLowerCase() || '';
+            const brand = card.getAttribute('data-brand')?.toLowerCase() || '';
+            const category = card.getAttribute('data-category')?.toLowerCase() || '';
+
+            const matchesSearch = name.includes(searchTerm) || brand.includes(searchTerm);
+            const matchesCategory = activeCategory === 'all' || category === activeCategory;
+
+            // Preserve original display value so toggling filters restores correct layout
+            if (!card.dataset.origDisplay) {
+                // Use computed style as fallback (covers cases where inline display was overwritten)
+                card.dataset.origDisplay = window.getComputedStyle(card).display || 'block';
+            }
+
+            if (matchesSearch && matchesCategory) {
+                // Restore the original display (usually 'flex' for product cards)
+                card.style.display = card.dataset.origDisplay;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
 });
 
 // Category change handler - removed since we show all sizes regardless of category
@@ -1245,8 +1446,8 @@ document.getElementById('product-image').addEventListener('change', function(e) 
         const reader = new FileReader();
         reader.onload = function(e) {
             document.getElementById('preview-img').src = e.target.result;
-            document.getElementById('upload-placeholder').style.display = 'none';
-            document.getElementById('image-preview').style.display = 'block';
+            const addUploadBox = document.querySelector('#add-product-form .upload-box');
+            if (addUploadBox) addUploadBox.classList.add('has-image');
         }
         reader.readAsDataURL(file);
     }
@@ -1274,8 +1475,8 @@ document.getElementById('edit-product-image').addEventListener('change', functio
         const reader = new FileReader();
         reader.onload = function(e) {
             document.getElementById('edit-preview-img').src = e.target.result;
-            document.getElementById('edit-upload-placeholder').style.display = 'none';
-            document.getElementById('edit-image-preview').style.display = 'block';
+            const editUploadBox = document.querySelector('#edit-product-form .upload-box');
+            if (editUploadBox) editUploadBox.classList.add('has-image');
         }
         reader.readAsDataURL(file);
     }
@@ -1285,8 +1486,8 @@ document.getElementById('edit-product-image').addEventListener('change', functio
 function removeImage(event) {
     event.stopPropagation();
     document.getElementById('product-image').value = '';
-    document.getElementById('image-preview').style.display = 'none';
-    document.getElementById('upload-placeholder').style.display = 'flex';
+    const addUploadBox = document.querySelector('#add-product-form .upload-box');
+    if (addUploadBox) addUploadBox.classList.remove('has-image');
 }
 
 // Size and Stock Management Functionality
@@ -1464,9 +1665,9 @@ function closeAddProductModal() {
     document.body.style.overflow = 'auto';
     document.getElementById('add-product-form').reset();
     
-    // Reset image preview
-    document.getElementById('image-preview').style.display = 'none';
-    document.getElementById('upload-placeholder').style.display = 'flex';
+    // Reset image preview state
+    const addUploadBox = document.querySelector('#add-product-form .upload-box');
+    if (addUploadBox) addUploadBox.classList.remove('has-image');
     document.getElementById('preview-img').src = '';
     
     // Reset size/stock arrays
@@ -1494,15 +1695,14 @@ function openEditProductModal(productId) {
                 document.getElementById('edit-product-color').value = product.color || '';
                 
                 // Set image preview
+                const editUploadBox = document.querySelector('#edit-product-form .upload-box');
                 if (product.image_url) {
                     // Ensure the image URL is properly formed
                     const imageUrl = product.image_url.startsWith('http') ? product.image_url : `{{ asset('') }}${product.image_url}`;
                     document.getElementById('edit-preview-img').src = imageUrl;
-                    document.getElementById('edit-image-preview').style.display = 'block';
-                    document.getElementById('edit-upload-placeholder').style.display = 'none';
+                    if (editUploadBox) editUploadBox.classList.add('has-image');
                 } else {
-                    document.getElementById('edit-image-preview').style.display = 'none';
-                    document.getElementById('edit-upload-placeholder').style.display = 'flex';
+                    if (editUploadBox) editUploadBox.classList.remove('has-image');
                 }
                 
                 // Set sizes and stock
@@ -1542,9 +1742,9 @@ function closeEditProductModal() {
     document.body.style.overflow = 'auto';
     document.getElementById('edit-product-form').reset();
     
-    // Reset image preview
-    document.getElementById('edit-image-preview').style.display = 'none';
-    document.getElementById('edit-upload-placeholder').style.display = 'flex';
+    // Reset image preview state
+    const editUploadBox = document.querySelector('#edit-product-form .upload-box');
+    if (editUploadBox) editUploadBox.classList.remove('has-image');
     document.getElementById('edit-preview-img').src = '';
     
     // Reset size/stock arrays
@@ -1557,8 +1757,8 @@ function closeEditProductModal() {
 function removeEditImage(event) {
     event.stopPropagation();
     document.getElementById('edit-product-image').value = '';
-    document.getElementById('edit-image-preview').style.display = 'none';
-    document.getElementById('edit-upload-placeholder').style.display = 'flex';
+    const editUploadBox = document.querySelector('#edit-product-form .upload-box');
+    if (editUploadBox) editUploadBox.classList.remove('has-image');
 }
 
 // Product Details Modal Functions

@@ -11,6 +11,8 @@ use App\Models\Product;
 use App\Models\ProductSize;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Models\Reservation;
+use Carbon\Carbon;
 
 class PosController extends Controller
 {
@@ -35,12 +37,38 @@ class PosController extends Controller
             $reservations = collect([]);
         }
         $reservationStats = [
-            'incomplete' => \App\Models\Reservation::where('status', 'pending')->count(),
-            'completed' => \App\Models\Reservation::where('status', 'completed')->count(),
-            'cancelled' => \App\Models\Reservation::where('status', 'cancelled')->count()
+            'incomplete' => Reservation::where('status', 'pending')->count(),
+            'completed' => Reservation::where('status', 'completed')->count(),
+            'cancelled' => Reservation::where('status', 'cancelled')->count()
         ];
 
-        return view('pos.reservations', compact('reservations', 'reservationStats'));
+    // Reservation cards: Expiring Soon, Expiring Today, Total
+    // Assumptions:
+    // - "Expiring Today": pending reservations with pickup_date equal to today
+    // - "Expiring Soon": pending reservations with pickup_date from today through the next 3 days (inclusive)
+        // - "Total": total reservations regardless of status
+        $today = Carbon::today();
+    $tomorrow = Carbon::tomorrow();
+    $soonEnd = Carbon::today()->addDays(3);
+
+        $expiringToday = Reservation::where('status', 'pending')
+            ->whereDate('pickup_date', $today)
+            ->count();
+
+        $expiringSoon = Reservation::where('status', 'pending')
+            ->whereDate('pickup_date', '>=', $today)
+            ->whereDate('pickup_date', '<=', $soonEnd)
+            ->count();
+
+        $totalReservations = Reservation::count();
+
+        $reservationCards = [
+            'expiring_today' => $expiringToday,
+            'expiring_soon' => $expiringSoon,
+            'total' => $totalReservations,
+        ];
+
+        return view('pos.reservations', compact('reservations', 'reservationStats', 'reservationCards'));
     }
 
     /**
