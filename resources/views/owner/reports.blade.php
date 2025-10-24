@@ -60,6 +60,11 @@
         .status-badge.status-completed { background:#dcfce7; color:#166534; }
         .status-badge.status-pending { background:#fff7ed; color:#9a3412; }
         .status-badge.status-active { background:#e0f2fe; color:#075985; }
+    /* Sticky section header and filters */
+    .content-grid { position: relative; }
+    .content-section .section-header { position: sticky; top: 0; z-index: 30; background: #fff; padding-top: 6px; padding-bottom: 6px; }
+    /* keep a small gap between header and filters when both are sticky */
+    .content-section .filters { position: sticky; top: 55px; z-index: 29; background: #fff; padding: 6px; border-bottom: 1px solid #eef2f7; }
     /* Reservation cards */
     .resv-card-list { display:flex; flex-direction:column; gap:12px; margin-top:12px; }
     .resv-card { background:#fff; border-radius:14px; padding:16px 18px; border:1px solid #eef2f7; box-shadow: 0 8px 24px -18px rgba(2,6,23,.18); }
@@ -292,21 +297,61 @@
                     <option value="stock-asc">Stock (Low-High)</option>
                 </select>
             </div>
-            <div class="table-container">
-                <table id="inventory-overview-table" class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Product Name</th>
-                            <th>Brand</th>
-                            <th>Category</th>
-                            <th>Price</th>
-                            <th>Stock</th>
-                            <th>Colors</th>
-                            <th>Sizes</th>
-                        </tr>
-                    </thead>
-                    <tbody id="inventory-overview-tbody"></tbody>
-                </table>
+            <style>
+                /* Inventory Overview horizontal cards */
+                .inv-list { display:flex; flex-direction:column; gap:12px; margin-top:10px; }
+                .inv-card { display:grid; grid-template-columns: 112px 1fr auto; align-items:center; gap:16px; background:#fff; border:1px solid #eef2f7; border-radius:16px; padding:12px 16px; box-shadow:0 6px 20px -12px rgba(2,6,23,.18); }
+                .inv-thumb { width:112px; height:84px; border-radius:12px; overflow:hidden; background:#f1f5f9; display:flex; align-items:center; justify-content:center; }
+                .inv-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+                .inv-name { font-size:13px; font-weight:800; color:#0f172a; }
+                .inv-brand { font-size:11px; font-weight:700; color:#334155; text-transform:uppercase; letter-spacing:.5px; }
+                .inv-stock { font-size:12px; color:#1e40af; font-weight:700; }
+                .inv-sizes { display:flex; flex-wrap:wrap; gap:6px; }
+                .inv-size { background:#e0e7ff; color:#1e3a8a; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:800; }
+                .inv-badge { background:#111827; color:#fff; padding:4px 8px; border-radius:999px; font-size:11px; font-weight:800; }
+                .inv-badge.gray { background:#374151; }
+                /* New 3-rows x 2-columns details grid */
+                .inv-info { display:grid; grid-template-columns: 1fr 1fr; grid-auto-rows:minmax(22px, auto); gap:8px 16px; }
+                .inv-field { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+                .inv-label { font-size:12px; color:#64748b; font-weight:700; }
+                .inv-value { font-size:12px; color:#0f172a; font-weight:800; }
+                .inv-right { display:flex; flex-direction:column; gap:10px; align-items:flex-end; }
+                .inv-price { font-size:13px; font-weight:800; color:#0f172a; }
+                .btn-view { padding:10px 16px; border-radius:10px; border:0; color:#fff; font-weight:700; cursor:pointer; background:linear-gradient(135deg,#3b82f6,#1d4ed8); box-shadow:0 6px 18px -8px rgba(29,78,216,.55); }
+                .btn-view:hover { filter:brightness(1.05); box-shadow:0 10px 22px -8px rgba(29,78,216,.65); }
+                @media (max-width: 900px) { .inv-card { grid-template-columns: 80px 1fr; } .inv-right { align-items:flex-start; } }
+            </style>
+            <div id="inventory-overview-list" class="inv-list"></div>
+
+            <!-- Product Detail Modal -->
+            <div id="product-detail-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:10000;">
+                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:16px;box-shadow:0 20px 40px rgba(0,0,0,.18);width:min(920px,96vw);max-height:90vh;overflow:auto;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #eef2f7;">
+                        <h3 style="margin:0;font-size:1.05rem;font-weight:800;">Product Details</h3>
+                        <button id="pd-close" style="background:none;border:none;font-size:1.4rem;line-height:1;cursor:pointer;">&times;</button>
+                    </div>
+                    <div style="display:grid;grid-template-columns: 1fr 1fr;gap:18px;padding:18px;">
+                        <div>
+                            <div style="width:100%;aspect-ratio:1/1;background:#f1f5f9;border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center;">
+                                <img id="pd-image" src="" alt="Product" style="max-width:100%;max-height:100%;object-fit:cover;display:block;" />
+                            </div>
+                        </div>
+                        <div>
+                            <div id="pd-name" style="font-size:1.1rem;font-weight:800;color:#0f172a;">Name</div>
+                            <div id="pd-brand" style="font-size:.9rem;color:#334155;font-weight:700;margin-top:2px;text-transform:uppercase;">BRAND</div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;">
+                                <div><div style="font-size:.85rem;color:#64748b;">Category:</div><div id="pd-category" style="font-weight:800;color:#0f172a;">-</div></div>
+                                <div><div style="font-size:.85rem;color:#64748b;">Color:</div><div id="pd-color" style="font-weight:800;color:#0f172a;">-</div></div>
+                                <div><div style="font-size:.85rem;color:#64748b;">Price:</div><div id="pd-price" style="font-weight:800;color:#0f172a;">-</div></div>
+                                <div><div style="font-size:.85rem;color:#64748b;">Total Stock:</div><div id="pd-stock" style="font-weight:800;color:#16a34a;">-</div></div>
+                            </div>
+                            <div style="margin-top:12px;">
+                                <div style="font-size:.85rem;color:#64748b;margin-bottom:6px;">Available Sizes:</div>
+                                <div id="pd-sizes" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
     </div>

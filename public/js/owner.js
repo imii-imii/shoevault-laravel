@@ -271,7 +271,7 @@ async function loadInventoryOverview(source = 'pos') {
         const data = await response.json();
         
         if (response.ok) {
-            renderInventoryOverviewTable(data);
+            renderInventoryOverviewCards(data);
         } else {
             console.error('Failed to load inventory overview:', data.message);
         }
@@ -825,36 +825,108 @@ function renderSupplyTable(supplyData) {
     `).join('');
 }
 
-function renderInventoryOverviewTable(data) {
-    const tbody = document.getElementById('inventory-overview-tbody');
-    if (!tbody) return;
+// Inventory Overview: render as horizontal cards and wire modal
+function renderInventoryOverviewCards(data) {
+    const list = document.getElementById('inventory-overview-list');
+    if (!list) return;
 
     const items = Array.isArray(data.items) ? data.items : [];
+    const fmt = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 2 });
+    const formatCurrency = (v) => {
+        const n = Number(v ?? 0);
+        try { return fmt.format(n); } catch { return `₱${n.toFixed(2)}`; }
+    };
+
     if (!items.length) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#6b7280;">No inventory items found.</td></tr>`;
+        list.innerHTML = `<div style="text-align:center;color:#6b7280;padding:10px;">No inventory items found.</div>`;
         return;
     }
 
-    const formatCurrency = (v) => {
-        const n = Number(v ?? 0);
-        try {
-            return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 2 }).format(n);
-        } catch (e) {
-            return `₱${n.toFixed(2)}`;
-        }
-    };
+    // Keep a map for modal population
+    window.__invItemsMap = Object.create(null);
+    items.forEach(it => { if (it && it.id != null) window.__invItemsMap[String(it.id)] = it; });
 
-    tbody.innerHTML = items.map(item => `
-        <tr>
-            <td>${item.name || ''}</td>
-            <td>${item.brand || ''}</td>
-            <td>${item.category || ''}</td>
-            <td>${formatCurrency(item.price)}</td>
-            <td>${Number(item.total_stock || 0)}</td>
-            <td>${item.color || ''}</td>
-            <td>${item.sizes || ''}</td>
-        </tr>
-    `).join('');
+    const pill = (text) => `<span class="inv-size">${text}</span>`;
+
+    list.innerHTML = items.map(item => {
+        const sizes = (item.sizes || '').split(',').map(s=>s.trim()).filter(Boolean).slice(0, 20).map(pill).join(' ');
+        const img = item.image_url ? `<img src="${item.image_url}" alt="${item.name||''}">` : '';
+            return `
+            <div class="inv-card" data-id="${item.id}">
+                <div class="inv-thumb">${img}</div>
+                <div>
+                    <div class="inv-info">
+                        <div class="inv-field"><span class="inv-label">Name:</span><span class="inv-value inv-name">${item.name || ''}</span></div>
+                        <div class="inv-field"><span class="inv-label">Category:</span><span class="inv-value"><span class="inv-badge">${item.category || 'N/A'}</span></span></div>
+                        <div class="inv-field"><span class="inv-label">Brand:</span><span class="inv-value inv-brand">${String(item.brand||'').toUpperCase()}</span></div>
+                        <div class="inv-field"><span class="inv-label">Color:</span><span class="inv-value"><span class="inv-badge gray">${item.color || 'N/A'}</span></span></div>
+                        <div class="inv-field"><span class="inv-label">Sizes:</span><span class="inv-value"><div class="inv-sizes">${sizes || '<span style="color:#64748b;font-size:12px;">None</span>'}</div></span></div>
+                        <div class="inv-field"><span class="inv-label">Stock:</span><span class="inv-value inv-stock">${Number(item.total_stock||0)} in stock</span></div>
+                    </div>
+                </div>
+                <div class="inv-right">
+                    <div class="inv-price">Price:&nbsp; ${formatCurrency(item.price)}</div>
+                    <button class="btn-view" data-id="${item.id}">View</button>
+                </div>
+            </div>`;
+    }).join('');
+
+    // Wire up buttons
+    list.querySelectorAll('.btn-view').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const id = e.currentTarget.getAttribute('data-id');
+            const it = window.__invItemsMap?.[String(id)];
+            if (it) openProductDetailModal(it);
+        });
+    });
+}
+
+function openProductDetailModal(item) {
+    const modal = document.getElementById('product-detail-modal');
+    if (!modal) return;
+    const imgEl = modal.querySelector('#pd-image');
+    const nameEl = modal.querySelector('#pd-name');
+    const brandEl = modal.querySelector('#pd-brand');
+    const categoryEl = modal.querySelector('#pd-category');
+    const colorEl = modal.querySelector('#pd-color');
+    const priceEl = modal.querySelector('#pd-price');
+    const stockEl = modal.querySelector('#pd-stock');
+    const sizesEl = modal.querySelector('#pd-sizes');
+
+    const fmt = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 2 });
+    const formatCurrency = (v) => { try { return fmt.format(Number(v||0)); } catch { return `₱${Number(v||0).toFixed(2)}`; } };
+
+    if (imgEl) imgEl.src = item.image_url || '';
+    if (nameEl) nameEl.textContent = item.name || '';
+    if (brandEl) brandEl.textContent = String(item.brand || '').toUpperCase();
+    if (categoryEl) categoryEl.textContent = item.category || '-';
+    if (colorEl) colorEl.textContent = item.color || '-';
+    if (priceEl) priceEl.textContent = formatCurrency(item.price);
+    if (stockEl) stockEl.textContent = `${Number(item.total_stock||0)} items`;
+    if (sizesEl) {
+        // Prefer sizes_stock (size:stock) when available to show per-size stock counts.
+        const sizesStockRaw = item.sizes_stock || item.sizes || '';
+        let sizeChips = [];
+        if (sizesStockRaw) {
+            // sizes_stock expected format: "5:3,5.5:2,6:3"
+            sizeChips = sizesStockRaw.split(',').map(pair => {
+                const [sizeRaw, stockRaw] = pair.split(':').map(p => p && p.trim());
+                const size = sizeRaw || '';
+                const stock = (typeof stockRaw !== 'undefined' && stockRaw !== null && stockRaw !== '') ? Number(stockRaw) : null;
+                if (stock === null || isNaN(stock)) {
+                    return `<span style="background:#eef2ff;color:#1e3a8a;padding:6px 10px;border-radius:8px;font-weight:700;font-size:.85rem;">${size}</span>`;
+                }
+                return `<span style="background:#fff5f8;border:1px solid #e6e6e6;color:#0f172a;padding:6px 10px;border-radius:8px;font-weight:700;font-size:.85rem;">${size} <span style="color:#16a34a;font-weight:800;margin-left:6px;">(${stock} in stock)</span></span>`;
+            });
+        }
+        sizesEl.innerHTML = sizeChips.join(' ');
+    }
+
+    modal.style.display = 'block';
+    const closeBtn = modal.querySelector('#pd-close');
+    const close = () => { modal.style.display = 'none'; };
+    closeBtn?.addEventListener('click', close, { once: true });
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); }, { once: true });
 }
 
 // --- Product List Rendering ---

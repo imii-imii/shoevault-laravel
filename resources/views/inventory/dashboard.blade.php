@@ -1159,7 +1159,7 @@ function applyCardViewToCards(mode) {
         const catTag = card.querySelector('.category-tag');
 
         if (mode === 'horizontal') {
-            // Card as a horizontal row with 4x2 segmentation
+            // Card as a horizontal row with: [image] [details grid 2x3] [right panel price+update]
             card.style.minWidth = '100%';
             card.style.maxWidth = '100%';
             card.style.height = 'auto';
@@ -1167,7 +1167,7 @@ function applyCardViewToCards(mode) {
             card.style.flexDirection = 'row';
             card.style.alignItems = 'center';
             card.style.justifyContent = 'flex-start';
-            card.style.padding = '10px 14px';
+            card.style.padding = '12px 16px';
 
             if (isAddCard) {
                 // Transform add card into horizontal banner
@@ -1184,20 +1184,20 @@ function applyCardViewToCards(mode) {
                 if (imgDiv) {
                     imgDiv.style.width = '88px';
                     imgDiv.style.height = '88px';
-                    imgDiv.style.margin = '0 12px 0 0';
+                    imgDiv.style.margin = '0 16px 0 0';
                     imgDiv.style.borderRadius = '12px';
                     imgDiv.style.overflow = 'hidden';
                 }
                 if (infoDiv) {
                     infoDiv.style.flex = '1';
                     infoDiv.style.padding = '0 8px';
-                    // Turn info into 4 columns x 2 rows grid
+                    // Turn info into 2 columns x 3 rows grid
                     infoDiv.style.display = 'grid';
-                    infoDiv.style.gridTemplateColumns = '1fr 1fr 1fr 1fr';
-                    infoDiv.style.gridTemplateRows = 'auto auto';
-                    infoDiv.style.columnGap = '12px';
-                    infoDiv.style.rowGap = '6px';
-                    // Map fields into cells (Row1: Name, Brand, Colors, Price) (Row2: Stock, Sizes, Category)
+                    infoDiv.style.gridTemplateColumns = '1fr 1fr';
+                    infoDiv.style.gridTemplateRows = 'auto auto auto';
+                    infoDiv.style.columnGap = '24px';
+                    infoDiv.style.rowGap = '8px';
+                    // Map fields into cells (Row1: Name | Category) (Row2: Brand | Color) (Row3: Sizes | Stock)
                     const nameEl = infoDiv.querySelector('.pd-name');
                     const brandEl = infoDiv.querySelector('.pd-brand');
                     const colorEl = infoDiv.querySelector('.pd-color');
@@ -1208,49 +1208,101 @@ function applyCardViewToCards(mode) {
                     // Labels
                     addLabel(nameEl, 'Name:');
                     addLabel(brandEl, 'Brand:');
-                    addLabel(priceEl, 'Price:');
                     addLabel(stockEl, 'Stock:');
+                    // We'll place Price on the right panel, so don't label it here
                     // Uniform fonts
                     [nameEl, brandEl, colorEl, priceEl, catEl, sizesEl, stockEl].forEach(el => { if (el) { el.style.fontSize = '0.95rem'; el.style.margin = '0'; el.style.lineHeight = '1.3'; } });
                     const allLabels = infoDiv.querySelectorAll('.pd-label');
                     allLabels.forEach(l => { l.style.fontSize = '0.95rem'; });
-                    // Grid positions
+                    // Grid positions (2 columns x 3 rows)
                     if (nameEl) { nameEl.style.gridColumn = '1 / 2'; nameEl.style.gridRow = '1'; }
-                    if (brandEl) { brandEl.style.gridColumn = '2 / 3'; brandEl.style.gridRow = '1'; brandEl.style.textAlign = 'left'; }
-                    // Colors as pills in column 3 (row 1)
+                    if (brandEl) { brandEl.style.gridColumn = '1 / 2'; brandEl.style.gridRow = '2'; brandEl.style.textAlign = 'left'; }
+                    // Color in col 2 row 2 as pill(s)
                     if (colorEl) {
-                        colorEl.style.gridColumn = '3 / 4';
-                        colorEl.style.gridRow = '1';
+                        colorEl.style.gridColumn = '2 / 3';
+                        colorEl.style.gridRow = '2';
                         if (!colorEl.dataset.original) colorEl.dataset.original = (card.getAttribute('data-color') || colorEl.textContent.trim());
                         const colors = (card.getAttribute('data-color') || '').split(',').map(c => c.trim()).filter(Boolean);
-                        const pills = colors.map(c => `<span class=\"color-pill\" style=\"background:#374151;color:#fff;padding:2px 8px;border-radius:12px;font-size:.95rem;font-weight:700;display:inline-block;margin-right:6px;\">${c}</span>`).join(' ');
-                        colorEl.innerHTML = `<span class=\"pd-label\" style=\"font-weight:700;color:#111827;margin-right:6px;\">Colors:</span> ${pills || '<span style=\"color:#6b7280;\">—</span>'}`;
+                        const pills = colors.map(c => `<span class=\"color-pill\" style=\"background:#e5e7eb;color:#111827;padding:2px 10px;border-radius:999px;font-size:.9rem;font-weight:700;display:inline-block;margin-right:6px;\">${c}</span>`).join(' ');
+                        colorEl.innerHTML = `<span class=\"pd-label\" style=\"font-weight:700;color:#111827;margin-right:6px;\">Color:</span> ${pills || '<span style=\"color:#6b7280;\">—</span>'}`;
                         colorEl.dataset.pills = '1';
                     }
-                    if (priceEl) { priceEl.style.gridColumn = '4 / 5'; priceEl.style.gridRow = '1'; priceEl.style.justifySelf = 'end'; }
-                    // Row 2 mapping
-                    if (stockEl) { stockEl.style.gridColumn = '1 / 2'; stockEl.style.gridRow = '2'; stockEl.style.justifySelf = 'start'; }
+                    // Sizes in col 1 row 3 with chips
                     if (sizesEl) {
-                        sizesEl.style.gridColumn = '2 / 3';
-                        sizesEl.style.gridRow = '2';
+                        sizesEl.style.gridColumn = '1 / 2';
+                        sizesEl.style.gridRow = '3';
                         if (!sizesEl.dataset.original) sizesEl.dataset.original = (card.getAttribute('data-sizes') || sizesEl.textContent.replace(/Sizes:\\s*/i,'').trim());
                         const sizes = (card.getAttribute('data-sizes') || '').split(',').map(s => s.trim()).filter(Boolean);
-                        const pills = sizes.map(s => `<span class=\"size-pill\" style=\"background:#2a6aff;color:#fff;padding:2px 8px;border-radius:12px;font-size:.95rem;font-weight:700;display:inline-block;margin-right:6px;\">${s}</span>`).join(' ');
+                        const pills = sizes.map(s => `<span class=\"size-pill\" style=\"background:#e6efff;color:#1e40af;padding:2px 10px;border-radius:999px;font-size:.9rem;font-weight:700;display:inline-block;margin-right:6px;\">${s}</span>`).join(' ');
                         sizesEl.innerHTML = `<span class=\"pd-label\" style=\"font-weight:700;color:#111827;margin-right:6px;\">Sizes:</span> ${pills || '<span style=\"color:#6b7280;\">N/A</span>'}`;
                         sizesEl.dataset.pills = '1';
                     }
-                    if (catEl) { catEl.style.display = 'block'; catEl.style.gridColumn = '3 / 4'; catEl.style.gridRow = '2'; addLabel(catEl, 'Category:'); }
+                    // Category in col 2 row 1 as pill
+                    if (catEl) {
+                        catEl.style.display = 'block';
+                        catEl.style.gridColumn = '2 / 3';
+                        catEl.style.gridRow = '1';
+                        // Replace with a pill element
+                        const cat = (card.getAttribute('data-category') || catEl.textContent || '').toLowerCase();
+                        const pillStyle = cat.includes('men') ? 'background:#111827;color:#fff' : (cat.includes('women') ? 'background:#111827;color:#fff' : 'background:#111827;color:#fff');
+                        catEl.innerHTML = `<span class=\"pd-label\" style=\"font-weight:700;color:#111827;margin-right:6px;\">Category:</span> <span style=\"${pillStyle};padding:2px 10px;border-radius:999px;font-size:.9rem;font-weight:700;display:inline-block;\">${cat || '-'}</span>`;
+                    }
+                    // Stock in col 2 row 3
+                    if (stockEl) {
+                        stockEl.style.gridColumn = '2 / 3';
+                        stockEl.style.gridRow = '3';
+                        stockEl.style.justifySelf = 'start';
+                        stockEl.style.fontWeight = '700';
+                        stockEl.style.color = '#111827';
+                    }
+
+                    // Create or reuse right panel for Price + Update button
+                    let right = card.querySelector('.inv-right');
+                    if (!right) {
+                        right = document.createElement('div');
+                        right.className = 'inv-right';
+                        right.style.display = 'flex';
+                        right.style.flexDirection = 'column';
+                        right.style.alignItems = 'flex-end';
+                        right.style.gap = '8px';
+                        right.style.marginLeft = 'auto';
+                        right.style.minWidth = '140px';
+                        card.appendChild(right);
+                    }
+                    if (priceEl) {
+                        // Move price to right panel
+                        right.appendChild(priceEl);
+                        priceEl.style.gridColumn = '';
+                        priceEl.style.gridRow = '';
+                        priceEl.style.justifySelf = '';
+                        priceEl.style.margin = '0';
+                        priceEl.style.fontSize = '1rem';
+                        priceEl.style.fontWeight = '800';
+                    }
                 }
                 if (btn) {
-                    // compact inline button in horizontal mode
+                    // Place button under price on the right panel
+                    let right = card.querySelector('.inv-right');
+                    if (!right) {
+                        right = document.createElement('div');
+                        right.className = 'inv-right';
+                        right.style.display = 'flex';
+                        right.style.flexDirection = 'column';
+                        right.style.alignItems = 'flex-end';
+                        right.style.gap = '8px';
+                        right.style.marginLeft = 'auto';
+                        right.style.minWidth = '140px';
+                        card.appendChild(right);
+                    }
+                    right.appendChild(btn);
                     btn.style.width = 'auto';
-                    btn.style.margin = '0 0 0 12px';
-                    btn.style.borderRadius = '8px';
-                    btn.style.minWidth = '110px';
-                    btn.style.height = '30px';
-                    btn.style.alignSelf = 'center';
-                    btn.style.fontSize = '0.8rem';
-                    btn.style.padding = '0 10px';
+                    btn.style.margin = '0';
+                    btn.style.borderRadius = '10px';
+                    btn.style.minWidth = '96px';
+                    btn.style.height = '34px';
+                    btn.style.alignSelf = 'flex-end';
+                    btn.style.fontSize = '0.85rem';
+                    btn.style.padding = '0 12px';
                 }
             }
         } else {
@@ -1306,6 +1358,23 @@ function applyCardViewToCards(mode) {
                     const catEl = infoDiv.querySelector('.pd-category');
                     const sizesEl = infoDiv.querySelector('.pd-sizes');
                     const stockEl = infoDiv.querySelector('.pd-stock');
+                    // If right panel exists, move price and button back and remove panel
+                    const right = card.querySelector('.inv-right');
+                    if (right) {
+                        const btnInside = right.querySelector('button.btn');
+                        if (priceEl) {
+                            // place price before stock if available, else at end
+                            if (stockEl) {
+                                infoDiv.insertBefore(priceEl, stockEl);
+                            } else {
+                                infoDiv.appendChild(priceEl);
+                            }
+                        }
+                        if (btnInside) {
+                            card.appendChild(btnInside);
+                        }
+                        right.remove();
+                    }
                     // Remove labels
                     removeLabel(nameEl); removeLabel(brandEl); removeLabel(priceEl); removeLabel(catEl); removeLabel(stockEl);
                     [nameEl, brandEl, colorEl, priceEl, catEl, sizesEl, stockEl].forEach(el => { if (el) { el.style.fontSize = ''; el.style.margin = ''; el.style.lineHeight = ''; } });

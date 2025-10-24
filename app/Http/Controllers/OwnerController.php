@@ -155,13 +155,14 @@ class OwnerController extends Controller
             $query = DB::table('reservation_products as p')
                 ->join('reservation_product_sizes as s', 'p.id', '=', 's.reservation_product_id')
                 ->select(
-                    'p.id', 'p.product_id', 'p.name', 'p.brand', 'p.color', 'p.category', 'p.price',
+                    'p.id', 'p.product_id', 'p.name', 'p.brand', 'p.color', 'p.category', 'p.price', 'p.image_url',
                     DB::raw('COALESCE(SUM(s.stock),0) as total_stock'),
-                    DB::raw("GROUP_CONCAT(DISTINCT s.size ORDER BY s.size SEPARATOR ', ') as sizes")
+                    DB::raw("GROUP_CONCAT(DISTINCT s.size ORDER BY s.size SEPARATOR ', ') as sizes"),
+                    DB::raw("GROUP_CONCAT(CONCAT(s.size, ':', COALESCE(s.stock,0)) ORDER BY s.size SEPARATOR ',') as sizes_stock")
                 )
                 ->where('p.is_active', true)
                 ->where('s.is_available', true)
-                ->groupBy('p.id', 'p.product_id', 'p.name', 'p.brand', 'p.color', 'p.category', 'p.price');
+                ->groupBy('p.id', 'p.product_id', 'p.name', 'p.brand', 'p.color', 'p.category', 'p.price', 'p.image_url');
 
             if (!empty($category)) $query->where('p.category', $category);
             if (!empty($search)) {
@@ -179,13 +180,14 @@ class OwnerController extends Controller
             $query = DB::table('products as p')
                 ->join('product_sizes as s', 'p.id', '=', 's.product_id')
                 ->select(
-                    'p.id', 'p.product_id', 'p.name', 'p.brand', 'p.color', 'p.category', 'p.price',
+                    'p.id', 'p.product_id', 'p.name', 'p.brand', 'p.color', 'p.category', 'p.price', 'p.image_url',
                     DB::raw('COALESCE(SUM(s.stock),0) as total_stock'),
-                    DB::raw("GROUP_CONCAT(DISTINCT s.size ORDER BY s.size SEPARATOR ', ') as sizes")
+                    DB::raw("GROUP_CONCAT(DISTINCT s.size ORDER BY s.size SEPARATOR ', ') as sizes"),
+                    DB::raw("GROUP_CONCAT(CONCAT(s.size, ':', COALESCE(s.stock,0)) ORDER BY s.size SEPARATOR ',') as sizes_stock")
                 )
                 ->where('p.is_active', true)
                 ->where('s.is_available', true)
-                ->groupBy('p.id', 'p.product_id', 'p.name', 'p.brand', 'p.color', 'p.category', 'p.price');
+                ->groupBy('p.id', 'p.product_id', 'p.name', 'p.brand', 'p.color', 'p.category', 'p.price', 'p.image_url');
 
             if (!empty($category)) $query->where('p.category', $category);
             if (!empty($search)) {
@@ -199,6 +201,14 @@ class OwnerController extends Controller
 
             $items = $query->orderBy('p.name')->get();
         }
+
+        // Normalize image URLs to absolute if stored as relative paths
+        $items = $items->map(function ($row) {
+            if (!empty($row->image_url) && !str_starts_with($row->image_url, 'http')) {
+                $row->image_url = asset($row->image_url);
+            }
+            return $row;
+        });
 
         return response()->json([
             'success' => true,
