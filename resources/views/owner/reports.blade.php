@@ -10,6 +10,9 @@
     <link href="{{ asset('css/owner.css') }}" rel="stylesheet">
     <style>
         body { overflow: hidden; }
+        .logout-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.9rem 1rem;background:linear-gradient(to top right,#112c70 0%,#2a6aff 100%);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:9999px;font-size:.86rem;font-weight:700;cursor:pointer;transition:all .2s ease;text-decoration:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 6px 20px rgba(42,106,255,.35)}
+		.logout-btn:hover{background:linear-gradient(135deg,#ef4444,#b91c1c);filter:brightness(1.05);box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 10px 24px rgba(185,28,28,.45)}
+		.logout-btn i{font-size:1rem}
         /* Notifications */
         .notification-wrapper { position: relative; }
         .notification-bell { width:36px; height:36px; display:flex; align-items:center; justify-content:center; background:none; border:none; color:#6b7280; border-radius:10px; cursor:pointer; transition: all .2s ease; }
@@ -60,7 +63,7 @@
     /* Reservation cards */
     .resv-card-list { display:flex; flex-direction:column; gap:12px; margin-top:12px; }
     .resv-card { background:#fff; border-radius:14px; padding:16px 18px; border:1px solid #eef2f7; box-shadow: 0 8px 24px -18px rgba(2,6,23,.18); }
-    .resv-grid { display:grid; grid-template-columns: repeat(5, 1fr); gap:8px 18px; align-items:center; }
+    .resv-grid { display:grid; grid-template-columns: repeat(4, 1fr); gap:8px 18px; align-items:stretch; }
     .resv-field { display:flex; flex-direction:column; gap:2px; }
     .resv-label { font-size:11px; color:#64748b; }
     .resv-value { font-size:13px; font-weight:700; color:#0f172a; }
@@ -101,7 +104,7 @@
             </a>
         </li>
         <li class="nav-item" data-section="settings">
-            <a href="{{ route('owner.dashboard') }}" class="nav-link">
+            <a href="{{ route('owner.settings') }}" class="nav-link">
                 <i class="fas fa-cog"></i><span>Master Controls</span>
             </a>
         </li>
@@ -270,12 +273,9 @@
             </div>
             <div class="filters" style="display:flex; gap:12px; align-items:center; margin-bottom:18px;">
                 <input type="text" id="inventory-search" placeholder="Search inventory..." class="search-input" style="flex:1; min-width:180px;">
-                <select id="inventory-brand-filter" class="filter-select">
-                    <option value="">All Brands</option>
-                    <option value="Nike">Nike</option>
-                    <option value="Adidas">Adidas</option>
-                    <option value="Puma">Puma</option>
-                    <option value="Converse">Converse</option>
+                <select id="inventory-source-filter" class="filter-select">
+                    <option value="pos">POS Inventory</option>
+                    <option value="reservation">Reservation Inventory</option>
                 </select>
                 <select id="inventory-category-filter" class="filter-select">
                     <option value="">All Categories</option>
@@ -298,6 +298,8 @@
                         <tr>
                             <th>Product Name</th>
                             <th>Brand</th>
+                            <th>Category</th>
+                            <th>Price</th>
                             <th>Stock</th>
                             <th>Colors</th>
                             <th>Sizes</th>
@@ -337,6 +339,127 @@
                 document.querySelectorAll('.notification-wrapper.open').forEach(w => w.classList.remove('open'));
             });
         })();
+
+        // Reservation Logs: fetch and render completed/cancelled
+        const resvListEl = document.getElementById('reservation-card-list');
+        const statusSwitch = document.getElementById('reservation-status-switch');
+
+        function fmtDate(value, withTime = false) {
+            if (!value) return 'N/A';
+            const d = new Date(value);
+            const date = d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+            if (!withTime) return date;
+            const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            return `${date} ${time}`;
+        }
+
+        function statusBadgeClass(status){
+            return status === 'completed' ? 'resv-badge completed' : 'resv-badge cancelled';
+        }
+
+        function renderReservationCards(items){
+            if (!resvListEl) return;
+            if (!items || !items.length) {
+                resvListEl.innerHTML = `
+                    <div class="resv-card" style="text-align:center;">
+                        <div style="color:#6b7280;">No reservations to show.</div>
+                    </div>`;
+                return;
+            }
+            resvListEl.innerHTML = items.map(r => `
+                <div class="resv-card" data-res-id="${r.id}" data-status="${r.status}">
+                    <div class="resv-grid">
+                        <!-- Column 1: Reservation ID + Reservation Date -->
+                        <div class="resv-field">
+                            <div>
+                                <div class="resv-label">Reservation ID</div>
+                                <div class="resv-value">${r.reservation_id || 'N/A'}</div>
+                            </div>
+                            <div>
+                                <div class="resv-label">Reservation Date</div>
+                                <div class="resv-value">${fmtDate(r.created_at)}</div>
+                            </div>
+                        </div>
+                        <!-- Column 2: Customer Name + Pickup Date -->
+                        <div class="resv-field">
+                            <div>
+                                <div class="resv-label">Customer Name</div>
+                                <div class="resv-value">${r.customer_name || 'N/A'}</div>
+                            </div>
+                            <div>
+                                <div class="resv-label">Pickup Date</div>
+                                <div class="resv-value">${fmtDate(r.pickup_date)}</div>
+                            </div>
+                        </div>
+                        <!-- Column 3: Email + Phone -->
+                        <div class="resv-field">
+                            <div>
+                                <div class="resv-label">Email</div>
+                                <div class="resv-value">${r.customer_email || 'N/A'}</div>
+                            </div>
+                            <div>
+                                <div class="resv-label">Phone</div>
+                                <div class="resv-value">${r.customer_phone || 'N/A'}</div>
+                            </div>
+                        </div>
+                        <!-- Column 4: Status only (single row) -->
+                        <div class="resv-field" style="text-align:right; display:flex; justify-content:center; align-items:flex-end;">
+                            <div>
+                                <div class="resv-label">Status</div>
+                                <div><span class="${statusBadgeClass(r.status)}">${(r.status||'').charAt(0).toUpperCase() + (r.status||'').slice(1)}</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function fetchReservationLogs(opts = {}){
+            const { status = 'all', search = '', sort = 'date-desc' } = opts;
+            const url = new URL(window.laravelData.routes.reservationLogs, window.location.origin);
+            url.searchParams.set('status', status);
+            if (search) url.searchParams.set('search', search);
+            if (sort) url.searchParams.set('sort', sort);
+            try {
+                const res = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
+                const data = await res.json();
+                if (!data || data.success === false) throw new Error('Failed to load');
+                renderReservationCards(data.reservations || []);
+            } catch (e) {
+                console.error(e);
+                if (resvListEl) resvListEl.innerHTML = '<div class="resv-card"><div style="color:#ef4444;">Failed to load reservation logs.</div></div>';
+            }
+        }
+
+        // Wire status tabs
+        if (statusSwitch) {
+            statusSwitch.querySelectorAll('.switch-tab').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    statusSwitch.querySelectorAll('.switch-tab').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    const status = btn.getAttribute('data-status') || 'all';
+                    fetchReservationLogs({ status });
+                });
+            });
+        }
+
+        // Ensure data fetch when navigating to the Reservation Logs tab
+        document.querySelectorAll('.switch-tab[data-target="reports-reservation-logs"]').forEach(btn => {
+            btn.addEventListener('click', () => fetchReservationLogs({ status: 'all' }));
+        });
+
+        // Inventory Overview: hook source filter and initial load
+        const sourceSel = document.getElementById('inventory-source-filter');
+        if (sourceSel) {
+            sourceSel.addEventListener('change', function(){
+                if (typeof loadInventoryOverview === 'function') loadInventoryOverview(this.value);
+            });
+            // Initial load for POS inventory
+            if (typeof loadInventoryOverview === 'function') loadInventoryOverview(sourceSel.value);
+        }
+
+        // Initial fetch (completed + cancelled) so content is ready even before switching tabs
+        fetchReservationLogs({ status: 'all' });
     });
 </script>
 

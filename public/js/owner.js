@@ -108,7 +108,11 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.switch-tabs').forEach(group => {
             const buttons = group.querySelectorAll('.switch-tab');
             buttons.forEach(btn => {
+                // Only handle tabs that are meant to switch sections (they have data-target).
+                // Do not touch switch-tabs that are filters (e.g. data-status) so page-level
+                // scripts can manage their active state independently.
                 const target = btn.getAttribute('data-target');
+                if (target === null || typeof target === 'undefined') return;
                 const isActive = target === sectionId;
                 btn.classList.toggle('active', isActive);
                 btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
@@ -141,7 +145,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 loadSalesHistory();
                 break;
             case 'reports-reservation-logs':
-                loadReservationLogs();
+                // Reservation logs are handled by the reports page script itself
                 break;
             case 'reports-supply-logs':
                 loadSupplyLogs();
@@ -215,32 +219,32 @@ async function loadReservationLogs(period = 'weekly') {
                 updateReservationKPIs(data);
             }
             // Normalize into card items with mock customer/product details
-            const apiItems = Array.isArray(data.reservationData) ? data.reservationData : [];
-            let normalized = apiItems.map((item, i) => ({
-                id: `REV-${String(i + 1).padStart(4, '0')}`,
-                customer: `Customer ${i + 1}`,
-                email: `customer${i + 1}@email.com`,
-                product: 'Sample Product',
-                reservationDate: item.date,
-                pickupDate: item.date,
-                status: (i % 2 === 0) ? 'completed' : 'cancelled'
+            const apiItems = Array.isArray(data.reservations) ? data.reservations : (Array.isArray(data.reservationData) ? data.reservationData : []);
+            // Map API reservation objects into the shape expected by the renderer
+            const normalized = apiItems.map(item => ({
+                id: item.id || item.reservation_id || '',
+                reservation_id: item.reservation_id || item.id || '',
+                customer: item.customer_name || item.customer || '',
+                email: item.customer_email || '',
+                product: item.product_name || item.product || '',
+                reservationDate: item.created_at || item.date || '',
+                pickupDate: item.pickup_date || item.pickupDate || '',
+                status: item.status || 'completed'
             }));
-            if (!normalized.length) {
-                normalized = getMockReservations();
-            }
+
             renderReservationCards(normalized);
             setupReservationStatusSwitch(normalized);
         } else {
             console.error('Failed to load reservation logs:', data.message);
-            const normalized = getMockReservations();
-            renderReservationCards(normalized);
-            setupReservationStatusSwitch(normalized);
+            // Render empty state
+            renderReservationCards([]);
+            setupReservationStatusSwitch([]);
         }
     } catch (error) {
         console.error('Error loading reservation logs:', error);
-        const normalized = getMockReservations();
-        renderReservationCards(normalized);
-        setupReservationStatusSwitch(normalized);
+        // On error, render empty state (avoid seeding mock data)
+        renderReservationCards([]);
+        setupReservationStatusSwitch([]);
     }
 }
 
@@ -259,9 +263,11 @@ async function loadSupplyLogs() {
     }
 }
 
-async function loadInventoryOverview() {
+async function loadInventoryOverview(source = 'pos') {
     try {
-        const response = await fetch(laravelRoutes.inventoryOverview);
+        const url = new URL(laravelRoutes.inventoryOverview, window.location.origin);
+        if (source) url.searchParams.set('source', source);
+        const response = await fetch(url.toString());
         const data = await response.json();
         
         if (response.ok) {
@@ -797,23 +803,7 @@ function setupReservationStatusSwitch(items) {
 
 function capitalize(s){ return (s||'').charAt(0).toUpperCase()+ (s||'').slice(1); }
 
-function getMockReservations() {
-    const today = new Date();
-    const toISO = (d) => new Date(d).toISOString();
-    const addDays = (n) => toISO(new Date(today.getTime() + n * 24 * 60 * 60 * 1000));
-    return [
-        { id: 'REV-0001', customer: 'Juan Dela Cruz', email: 'juan@example.com', product: 'Nike Air Max 270', reservationDate: addDays(-12), pickupDate: addDays(-10), status: 'completed' },
-        { id: 'REV-0002', customer: 'Maria Santos', email: 'maria@example.com', product: 'Adidas Ultraboost', reservationDate: addDays(-9), pickupDate: addDays(-7), status: 'completed' },
-        { id: 'REV-0003', customer: 'Pedro Reyes', email: 'pedro@example.com', product: 'Puma Suede Classic', reservationDate: addDays(-8), pickupDate: addDays(-6), status: 'cancelled' },
-        { id: 'REV-0004', customer: 'Ana Cruz', email: 'ana@example.com', product: 'Converse Chuck 70', reservationDate: addDays(-6), pickupDate: addDays(-4), status: 'completed' },
-        { id: 'REV-0005', customer: 'Luis Garcia', email: 'luis@example.com', product: 'New Balance 550', reservationDate: addDays(-5), pickupDate: addDays(-3), status: 'cancelled' },
-        { id: 'REV-0006', customer: 'Cathy Mendoza', email: 'cathy@example.com', product: 'Nike Dunk Low', reservationDate: addDays(-4), pickupDate: addDays(-2), status: 'completed' },
-        { id: 'REV-0007', customer: 'Mark Lim', email: 'mark@example.com', product: 'Adidas Samba OG', reservationDate: addDays(-3), pickupDate: addDays(-1), status: 'completed' },
-        { id: 'REV-0008', customer: 'Jenny Tan', email: 'jenny@example.com', product: 'Vans Old Skool', reservationDate: addDays(-2), pickupDate: addDays(0), status: 'cancelled' },
-        { id: 'REV-0009', customer: 'Arman dela Rosa', email: 'arman@example.com', product: 'Asics Gel-Lyte III', reservationDate: addDays(-1), pickupDate: addDays(1), status: 'completed' },
-        { id: 'REV-0010', customer: 'Bea Villanueva', email: 'bea@example.com', product: 'Reebok Club C 85', reservationDate: addDays(-1), pickupDate: addDays(2), status: 'completed' }
-    ];
-}
+// Note: mock reservation generator removed — real data should come from the backend API
 
 function renderSupplyTable(supplyData) {
     const tbody = document.getElementById('supply-logs-tbody');
@@ -839,20 +829,30 @@ function renderInventoryOverviewTable(data) {
     const tbody = document.getElementById('inventory-overview-tbody');
     if (!tbody) return;
 
-    // Mock implementation - replace with actual data processing
-    const mockData = [
-        { name: 'Nike Air Max', brand: 'Nike', stock: 50, colors: 'Black, White, Red', sizes: '6-12' },
-        { name: 'Adidas Ultraboost', brand: 'Adidas', stock: 35, colors: 'Blue, Gray', sizes: '7-11' },
-        { name: 'Puma Suede', brand: 'Puma', stock: 25, colors: 'Green, Yellow', sizes: '6-10' }
-    ];
+    const items = Array.isArray(data.items) ? data.items : [];
+    if (!items.length) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#6b7280;">No inventory items found.</td></tr>`;
+        return;
+    }
 
-    tbody.innerHTML = mockData.map(item => `
+    const formatCurrency = (v) => {
+        const n = Number(v ?? 0);
+        try {
+            return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 2 }).format(n);
+        } catch (e) {
+            return `₱${n.toFixed(2)}`;
+        }
+    };
+
+    tbody.innerHTML = items.map(item => `
         <tr>
-            <td>${item.name}</td>
-            <td>${item.brand}</td>
-            <td>${item.stock}</td>
-            <td>${item.colors}</td>
-            <td>${item.sizes}</td>
+            <td>${item.name || ''}</td>
+            <td>${item.brand || ''}</td>
+            <td>${item.category || ''}</td>
+            <td>${formatCurrency(item.price)}</td>
+            <td>${Number(item.total_stock || 0)}</td>
+            <td>${item.color || ''}</td>
+            <td>${item.sizes || ''}</td>
         </tr>
     `).join('');
 }

@@ -10,6 +10,7 @@ use App\Models\SaleItem;
 use App\Models\Reservation;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Hash;
 use Carbon\Carbon;
 
@@ -56,15 +57,70 @@ class OwnerController extends Controller
      */
     public function reservationLogs(Request $request)
     {
-        $period = $request->get('period', 'weekly');
-        
-        $reservationData = $this->getReservationData($period);
-        $popularReservedProducts = $this->getPopularReservedProducts();
-        
+        // Accept optional filters; default to "all" (completed + cancelled only)
+        $status = $request->string('status')->lower()->value() ?: 'all';
+        $search = $request->string('search')->value();
+        $sort = $request->string('sort')->value() ?: 'date-desc';
+
+        // Base query: only completed and cancelled reservations
+        $query = Reservation::query()
+            ->whereIn('status', ['completed', 'cancelled']);
+
+        if (in_array($status, ['completed', 'cancelled'], true)) {
+            $query->where('status', $status);
+        }
+
+        if ($search) {
+            $q = "%$search%";
+            $query->where(function ($sub) use ($q) {
+                $sub->where('reservation_id', 'like', $q)
+                    ->orWhere('customer_name', 'like', $q)
+                    ->orWhere('customer_email', 'like', $q)
+                    ->orWhere('customer_phone', 'like', $q);
+            });
+        }
+
+        // Sorting options
+        switch ($sort) {
+            case 'date-asc':
+                $query->orderBy('created_at', 'asc');
+                break;
+            case 'date-desc':
+            default:
+                $query->orderBy('created_at', 'desc');
+                break;
+        }
+
+        // Fetch records (limit for performance; adjust if needed)
+        $reservations = $query->limit(200)->get([
+            'id',
+            'reservation_id',
+            'customer_name',
+            'customer_email',
+            'customer_phone',
+            'pickup_date',
+            'pickup_time',
+            'status',
+            'total_amount',
+            'created_at',
+        ]);
+
+        // Counts for tabs
+        $counts = [
+            'completed' => Reservation::where('status', 'completed')->count(),
+            'cancelled' => Reservation::where('status', 'cancelled')->count(),
+        ];
+        $counts['all'] = $counts['completed'] + $counts['cancelled'];
+
         return response()->json([
-            'reservationData' => $reservationData,
-            'popularProducts' => $popularReservedProducts,
-            'period' => $period
+            'success' => true,
+            'filters' => [
+                'status' => $status,
+                'search' => $search,
+                'sort' => $sort,
+            ],
+            'counts' => $counts,
+            'reservations' => $reservations,
         ]);
     }
 
@@ -88,25 +144,67 @@ class OwnerController extends Controller
     /**
      * Display inventory overview
      */
-    public function inventoryOverview()
+    public function inventoryOverview(Request $request)
     {
-        $inventoryData = [
-            'totalProducts' => Product::count(),
-            'totalStock' => Product::join('product_sizes', 'products.id', '=', 'product_sizes.product_id')
-                          ->sum('product_sizes.stock'),
-            'lowStockItems' => Product::join('product_sizes', 'products.id', '=', 'product_sizes.product_id')
-                            ->where('product_sizes.stock', '<=', 10)
-                            ->count(),
-            'categories' => Product::select('category', DB::raw('count(*) as total'))
-                         ->groupBy('category')
-                         ->get(),
-            'brands' => Product::select('brand', DB::raw('count(*) as total'))
-                      ->groupBy('brand')
-                      ->get(),
-            'valueDistribution' => $this->getInventoryValueDistribution()
-        ];
-        
-        return response()->json($inventoryData);
+        $source = strtolower($request->get('source', 'pos')); // 'pos' or 'reservation'
+        $category = $request->get('category'); // optional future filter
+        $search = $request->get('search'); // optional
+
+        if ($source === 'reservation') {
+            // Reservation inventory: reservation_products + reservation_product_sizes
+            $query = DB::table('reservation_products as p')
+                ->join('reservation_product_sizes as s', 'p.id', '=', 's.reservation_product_id')
+                ->select(
+                    'p.id', 'p.product_id', 'p.name', 'p.brand', 'p.color', 'p.category', 'p.price',
+                    DB::raw('COALESCE(SUM(s.stock),0) as total_stock'),
+                    DB::raw("GROUP_CONCAT(DISTINCT s.size ORDER BY s.size SEPARATOR ', ') as sizes")
+                )
+                ->where('p.is_active', true)
+                ->where('s.is_available', true)
+                ->groupBy('p.id', 'p.product_id', 'p.name', 'p.brand', 'p.color', 'p.category', 'p.price');
+
+            if (!empty($category)) $query->where('p.category', $category);
+            if (!empty($search)) {
+                $like = "%$search%";
+                $query->where(function ($q) use ($like) {
+                    $q->where('p.name', 'like', $like)
+                      ->orWhere('p.brand', 'like', $like)
+                      ->orWhere('p.product_id', 'like', $like);
+                });
+            }
+
+            $items = $query->orderBy('p.name')->get();
+        } else {
+            // POS inventory: products + product_sizes
+            $query = DB::table('products as p')
+                ->join('product_sizes as s', 'p.id', '=', 's.product_id')
+                ->select(
+                    'p.id', 'p.product_id', 'p.name', 'p.brand', 'p.color', 'p.category', 'p.price',
+                    DB::raw('COALESCE(SUM(s.stock),0) as total_stock'),
+                    DB::raw("GROUP_CONCAT(DISTINCT s.size ORDER BY s.size SEPARATOR ', ') as sizes")
+                )
+                ->where('p.is_active', true)
+                ->where('s.is_available', true)
+                ->groupBy('p.id', 'p.product_id', 'p.name', 'p.brand', 'p.color', 'p.category', 'p.price');
+
+            if (!empty($category)) $query->where('p.category', $category);
+            if (!empty($search)) {
+                $like = "%$search%";
+                $query->where(function ($q) use ($like) {
+                    $q->where('p.name', 'like', $like)
+                      ->orWhere('p.brand', 'like', $like)
+                      ->orWhere('p.product_id', 'like', $like);
+                });
+            }
+
+            $items = $query->orderBy('p.name')->get();
+        }
+
+        return response()->json([
+            'success' => true,
+            'source' => $source,
+            'items' => $items,
+        ]);
     }
 
     /**
@@ -280,7 +378,12 @@ class OwnerController extends Controller
         $lowStockItems = Product::join('product_sizes', 'products.id', '=', 'product_sizes.product_id')
                         ->where('product_sizes.stock', '<=', 10)
                         ->count();
-        $todaySales = Sale::whereDate('created_at', today())->sum('total');
+        // Use resilient total calculation depending on current schema
+        $dateCol = $this->salesDateColumn();
+        $amountExpr = $this->salesAmountExpression();
+        $todaySales = Sale::whereDate($dateCol, today())
+            ->select(DB::raw("SUM($amountExpr) as total"))
+            ->value('total') ?? 0;
         $activeReservations = Reservation::where('status', 'pending')->count();
 
         return [
@@ -299,28 +402,30 @@ class OwnerController extends Controller
      */
     private function getSalesData($period)
     {
+        $dateCol = $this->salesDateColumn();
+        $amountExpr = $this->salesAmountExpression();
         $query = Sale::select(
-            DB::raw('DATE(created_at) as date'),
-            DB::raw('SUM(total) as total'),
+            DB::raw("DATE($dateCol) as date"),
+            DB::raw("SUM($amountExpr) as total"),
             DB::raw('COUNT(*) as transactions')
         );
 
         switch ($period) {
             case 'daily':
-                $query->where('created_at', '>=', Carbon::now()->subDays(7));
+                $query->where($dateCol, '>=', Carbon::now()->subDays(7));
                 break;
             case 'weekly':
-                $query->where('created_at', '>=', Carbon::now()->subWeeks(4));
+                $query->where($dateCol, '>=', Carbon::now()->subWeeks(4));
                 break;
             case 'monthly':
-                $query->where('created_at', '>=', Carbon::now()->subMonths(12));
+                $query->where($dateCol, '>=', Carbon::now()->subMonths(12));
                 break;
             case 'yearly':
-                $query->where('created_at', '>=', Carbon::now()->subYears(3));
+                $query->where($dateCol, '>=', Carbon::now()->subYears(3));
                 break;
         }
 
-        return $query->groupBy(DB::raw('DATE(created_at)'))
+        return $query->groupBy(DB::raw("DATE($dateCol)"))
                     ->orderBy('date')
                     ->get();
     }
@@ -423,6 +528,39 @@ class OwnerController extends Controller
                      )
                      ->groupBy('products.category')
                      ->get();
+    }
+
+    /**
+     * Determine the expression that calculates the sales total based on schema.
+     */
+    private function salesAmountExpression(): string
+    {
+        // If a native 'total' column exists, prefer it
+        if (Schema::hasColumn('sales', 'total')) {
+            return 'total';
+        }
+
+        // Build expression from parts to be robust across schema changes
+        $parts = [];
+        if (Schema::hasColumn('sales', 'subtotal')) {
+            $parts[] = 'COALESCE(subtotal,0)';
+        }
+        if (Schema::hasColumn('sales', 'tax')) {
+            $parts[] = 'COALESCE(tax,0)';
+        }
+        $expr = count($parts) ? ('(' . implode(' + ', $parts) . ')') : '0';
+        if (Schema::hasColumn('sales', 'discount_amount')) {
+            $expr = "($expr - COALESCE(discount_amount,0))";
+        }
+        return $expr;
+    }
+
+    /**
+     * Choose the date column to use for sales time-based queries.
+     */
+    private function salesDateColumn(): string
+    {
+        return Schema::hasColumn('sales', 'sale_date') ? 'sale_date' : 'created_at';
     }
 
     /**

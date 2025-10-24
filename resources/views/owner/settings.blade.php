@@ -15,6 +15,10 @@
 	<!-- Owner CSS -->
 	<link href="{{ asset('css/owner.css') }}" rel="stylesheet">
 	<style>
+		/* Gradient pill logout button (copied from inventory dashboard) */
+		.logout-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.9rem 1rem;background:linear-gradient(to top right,#112c70 0%,#2a6aff 100%);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:9999px;font-size:.86rem;font-weight:700;cursor:pointer;transition:all .2s ease;text-decoration:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 6px 20px rgba(42,106,255,.35)}
+		.logout-btn:hover{background:linear-gradient(135deg,#ef4444,#b91c1c);filter:brightness(1.05);box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 10px 24px rgba(185,28,28,.45)}
+		.logout-btn i{font-size:1rem}
 		.notification-wrapper { position: relative; }
 		.notification-bell { width:36px; height:36px; display:flex; align-items:center; justify-content:center; background:none; border:none; color:#6b7280; border-radius:10px; cursor:pointer; transition: all .2s ease; }
 		.notification-bell:hover { background:#f3f4f6; color:#1f2937; }
