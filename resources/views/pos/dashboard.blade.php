@@ -690,6 +690,16 @@
             margin-top: auto;
         }
 
+        /* Small invisible footer to reserve space at the bottom of product cards
+           so internal scroll areas (sizes) don't butt directly against the card edge. */
+        .product-footer {
+            height: 4px;           /* larger so gap is clearly visible */
+            width: 100%;
+            display: block;
+            pointer-events: none;
+            flex: 0 0 4px;        /* do not allow footer to shrink */
+        }
+
         .sizes-label {
             font-size: 0.8rem;
             font-weight: 600;
@@ -700,35 +710,39 @@
         .size-buttons {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.5rem;
+            gap: 0.4rem;
+            max-height: 84px; /* cap the area to prevent card overflow; leave room for footer */
+            overflow-y: auto;  /* allow scrolling when many sizes */
+            padding-right: 14px; /* room for scrollbar and to avoid touching card edge */
+            padding-top: 4px; /* breathing room so scrollbar/content don't touch card bottom */
+            margin-bottom: 6px; /* extra visual gap */
+            -webkit-overflow-scrolling: touch;
         }
 
+        /* Custom compact scrollbar so it doesn't visually butt to rounded card edge */
+        .size-buttons::-webkit-scrollbar { width: 8px; }
+        .size-buttons::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 6px; }
+        .size-buttons::-webkit-scrollbar-track { background: transparent; }
+
         .size-btn {
-            min-width: 36px;
-            height: 36px;
-            background: linear-gradient(135deg, #2a6aff 0%, #4a5568 100%);
-            color: var(--white);
-            border: none;
-            border-radius: var(--radius-lg);
-            font-size: 0.8rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all var(--transition-normal);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 2px solid var(--gray-300);
+            width: 38px;            /* consistent width for all size buttons */
+            height: 30px;           /* smaller but still clickable */
+            padding: 0;             /* keep content centered */
+            border: 1px solid var(--gray-300);
             background: var(--white);
             color: var(--gray-700);
-            border-radius: var(--radius-lg);
-            font-size: 0.875rem;
-            font-weight: 600;
+            border-radius: var(--radius-md);
+            font-size: 0.75rem;     /* slightly smaller text */
+            font-weight: 700;
+            line-height: 1;         /* avoid vertical overflow */
             cursor: pointer;
             transition: all var(--transition-fast);
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 0 0.6rem;
+            box-sizing: border-box;
+            touch-action: manipulation;
+            user-select: none;
         }
 
         .size-btn:hover:not(:disabled) {
@@ -750,6 +764,9 @@
             color: var(--gray-400);
             cursor: not-allowed;
             border-color: var(--gray-200);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
 
         .men-tag {
@@ -1466,6 +1483,7 @@ async function loadProducts(category = 'all') {
                             <div class="size-buttons">${sizeButtons}</div>
                         </div>
                     </div>
+                    <div class="product-footer" aria-hidden="true"></div>
                 </div>`;
             }).join('');
         } else {
