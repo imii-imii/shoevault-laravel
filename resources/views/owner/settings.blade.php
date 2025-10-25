@@ -27,6 +27,21 @@
 		.notification-wrapper.open .notification-dropdown { display:block; }
 		.notification-list { max-height:300px; overflow-y:auto; }
 		.notification-empty { padding:12px; color:#6b7280; text-align:center; display:flex; align-items:center; justify-content:center; gap:8px; }
+
+		/* Owner user card styles and switch */
+		.odash-card { transition: transform .2s ease, box-shadow .2s ease; will-change: transform; }
+		.odash-card:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 10px 28px rgba(0,0,0,0.08); }
+		.odash-card.is-disabled { opacity: .65; filter: grayscale(.15); }
+		.odash-switch { position: relative; display: inline-flex; align-items: center; cursor: pointer; user-select:none; }
+		.odash-switch-input { position:absolute; opacity:0; width:0; height:0; }
+		.odash-switch-track { width: 44px; height: 24px; background:#e5e7eb; border-radius:999px; position: relative; transition: background .2s ease; display:inline-block; }
+		.odash-switch-track::after { content:''; position:absolute; top:3px; left:3px; width:18px; height:18px; background:#fff; border-radius:999px; box-shadow:0 1px 2px rgba(0,0,0,.15); transition: transform .2s ease; }
+		.odash-switch-input:checked + .odash-switch-track { background:#22c55e; }
+		.odash-switch-input:checked + .odash-switch-track::after { transform: translateX(20px); }
+		/* Status badge on user cards */
+		.odash-status-badge { position:absolute; top:10px; right:10px; padding:4px 8px; border-radius:999px; font-size:0.7rem; font-weight:800; letter-spacing:.02em; border:1px solid transparent; transition: transform .2s ease, background .2s ease, color .2s ease; }
+		.odash-status-badge.active { background:#dcfce7; color:#166534; border-color:#bbf7d0; }
+		.odash-status-badge.inactive { background:#fee2e2; color:#991b1b; border-color:#fecaca; }
 	</style>
 </head>
 <body>
@@ -140,7 +155,7 @@
 								<i class="fas fa-user-plus"></i> Add User
 							</button>
 						</div>
-						<div id="user-list" style="display:flex; flex-direction:column; gap:16px;">
+						<div id="user-list" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:16px; align-items:stretch;">
 							<!-- User cards will be rendered here by JavaScript -->
 						</div>
 					</div>
@@ -180,10 +195,6 @@
 									<div class="form-group">
 										<label for="settings-phone">Phone</label>
 										<input id="settings-phone" type="tel" placeholder="+63 900 000 0000">
-									</div>
-									<div class="form-group full">
-										<label for="settings-bio">Bio</label>
-										<textarea id="settings-bio" rows="3" placeholder="Tell us about yourself..."></textarea>
 									</div>
 								</div>
 								<div class="form-actions">
@@ -330,7 +341,10 @@ document.addEventListener('DOMContentLoaded', function() {
 	</script>
 
 	<!-- Add User Modal -->
-	@php $userStoreRoute = \Illuminate\Support\Facades\Route::has('owner.users.store') ? route('owner.users.store') : null; @endphp
+	@php 
+		$userStoreRoute = \Illuminate\Support\Facades\Route::has('owner.users.store') ? route('owner.users.store') : null; 
+		$userToggleRoute = \Illuminate\Support\Facades\Route::has('owner.users.toggle') ? route('owner.users.toggle') : null; 
+	@endphp
 	<div id="add-user-modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;z-index:10000;"></div>
 	<div id="add-user-modal" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:12px;box-shadow:0 20px 40px rgba(0,0,0,.2);width:min(520px,94vw);max-height:90vh;overflow:auto;display:none;z-index:10001;">
 		<div style="padding:16px 20px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
@@ -362,6 +376,7 @@ document.addEventListener('DOMContentLoaded', function() {
 					<option value="cashier">Cashier</option>
 				</select>
 				<small class="au-error" data-for="au-role" style="color:#ef4444;display:none;"></small>
+				<div style="margin-top:6px;font-size:0.85rem;color:#6b7280;">Default password: <strong>password</strong> (users should change this after first login)</div>
 			</div>
 			<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:4px;">
 				<button type="button" id="au-cancel" style="padding:10px 14px;border-radius:8px;background:#6b7280;color:#fff;border:none;font-weight:700;">Cancel</button>
@@ -371,7 +386,7 @@ document.addEventListener('DOMContentLoaded', function() {
 	</div>
 
 	<script>
-	// Add User Modal interactions and client-side validation
+		// Add User Modal interactions and client-side validation
 	(function(){
 		const openBtn = document.getElementById('add-user-btn');
 		const overlay = document.getElementById('add-user-modal-overlay');
@@ -381,6 +396,7 @@ document.addEventListener('DOMContentLoaded', function() {
 		const form = document.getElementById('add-user-form');
 		const userList = document.getElementById('user-list');
 		const apiUrl = '{{ $userStoreRoute ?? '' }}';
+		const toggleUrl = '{{ $userToggleRoute ?? '' }}';
 
 		function open(){ overlay.style.display='block'; modal.style.display='block'; }
 		function close(){ modal.style.display='none'; overlay.style.display='none'; form.reset(); clearErrors(); }
@@ -394,15 +410,22 @@ document.addEventListener('DOMContentLoaded', function() {
 			const username = document.getElementById('au-username').value.trim();
 			const email = document.getElementById('au-email').value.trim();
 			const role = document.getElementById('au-role').value;
-			const pass = document.getElementById('au-password').value;
-			const pass2 = document.getElementById('au-password-confirm').value;
+			// Password fields are optional in the modal; default password will be used when absent
+			const passEl = document.getElementById('au-password');
+			const pass = passEl ? passEl.value : 'password';
+			const pass2El = document.getElementById('au-password-confirm');
+			const pass2 = pass2El ? pass2El.value : 'password';
 
 			if(!name){ showError('au-fullname','Full name is required'); ok=false; }
 			if(!username){ showError('au-username','Username is required'); ok=false; }
 			if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ showError('au-email','Valid email is required'); ok=false; }
 			if(!role){ showError('au-role','Please select a role'); ok=false; }
-			if(!pass || pass.length < 8){ showError('au-password','Min 8 characters'); ok=false; }
-			if(pass2 !== pass){ showError('au-password-confirm','Passwords do not match'); ok=false; }
+
+			// If password fields are present, validate them; otherwise we'll set a safe default
+			if(passEl){
+				if(!pass || pass.length < 8){ showError('au-password','Min 8 characters'); ok=false; }
+				if(pass2El && pass2 !== pass){ showError('au-password-confirm','Passwords do not match'); ok=false; }
+			}
 			return ok;
 		}
 
@@ -410,6 +433,111 @@ document.addEventListener('DOMContentLoaded', function() {
 		if(closeBtn){ closeBtn.addEventListener('click', close); }
 		if(cancelBtn){ cancelBtn.addEventListener('click', close); }
 		if(overlay){ overlay.addEventListener('click', close); }
+
+		// Seed at least 6 placeholder profile cards if the list is empty
+		if (userList && userList.children.length === 0) {
+			const roles = ['manager','cashier'];
+			for (let i = 1; i <= 6; i++) {
+				const payload = {
+					name: `User ${i}`,
+					username: `user${i}`,
+					email: `user${i}@example.com`,
+					role: roles[i % roles.length],
+					phone: null
+				};
+				const enabled = i % 3 !== 0; // make every 3rd inactive for variety
+				userList.appendChild(buildUserCard(payload, '', enabled));
+			}
+		}
+
+		// Helper: Build a user card element with toggle and status badge
+		function buildUserCard(payload, userId = '', enabled = true){
+			const card = document.createElement('div');
+			card.className = 'odash-list-item odash-card';
+			card.style.cssText = [
+				'width:200px',
+				'height:300px',
+				'display:flex',
+				'flex-direction:column',
+				'align-items:center',
+				'justify-content:flex-start',
+				'padding:14px',
+				'border:1px solid #e5e7eb',
+				'border-radius:12px',
+				'background:#fff',
+				'box-shadow:0 2px 8px rgba(0,0,0,0.04)',
+				'position:relative'
+			].join(';');
+			if (userId) card.dataset.userId = userId;
+			card.innerHTML = `
+				<div class="odash-status-badge ${enabled ? 'active' : 'inactive'}">${enabled ? 'Active' : 'Inactive'}</div>
+				<div style="flex:0 0 auto;display:flex;justify-content:center;width:100%;margin-top:8px;">
+					<img src="{{ asset('images/profile.png') }}" alt="Avatar" style="width:88px;height:88px;border-radius:9999px;object-fit:cover;border:3px solid #eef2ff;">
+				</div>
+				<div style="flex:0 0 auto;text-align:center;margin-top:12px;">
+					<div class="name" style="font-weight:800;color:#111827;">${payload.name}</div>
+					<div class="sub" style="color:#6b7280;font-size:0.85rem;">@${payload.username}</div>
+				</div>
+				<div style="flex:0 0 auto;text-align:center;margin-top:8px;color:#6b7280;font-size:0.85rem;">${payload.email || 'N/A'}</div>
+				<div style="flex:0 0 auto;text-align:center;margin-top:4px;color:#6b7280;font-size:0.85rem;">Phone: ${payload.phone || 'N/A'}</div>
+				<div style="flex:1 1 auto"></div>
+				<div style="flex:0 0 auto;margin-top:8px;display:flex;flex-direction:column;align-items:center;gap:8px;">
+					<span class="odash-badge" style="background:#eef2ff;color:#1e3a8a;padding:6px 12px;border-radius:999px;font-weight:700;font-size:0.75rem;text-transform:capitalize;">${payload.role}</span>
+					<div style="display:flex;align-items:center;gap:8px;">
+						<label class="odash-switch">
+							<input type="checkbox" class="odash-switch-input" ${enabled ? 'checked' : ''}>
+							<span class="odash-switch-track"></span>
+						</label>
+						<span class="odash-switch-state" style="font-size:0.8rem;color:#374151;font-weight:700;">${enabled ? 'Enabled' : 'Disabled'}</span>
+					</div>
+				</div>
+			`;
+
+			const switchInput = card.querySelector('.odash-switch-input');
+			const stateLabel = card.querySelector('.odash-switch-state');
+			const badge = card.querySelector('.odash-status-badge');
+			const setDisabledUI = (disabled) => {
+				card.classList.toggle('is-disabled', disabled);
+				if (stateLabel) stateLabel.textContent = disabled ? 'Disabled' : 'Enabled';
+				if (badge) {
+					badge.textContent = disabled ? 'Inactive' : 'Active';
+					badge.classList.toggle('inactive', disabled);
+					badge.classList.toggle('active', !disabled);
+				}
+			};
+			setDisabledUI(!enabled);
+			switchInput?.addEventListener('change', async () => {
+				const wantEnabled = switchInput.checked;
+				if (!wantEnabled) {
+					const ok = confirm('Disable this account? Are you sure?');
+					if (!ok) { switchInput.checked = true; return; }
+				}
+
+				if ('{{ $userToggleRoute ?? '' }}' && card.dataset.userId) {
+					try {
+						const resp = await fetch('{{ $userToggleRoute ?? '' }}', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+							body: JSON.stringify({ id: card.dataset.userId, enabled: wantEnabled })
+						});
+						const j = await resp.json().catch(()=>({}));
+						if (!resp.ok || j.success === false) {
+							alert(j.message || 'Failed to update account status');
+							switchInput.checked = !wantEnabled;
+							return;
+						}
+					} catch (err) {
+						alert('Unable to update account status right now.');
+						switchInput.checked = !wantEnabled;
+						return;
+					}
+				}
+
+				setDisabledUI(!wantEnabled);
+			});
+
+			return card;
+		}
 
 		form?.addEventListener('submit', async (e)=>{
 			e.preventDefault();
@@ -420,9 +548,12 @@ document.addEventListener('DOMContentLoaded', function() {
 				username: document.getElementById('au-username').value.trim(),
 				email: document.getElementById('au-email').value.trim(),
 				role: document.getElementById('au-role').value,
-				password: document.getElementById('au-password').value,
-				password_confirmation: document.getElementById('au-password-confirm').value
+				// Use provided password fields when present; otherwise default to 'password'
+				password: (document.getElementById('au-password') ? document.getElementById('au-password').value : 'password'),
+				password_confirmation: (document.getElementById('au-password-confirm') ? document.getElementById('au-password-confirm').value : 'password')
 			};
+
+			let serverData = null;
 
 			// If an API route exists, attempt to POST; otherwise simulate UI update
 			if(apiUrl){
@@ -433,6 +564,7 @@ document.addEventListener('DOMContentLoaded', function() {
 						body: JSON.stringify(payload)
 					});
 					const data = await res.json().catch(()=>({}));
+					serverData = data;
 					if(!res.ok || data.success === false){
 						const msg = data.message || 'Failed to add user';
 						alert(msg);
@@ -446,16 +578,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 			// Reflect immediately in UI
 			if(userList){
-				const card = document.createElement('div');
-				card.className = 'odash-list-item';
-				card.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;';
-				card.innerHTML = `
-					<div>
-						<div class="name" style="font-weight:700;">${payload.name} <span style="color:#6b7280;font-weight:600;">(@${payload.username})</span></div>
-						<div class="sub" style="color:#6b7280;font-size:0.85rem;">${payload.email}</div>
-					</div>
-					<span class="odash-badge" style="background:#eef2ff;color:#1e3a8a;padding:4px 10px;border-radius:999px;font-weight:700;font-size:0.75rem;text-transform:capitalize;">${payload.role}</span>
-				`;
+				const userId = (serverData && (serverData.user?.id || serverData.id)) ? (serverData.user?.id || serverData.id) : '';
+				const card = buildUserCard(payload, userId, true);
 				userList.prepend(card);
 			}
 
