@@ -190,7 +190,7 @@
                     <!-- Sales Forecast (Mock) -->
                     <div class="odash-card odash-line-card">
                         <div class="odash-card-header" style="align-items:center; justify-content:space-between;">
-                            <div class="odash-title">Forecast (Mock)</div>
+                            <div class="odash-title">Forecast</div>
                             <div style="display:flex; gap:12px; align-items:center; color:#64748b; flex-wrap:wrap;">
                                 <div id="odash-forecast-legend" style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;"></div>
                                 <div style="display:flex; gap:8px; align-items:center;">
@@ -214,7 +214,7 @@
                     <!-- Reservation Gauge (Mock) -->
                     <div class="odash-card">
                         <div class="odash-card-header">
-                            <div class="odash-title">Reservations Status (Mock)</div>
+                            <div class="odash-title">Reservations Status</div>
                         </div>
                         <div class="odash-gauge-shell" style="position:relative;">
                             <canvas id="odash-resv-gauge" style="max-width:220px; width:100%; height:auto;"></canvas>
@@ -664,17 +664,19 @@ function initOwnerForecastCharts() {
         });
     }
 
-    // Reservation gauge (mock values)
+    // Reservation gauge (live values)
     const resvCanvas = document.getElementById('odash-resv-gauge');
     if (resvCanvas) {
         const ctx2 = resvCanvas.getContext('2d');
-        const completed = 30; // mock
-        const cancelled = 10; // mock
-        const pending = 10; // mock
+        const dd = (window.laravelData && window.laravelData.dashboardData) ? window.laravelData.dashboardData : {};
+        const completed = Number(dd.completedReservations || 0);
+        const cancelled = Number(dd.cancelledReservations || 0);
+        const pending = Number(dd.activeReservations || 0); // active pending
         const total = completed + cancelled + pending;
-        const completedPct = Math.round((completed / total) * 100);
-        const cancelledPct = Math.round((cancelled / total) * 100);
-        const pendingPct = Math.round((pending / total) * 100);
+        const safePct = (n, d) => (d > 0 ? Math.round((n / d) * 100) : 0);
+        const completedPct = safePct(completed, total);
+        const cancelledPct = safePct(cancelled, total);
+        const pendingPct = safePct(pending, total);
         
         // Update center text and percentages
         document.getElementById('odash-resv-total').textContent = total;
@@ -741,30 +743,44 @@ function getTopIndices(arr, k) {
 
 // ===== Popular Products List (Mock Data) =====
 function initPopularProducts() {
-    const products = [
-        { name: 'Nike Air Max 270', sales: 245 },
-        { name: 'Adidas Ultraboost 22', sales: 198 },
-        { name: 'Puma RS-X', sales: 176 },
-        { name: 'New Balance 574', sales: 142 },
-        { name: 'Converse Chuck Taylor', sales: 128 },
-        { name: 'Vans Old Skool', sales: 115 },
-        { name: 'Reebok Classic Leather', sales: 98 },
-        { name: 'Asics Gel-Kayano', sales: 87 },
-        { name: 'Skechers D\'Lites', sales: 76 },
-        { name: 'Fila Disruptor II', sales: 65 },
-        { name: 'Under Armour HOVR', sales: 54 },
-        { name: 'Brooks Ghost 14', sales: 43 }
-    ];
-
     const container = document.getElementById('odash-popular-products');
     if (!container) return;
 
+    // Prefer live dashboard data if available
+    const dd = (window.laravelData && window.laravelData.dashboardData) ? window.laravelData.dashboardData : {};
+    let list = [];
+    if (dd.popularProducts && typeof dd.popularProducts === 'object') {
+        ['men','women','accessories'].forEach(cat => {
+            const arr = dd.popularProducts[cat];
+            if (Array.isArray(arr)) {
+                arr.forEach(p => list.push({ name: p.name || 'Unknown', sales: Number(p.sold ?? p.total_sold ?? p.sales ?? 0) }));
+            }
+        });
+        list.sort((a,b)=> b.sales - a.sales);
+    }
+    // Fallback to mock if backend didn't provide
+    if (!list.length) {
+        list = [
+            { name: 'Nike Air Max 270', sales: 245 },
+            { name: 'Adidas Ultraboost 22', sales: 198 },
+            { name: 'Puma RS-X', sales: 176 },
+            { name: 'New Balance 574', sales: 142 },
+            { name: 'Converse Chuck Taylor', sales: 128 },
+            { name: 'Vans Old Skool', sales: 115 },
+            { name: 'Reebok Classic Leather', sales: 98 },
+            { name: 'Asics Gel-Kayano', sales: 87 },
+            { name: 'Skechers D\'Lites', sales: 76 },
+            { name: 'Fila Disruptor II', sales: 65 },
+            { name: 'Under Armour HOVR', sales: 54 },
+            { name: 'Brooks Ghost 14', sales: 43 }
+        ];
+    }
+
     let html = '';
-    products.forEach((product, index) => {
+    list.slice(0, 12).forEach((product, index) => {
         const isTop3 = index < 3;
         const rankBadge = isTop3 ? `<span class="odash-product-rank">${index + 1}</span>` : '';
         const itemClass = isTop3 ? 'odash-product-item top-product' : 'odash-product-item';
-        
         html += `
             <div class="${itemClass}">
                 <span class="odash-product-name">${rankBadge}${product.name}</span>
@@ -772,7 +788,6 @@ function initPopularProducts() {
             </div>
         `;
     });
-    
     container.innerHTML = html;
 }
 
@@ -782,37 +797,32 @@ function initStockLevels() {
     const categorySelect = document.getElementById('odash-stock-category');
     let stockChart;
 
-    function getStockData(category) {
-        if (category === 'women') {
-            return {
-                labels: ['Nike Air Force 1', 'Adidas Stan Smith', 'Puma Cali', 'New Balance 327', 'Converse Platform'],
-                stocks: [145, 98, 76, 54, 42],
-                maxStock: [200, 150, 100, 80, 60]
-            };
-        } else if (category === 'accessories') {
-            return {
-                labels: ['Shoe Laces', 'Insoles', 'Shoe Cleaner', 'Shoe Trees', 'Socks'],
-                stocks: [320, 245, 178, 95, 156],
-                maxStock: [400, 300, 200, 120, 200]
-            };
+    async function fetchStockData(category) {
+        try {
+            const url = new URL(window.laravelData?.routes?.inventoryOverview, window.location.origin);
+            url.searchParams.set('source', 'pos');
+            if (category) url.searchParams.set('category', category);
+            const res = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
+            const data = await res.json();
+            if (!res.ok || data.success === false) throw new Error(data.message || 'Failed');
+            const items = Array.isArray(data.items) ? data.items : [];
+            const labels = items.map(i => i.name || i.product_name || 'Item');
+            const stocks = items.map(i => Number(i.total_stock || 0));
+            const maxVal = stocks.length ? Math.max(...stocks) || 1 : 1;
+            const maxStock = stocks.map(() => maxVal);
+            return { labels, stocks, maxStock };
+        } catch (e) {
+            return { labels: [], stocks: [], maxStock: [] };
         }
-        // default: men
-        return {
-            labels: ['Nike Air Max 270', 'Adidas Ultraboost', 'Puma RS-X', 'New Balance 574', 'Vans Old Skool', 'Reebok Classic'],
-            stocks: [85, 112, 68, 142, 95, 78],
-            maxStock: [150, 150, 100, 180, 120, 100]
-        };
     }
 
-    function updateStockChart(category) {
-        const { labels, stocks, maxStock } = getStockData(category);
-        
-        // Calculate percentages for color coding
+    async function updateStockChart(category) {
+        const { labels, stocks, maxStock } = await fetchStockData(category);
         const backgroundColors = stocks.map((stock, i) => {
-            const pct = (stock / maxStock[i]) * 100;
-            if (pct < 30) return '#ef4444'; // Low stock - red
-            if (pct < 60) return '#f59e0b'; // Medium stock - amber
-            return '#3b82f6'; // Good stock - blue
+            const pct = maxStock[i] ? (stock / maxStock[i]) * 100 : 0;
+            if (pct < 30) return '#ef4444';
+            if (pct < 60) return '#f59e0b';
+            return '#3b82f6';
         });
 
         if (!stockChart) {
@@ -844,9 +854,9 @@ function initStockLevels() {
                             callbacks: {
                                 afterLabel: function(context) {
                                     const index = context.dataIndex;
-                                    const max = maxStock[index];
+                                    const max = maxStock[index] || 1;
                                     const pct = Math.round((context.parsed.x / max) * 100);
-                                    return `Max: ${max} (${pct}% stocked)`;
+                                    return `Max (set): ${max} (${pct}% stocked)`;
                                 }
                             }
                         }
@@ -865,7 +875,6 @@ function initStockLevels() {
                 }
             });
         } else {
-            // Update existing chart
             stockChart.data.labels = labels;
             stockChart.data.datasets[0].data = stocks;
             stockChart.data.datasets[0].backgroundColor = backgroundColors;
@@ -873,11 +882,8 @@ function initStockLevels() {
         }
     }
 
-    // Initialize with default category
     const initialCategory = categorySelect && categorySelect.value ? categorySelect.value : 'men';
     updateStockChart(initialCategory);
-
-    // Handle category changes
     if (categorySelect) {
         categorySelect.addEventListener('change', () => updateStockChart(categorySelect.value));
     }

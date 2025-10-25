@@ -399,15 +399,81 @@ class OwnerController extends Controller
             ->value('total') ?? 0;
         $activeReservations = Reservation::where('status', 'pending')->count();
 
+        // KPIs requested: total products sold (units), completed and cancelled reservations (all-time)
+        $totalQuantitySold = (int) (SaleItem::sum('quantity') ?? 0);
+        $completedReservations = (int) Reservation::where('status', 'completed')->count();
+        $cancelledReservations = (int) Reservation::where('status', 'cancelled')->count();
+
+        // Build popular products by category with sold units and current stock
+        $popularByCategory = $this->getPopularProductsByCategory();
+
         return [
             'totalProducts' => $totalProducts,
             'totalStock' => $totalStock,
             'lowStockItems' => $lowStockItems,
             'todaySales' => $todaySales,
             'activeReservations' => $activeReservations,
+            'totalQuantitySold' => $totalQuantitySold,
+            'completedReservations' => $completedReservations,
+            'cancelledReservations' => $cancelledReservations,
             'totalValue' => Product::join('product_sizes', 'products.id', '=', 'product_sizes.product_id')
-                          ->sum(DB::raw('products.price * product_sizes.stock'))
+                          ->sum(DB::raw('products.price * product_sizes.stock')),
+            // For the compact dashboard widgets
+            'popularProducts' => $popularByCategory,
         ];
+    }
+
+    /**
+     * Get top popular products per category with sold units and current stock.
+     * Returns shape: [ 'men' => [ { name, sold, stock }, ... ], 'women' => [...], 'accessories' => [...] ]
+     */
+    private function getPopularProductsByCategory(): array
+    {
+        // Aggregate total sold per product
+        $soldAgg = DB::table('sale_items')
+            ->select('product_id', DB::raw('SUM(quantity) as total_sold'))
+            ->groupBy('product_id');
+
+        // Aggregate current stock per product
+        $stockAgg = DB::table('product_sizes')
+            ->select('product_id', DB::raw('SUM(stock) as total_stock'))
+            ->groupBy('product_id');
+
+        $rows = DB::table('products as p')
+            ->leftJoinSub($soldAgg, 'sa', function ($join) {
+                $join->on('sa.product_id', '=', 'p.id');
+            })
+            ->leftJoinSub($stockAgg, 'st', function ($join) {
+                $join->on('st.product_id', '=', 'p.id');
+            })
+            ->where('p.is_active', true)
+            ->select('p.id', 'p.name', 'p.category', DB::raw('COALESCE(sa.total_sold, 0) as sold'), DB::raw('COALESCE(st.total_stock, 0) as stock'))
+            ->orderByDesc('sold')
+            ->orderBy('p.name')
+            ->get();
+
+        $grouped = [ 'men' => [], 'women' => [], 'accessories' => [] ];
+        foreach ($rows as $row) {
+            $cat = strtolower((string)($row->category ?? ''));
+            if (!isset($grouped[$cat])) continue; // ignore other categories
+            $grouped[$cat][] = [
+                'name' => $row->name,
+                'sold' => (int) $row->sold,
+                'stock' => (int) $row->stock,
+            ];
+        }
+
+        // Limit to top N per category
+        $limit = 5;
+        foreach ($grouped as $key => $list) {
+            usort($list, function ($a, $b) {
+                if ($a['sold'] === $b['sold']) return strcmp($a['name'], $b['name']);
+                return $b['sold'] <=> $a['sold'];
+            });
+            $grouped[$key] = array_slice($list, 0, $limit);
+        }
+
+        return $grouped;
     }
 
     /**
