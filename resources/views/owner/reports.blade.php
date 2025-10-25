@@ -387,7 +387,7 @@
             });
         })();
 
-        // Reservation Logs: fetch and render completed/cancelled
+    // Reservation Logs: fetch and render completed/cancelled
         const resvListEl = document.getElementById('reservation-card-list');
         const statusSwitch = document.getElementById('reservation-status-switch');
 
@@ -495,15 +495,66 @@
             btn.addEventListener('click', () => fetchReservationLogs({ status: 'all' }));
         });
 
-        // Inventory Overview: hook source filter and initial load
-        const sourceSel = document.getElementById('inventory-source-filter');
-        if (sourceSel) {
-            sourceSel.addEventListener('change', function(){
-                if (typeof loadInventoryOverview === 'function') loadInventoryOverview(this.value);
+        // Sales History filters wiring
+        (function wireSalesFilters(){
+            const searchEl = document.getElementById('sales-search');
+            const periodEl = document.getElementById('sales-period-filter');
+            const sortEl = document.getElementById('sales-sort-filter');
+            const mapPeriod = (v)=> v==='today' ? 'daily' : (v==='week' ? 'weekly' : (v==='month' ? 'monthly' : 'weekly'));
+            // Initial fetch
+            if (typeof loadSalesHistory === 'function') loadSalesHistory(mapPeriod(periodEl?.value || ''));
+            const apply = ()=> {
+                if (typeof applySalesFilters === 'function') applySalesFilters({
+                    search: searchEl?.value || '',
+                    sort: sortEl?.value || 'date-desc',
+                    periodUi: (periodEl?.value || '')
+                });
+            };
+            let t;
+            searchEl?.addEventListener('input', ()=> { clearTimeout(t); t = setTimeout(apply, 200); });
+            periodEl?.addEventListener('change', ()=> {
+                if (typeof loadSalesHistory === 'function') loadSalesHistory(mapPeriod(periodEl.value));
+                // apply after small delay to use latest cache
+                setTimeout(apply, 150);
             });
-            // Initial load for POS inventory
-            if (typeof loadInventoryOverview === 'function') loadInventoryOverview(sourceSel.value);
-        }
+            sortEl?.addEventListener('change', apply);
+        })();
+
+        // Supply Logs filters wiring
+        (function wireSupplyFilters(){
+            const searchEl = document.getElementById('supply-search');
+            const sortEl = document.getElementById('supply-sort-filter');
+            const apply = ()=> { if (typeof applySupplyFilters === 'function') applySupplyFilters({ search: searchEl?.value || '', sort: sortEl?.value || 'date-desc' }); };
+            // Initial fetch
+            if (typeof loadSupplyLogs === 'function') loadSupplyLogs();
+            let t;
+            searchEl?.addEventListener('input', ()=> { clearTimeout(t); t = setTimeout(apply, 200); });
+            sortEl?.addEventListener('change', apply);
+        })();
+
+        // Inventory Overview: hook filters and initial load
+        (function wireInventoryFilters(){
+            const sourceSel = document.getElementById('inventory-source-filter');
+            const catSel = document.getElementById('inventory-category-filter');
+            const searchEl = document.getElementById('inventory-search');
+            const sortSel = document.getElementById('inventory-sort-filter');
+            const apply = ()=> {
+                if (typeof loadInventoryOverview === 'function') {
+                    loadInventoryOverview(sourceSel?.value || 'pos', {
+                        category: catSel?.value || '',
+                        search: searchEl?.value || '',
+                        sort: sortSel?.value || ''
+                    });
+                }
+            };
+            sourceSel?.addEventListener('change', apply);
+            catSel?.addEventListener('change', apply);
+            sortSel?.addEventListener('change', apply);
+            let ti;
+            searchEl?.addEventListener('input', ()=> { clearTimeout(ti); ti = setTimeout(apply, 250); });
+            // Initial load for POS inventory with current filters
+            apply();
+        })();
 
         // Initial fetch (completed + cancelled) so content is ready even before switching tabs
         fetchReservationLogs({ status: 'all' });

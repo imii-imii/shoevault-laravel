@@ -197,6 +197,8 @@ async function loadSalesHistory(period = 'weekly') {
         const data = await response.json();
         
         if (response.ok) {
+            // Cache transactions for client-side filtering on reports page
+            window.__salesTransactions = Array.isArray(data.transactions) ? data.transactions : [];
             updateSalesKPIs(data);
             renderSalesChart(data.salesData, period);
             renderTopSellingProducts(data.topProducts);
@@ -212,6 +214,32 @@ async function loadSalesHistory(period = 'weekly') {
     } catch (error) {
         console.error('Error loading sales history:', error);
     }
+}
+
+// Apply filters on cached sales transactions and re-render the table
+function applySalesFilters({ search = '', sort = 'date-desc', periodUi = '' } = {}) {
+    let rows = Array.isArray(window.__salesTransactions) ? [...window.__salesTransactions] : [];
+    const todayStr = new Date().toISOString().slice(0,10);
+    // periodUi can be: '', 'today', 'week', 'month'
+    if (periodUi === 'today') {
+        rows = rows.filter(r => (r.sale_datetime || '').slice(0,10) === todayStr);
+    }
+    // Search across transaction_id, cashier_name, products
+    const q = (search || '').toLowerCase();
+    if (q) {
+        rows = rows.filter(r => (
+            String(r.transaction_id || '').toLowerCase().includes(q) ||
+            String(r.cashier_name || '').toLowerCase().includes(q) ||
+            String(r.products || '').toLowerCase().includes(q)
+        ));
+    }
+    // Sorting
+    const num = (v) => Number(v ?? 0);
+    if (sort === 'date-asc') rows.sort((a,b)=> new Date(a.sale_datetime) - new Date(b.sale_datetime));
+    else if (sort === 'date-desc') rows.sort((a,b)=> new Date(b.sale_datetime) - new Date(a.sale_datetime));
+    else if (sort === 'amount-asc') rows.sort((a,b)=> num(a.total_amount) - num(b.total_amount));
+    else if (sort === 'amount-desc') rows.sort((a,b)=> num(b.total_amount) - num(a.total_amount));
+    renderSalesTable(rows);
 }
 
 async function loadReservationLogs(period = 'weekly') {
@@ -259,6 +287,8 @@ async function loadSupplyLogs() {
         const data = await response.json();
         
         if (response.ok) {
+            // Cache supply data for client-side filters
+            window.__supplyData = Array.isArray(data.supplyData) ? data.supplyData : [];
             renderSupplyTable(data.supplyData);
         } else {
             console.error('Failed to load supply logs:', data.message);
@@ -268,14 +298,41 @@ async function loadSupplyLogs() {
     }
 }
 
-async function loadInventoryOverview(source = 'pos') {
+function applySupplyFilters({ search = '', sort = 'date-desc' } = {}) {
+    let rows = Array.isArray(window.__supplyData) ? [...window.__supplyData] : [];
+    const q = (search || '').toLowerCase();
+    if (q) {
+        rows = rows.filter(r => String(r.date || '').toLowerCase().includes(q) || String(r.supplies || '').toLowerCase().includes(q));
+    }
+    if (sort === 'date-asc') rows.sort((a,b)=> new Date(a.date) - new Date(b.date));
+    else if (sort === 'date-desc') rows.sort((a,b)=> new Date(b.date) - new Date(a.date));
+    else if (sort === 'id-asc') rows = rows; // placeholder; IDs are mock in renderer
+    else if (sort === 'id-desc') rows = rows; // keep as-is
+    renderSupplyTable(rows);
+}
+
+async function loadInventoryOverview(source = 'pos', opts = {}) {
     try {
         const url = new URL(laravelRoutes.inventoryOverview, window.location.origin);
         if (source) url.searchParams.set('source', source);
+        if (opts.category) url.searchParams.set('category', opts.category);
+        if (opts.search) url.searchParams.set('search', opts.search);
         const response = await fetch(url.toString());
         const data = await response.json();
         
         if (response.ok) {
+            // Optionally sort client-side
+            const sort = opts.sort || '';
+            if (Array.isArray(data.items) && sort) {
+                const items = [...data.items];
+                if (sort === 'name-asc') items.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||'')));
+                else if (sort === 'name-desc') items.sort((a,b)=> String(b.name||'').localeCompare(String(a.name||'')));
+                else if (sort === 'brand-asc') items.sort((a,b)=> String(a.brand||'').localeCompare(String(b.brand||'')));
+                else if (sort === 'brand-desc') items.sort((a,b)=> String(b.brand||'').localeCompare(String(a.brand||'')));
+                else if (sort === 'stock-asc') items.sort((a,b)=> Number(a.total_stock||0) - Number(b.total_stock||0));
+                else if (sort === 'stock-desc') items.sort((a,b)=> Number(b.total_stock||0) - Number(a.total_stock||0));
+                data.items = items;
+            }
             renderInventoryOverviewCards(data);
         } else {
             console.error('Failed to load inventory overview:', data.message);
