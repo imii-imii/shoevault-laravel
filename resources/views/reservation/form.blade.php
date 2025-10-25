@@ -30,6 +30,7 @@
     .field-group { display:flex; flex-direction:column; gap:6px; }
     .field-group label { font-size:.72rem; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:#334155; }
   .field-group input { background:#ffffff; border:1px solid #d7e0ec; border-radius:10px; padding:12px 14px; font-size:.9rem; color:#0f172a; font-family:inherit; transition:border .25s, background .25s, box-shadow .25s; box-shadow:0 1px 0 rgba(15,23,42,0.02) inset; margin-bottom: 15px; }
+  .field-group textarea { background:#ffffff; border:1px solid #d7e0ec; border-radius:10px; padding:12px 14px; font-size:.9rem; color:#0f172a; font-family:inherit; transition:border .25s, background .25s, box-shadow .25s; box-shadow:0 1px 0 rgba(15,23,42,0.02) inset; margin-bottom: 15px; }
     .field-group input::placeholder { color:#94a3b8; }
     .field-group input:focus { outline:none; border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,0.2); background:#ffffff; }
     .two-cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
@@ -152,7 +153,7 @@
           <h3>Agreements</h3>
           <div class="check-row"><input type="checkbox" id="agreeTerms"> <label for="agreeTerms">I agree to the Terms and Conditions.</label></div>
           <div class="check-row"><input type="checkbox" id="agreePrivacy"> <label for="agreePrivacy">I have read and accept the Privacy Policy.</label></div>
-          <div class="check-all-row"><input type="checkbox" id="agreeAll"> <label for="agreeAll"><strong>Select / Deselect All</strong></label></div>
+          <!-- Select / Deselect all removed per request -->
         </div>
         <div class="actions">
           <button type="button" class="btn btn-outline" id="backCatalogBtn">Back to Catalog</button>
@@ -171,6 +172,30 @@
     const backCatalogBtn = document.getElementById('backCatalogBtn');
     const editCartBtn = document.getElementById('editCartBtn');
 
+      // Print styles: center content on page, set @page margins, preserve print colors
+      const printHelperStyles = `
+        @page { size: auto; margin: 15mm; }
+        html,body { height:100%; margin:0; -webkit-print-color-adjust:exact; color-adjust:exact; }
+        /* ensure consistent box-sizing and centering */
+        *, *::before, *::after { box-sizing: border-box; }
+        body { background:#f8fafc; display:flex; align-items:center; justify-content:center; padding:0; }
+        .receipt-modal{ display:block !important; background:transparent !important; position:relative; }
+        .receipt-panel{ box-shadow:none; margin:0; width:100%; max-width:560px; border-radius:14px; background:#ffffff; }
+        .receipt-panel * { -webkit-print-color-adjust: exact; color-adjust: exact; }
+
+        /* Table layout rules to ensure printed columns align like the modal */
+        .receipt-items { width:100%; border-collapse:collapse; table-layout: fixed; }
+        .receipt-items thead th, .receipt-items tbody td { padding:6px 8px; vertical-align:top; }
+        .receipt-items thead th { font-weight:600; }
+        .ri-name { width:56%; word-break:break-word; }
+        .ri-qty { width:8%; text-align:center; }
+        .ri-price, .ri-sub { width:18%; text-align:right; }
+
+        @media print {
+          body { background:#ffffff; }
+          .receipt-panel { box-shadow:none; border-radius:8px; }
+        }
+      `;
     function formatCurrency(n){ return '₱ ' + n.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 
     function loadCart(){
@@ -218,17 +243,62 @@
 
     // Agreement logic
     const agreeTerms = document.getElementById('agreeTerms');
-    const agreePrivacy = document.getElementById('agreePrivacy');
-    const agreeAll = document.getElementById('agreeAll');
+  const agreePrivacy = document.getElementById('agreePrivacy');
     const confirmBtn = document.getElementById('confirmReservationBtn');
     function updateConfirmState(){
-      confirmBtn.disabled = !(agreeTerms.checked && agreePrivacy.checked);
-      agreeAll.checked = agreeTerms.checked && agreePrivacy.checked;
+      // More explicit validation to avoid silent failures from checkValidity
+      const fullName = (document.getElementById('fullName')?.value || '').trim();
+      const email = (document.getElementById('email')?.value || '').trim();
+      const phone = (document.getElementById('phone')?.value || '').trim();
+      const pickupDate = (document.getElementById('pickupDate')?.value || '').trim();
+      const pickupTime = (document.getElementById('pickupTime')?.value || '').trim();
+
+      const cart = loadCart();
+      const cartHasItems = Array.isArray(cart) && cart.length > 0;
+      const agreementsOK = agreeTerms.checked && agreePrivacy.checked;
+
+      // Basic field checks
+      const nameOK = fullName.length > 0;
+      const emailOK = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+      const phoneOK = /^((\+?63)|0)9\d{9}$/.test(phone);
+
+      // Date: ensure value and >= tomorrow (we set min on the input already)
+      let dateOK = false;
+      if (pickupDate) {
+        const selected = new Date(pickupDate + 'T00:00:00');
+        const today = new Date();
+        const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+        // compare by date only
+        dateOK = selected.getTime() >= new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate()).getTime();
+      }
+
+      // Time: ensure within working hours 08:00 - 18:00
+      let timeOK = false;
+      if (pickupTime) {
+        const [h, m] = pickupTime.split(':').map(x => parseInt(x,10));
+        if (!Number.isNaN(h) && !Number.isNaN(m)) {
+          const total = h * 60 + m;
+          timeOK = total >= 8*60 && total <= 18*60;
+        }
+      }
+
+      const allValid = agreementsOK && cartHasItems && nameOK && emailOK && phoneOK && dateOK && timeOK;
+
+      // debug - helpful when confirm doesn't enable
+      console.debug('updateConfirmState', { agreementsOK, cartHasItems, nameOK, emailOK, phoneOK, dateOK, timeOK, allValid });
+
+      confirmBtn.disabled = !allValid;
     }
+
+    // Re-evaluate confirmation state when agreements change
     agreeTerms.addEventListener('change', updateConfirmState);
     agreePrivacy.addEventListener('change', updateConfirmState);
-    agreeAll.addEventListener('change', () => {
-      const v = agreeAll.checked; agreeTerms.checked = v; agreePrivacy.checked = v; updateConfirmState();
+    // (select/deselect all removed)
+
+    // Re-evaluate when form inputs change (so the Confirm button enables as soon as fields are filled)
+    document.querySelectorAll('#reservationForm input, #reservationForm textarea, #reservationForm select').forEach(el => {
+      el.addEventListener('input', updateConfirmState);
+      el.addEventListener('change', updateConfirmState);
     });
 
     // Form submit with real backend submission
@@ -336,20 +406,41 @@
     renderItems();
     updateConfirmState();
 
-    // Enforce future date/time minimal (today for date, next hour for time)
+    // Enforce future date/time minimal
+    // - pickupDate: cannot pick the present date (min = tomorrow)
+    // - pickupTime: restricted to working hours 08:00 - 18:00
     const dateInput = document.getElementById('pickupDate');
     const timeInput = document.getElementById('pickupTime');
     const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth()+1).padStart(2,'0');
-    const dd = String(now.getDate()).padStart(2,'0');
+    // compute tomorrow's date for min
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const yyyy = tomorrow.getFullYear();
+    const mm = String(tomorrow.getMonth()+1).padStart(2,'0');
+    const dd = String(tomorrow.getDate()).padStart(2,'0');
     dateInput.min = `${yyyy}-${mm}-${dd}`;
+    // set working hours limits on time input
+    const WORK_START = '08:00';
+    const WORK_END = '18:00';
+    if (timeInput) {
+      timeInput.min = WORK_START;
+      timeInput.max = WORK_END;
+      // optional: prefer quarter-hour steps
+      timeInput.step = 900; // 15 minutes
+      // if current value (e.g., from browser autofill) is outside bounds, clear it
+      if (timeInput.value) {
+        if (timeInput.value < WORK_START || timeInput.value > WORK_END) timeInput.value = '';
+      }
+    }
+
+    // when date or time changes, re-evaluate confirm button state
+    dateInput.addEventListener('change', updateConfirmState);
+    if (timeInput) timeInput.addEventListener('change', updateConfirmState);
   </script>
   
   <!-- Receipt Modal -->
   <div class="receipt-modal" id="receiptModal" aria-hidden="true">
     <div class="receipt-panel receipt-export-target" id="receiptPanel">
-      <div class="receipt-badge">E-RECEIPT</div>
+      <div class="receipt-badge">E-TICKET</div>
       <div class="receipt-logo">Shoe Vault Batangas</div>
       <div class="receipt-id" id="receiptId">Receipt #TEMP</div>
       <h2>Reservation Confirmation</h2>
@@ -365,7 +456,7 @@
       </table>
       <div class="receipt-summary" id="receiptSummary"></div>
       <div class="receipt-actions">
-        <button class="btn-download" id="downloadReceiptBtn" type="button">Download PNG</button>
+        <button class="btn-download" id="downloadReceiptBtn" type="button">Download PDF</button>
         <button class="btn-close" id="closeReceiptBtn" type="button">Close</button>
       </div>
       <div class="receipt-footer-note">Thank you for reserving with us!</div>
@@ -420,19 +511,45 @@
       receiptModal.setAttribute('aria-hidden','true');
     }
 
+    // Print-based PDF export: opens a print window containing the receipt and calls print
     downloadBtn.addEventListener('click', async () => {
-      downloadBtn.disabled = true; downloadBtn.textContent = 'Rendering...';
+      downloadBtn.disabled = true;
+      downloadBtn.textContent = 'Preparing PDF...';
       try {
-        const canvas = await html2canvas(receiptPanel,{backgroundColor:'#ffffff',scale:2});
-        const link = document.createElement('a');
-        link.download = (receiptIdEl.textContent.replace(/[^A-Z0-9-]/gi,'_')) + '.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-      } catch(err){
-        console.error('Receipt export failed', err);
-        alert('Failed to generate image. Please try again.');
+        // Wait for fonts to be available
+        try { await document.fonts.ready; } catch(e){}
+
+        // Gather current page styles (stylesheets + inline styles)
+        const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style')).map(n => n.outerHTML).join('\n');
+
+        // Clone the receipt panel HTML
+        const content = receiptPanel.cloneNode(true);
+
+        // Open a new window and write the receipt HTML into it. The user will choose Print -> Save as PDF.
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) throw new Error('Popup blocked');
+
+  const head = `<meta charset="utf-8"><title>${receiptIdEl.textContent}</title>${styles}<style>${printHelperStyles}</style>`;
+        printWindow.document.open();
+        printWindow.document.write(`<html><head>${head}</head><body>${content.outerHTML}</body></html>`);
+        printWindow.document.close();
+
+        // Wait briefly for resources to load (fonts/images)
+        await new Promise(resolve => {
+          const to = setTimeout(resolve, 1200);
+          printWindow.onload = () => { clearTimeout(to); resolve(); };
+        });
+
+        printWindow.focus();
+        printWindow.print();
+
+        // Note: don't auto-close — let user control after printing/saving
+      } catch (err) {
+        console.error('Print export failed', err);
+        alert('Failed to open print dialog. You can use the browser Print -> Save as PDF as a fallback.');
       } finally {
-        downloadBtn.disabled = false; downloadBtn.textContent = 'Download PNG';
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = 'Download PDF';
       }
     });
 

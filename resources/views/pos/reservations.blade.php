@@ -776,7 +776,17 @@
                 </div>
                 <!-- Reservation List (from Inventory Reservation Reports) -->
                 <div style="width: 100%; display: grid; gap: 12px; max-height: calc(100vh - 320px); overflow-y: auto; padding-right: 8px;" id="reservations-container">
-                    @forelse($reservations ?? [] as $reservation)
+                    @php
+                        // Ensure we only render reservations with status 'pending'
+                        $pendingReservations = collect($reservations ?? [])->filter(function($r) {
+                            // support both arrays and objects
+                            $status = null;
+                            if (is_array($r) && array_key_exists('status', $r)) $status = $r['status'];
+                            elseif (is_object($r) && isset($r->status)) $status = $r->status;
+                            return strtolower((string)($status ?? '')) === 'pending';
+                        });
+                    @endphp
+                    @forelse($pendingReservations as $reservation)
                     <!-- Reservation Card - Compact Layout -->
                     <div class="reservation-card" data-res-id="{{ $reservation->id }}" data-res-number="{{ $reservation->reservation_id }}" data-res-date="{{ $reservation->created_at ? $reservation->created_at->format('M d, Y h:i A') : 'N/A' }}" data-customer-name="{{ $reservation->customer_name }}" data-customer-email="{{ $reservation->customer_email }}" data-customer-phone="{{ $reservation->customer_phone }}" data-pickup-date="{{ $reservation->pickup_date ? $reservation->pickup_date->format('M d, Y') : 'TBD' }}" data-pickup-time="{{ $reservation->pickup_time ?? 'TBD' }}" data-status="{{ $reservation->status }}" style="background: #F9FAFB; padding: 16px 20px; border-radius: 8px; border: 1px solid #E5E7EB;">
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 24px; align-items: center; width: 100%;">

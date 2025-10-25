@@ -140,8 +140,23 @@ class ReservationController extends Controller
                 'customer.fullName' => 'required|string|max:255',
                 'customer.email' => 'required|email|max:255',
                 'customer.phone' => 'required|string|max:20',
-                'customer.pickupDate' => 'required|date|after_or_equal:today',
-                'customer.pickupTime' => 'required|string',
+                // pickupDate must be strictly after today (cannot pick present date)
+                'customer.pickupDate' => 'required|date|after:today',
+                // pickupTime must be in H:i format and within working hours (08:00 - 18:00)
+                'customer.pickupTime' => ['required', 'string', function($attribute, $value, $fail) {
+                    // Accept HH:MM (24-hour) and enforce between 08:00 and 18:00 inclusive
+                    if (!preg_match('/^([01]\d|2[0-3]):([0-5]\d)$/', $value, $m)) {
+                        return $fail('The pickup time must be a valid time in 24-hour HH:MM format.');
+                    }
+                    $hour = intval($m[1]);
+                    $minute = intval($m[2]);
+                    $totalMinutes = $hour * 60 + $minute;
+                    $startMinutes = 8 * 60;   // 08:00
+                    $endMinutes = 18 * 60;    // 18:00
+                    if ($totalMinutes < $startMinutes || $totalMinutes > $endMinutes) {
+                        return $fail('Pickup time must be within working hours (08:00 - 18:00).');
+                    }
+                }],
                 'customer.notes' => 'nullable|string|max:1000',
                 'items' => 'required|array|min:1',
                 'items.*.id' => 'required|integer|exists:reservation_products,id',

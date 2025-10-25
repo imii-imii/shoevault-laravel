@@ -112,15 +112,15 @@
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin: 20px;">
                 <div style="background: linear-gradient(135deg, #3B82F6 0%, #1E40AF 100%); padding: 24px; border-radius: 12px; color: white;">
                     <h3 style="font-size: 1.1rem; margin-bottom: 12px;">Pending Reservations</h3>
-                    <p style="font-size: 2rem; font-weight: bold;">{{ $reservationStats['incomplete'] ?? 0 }}</p>
+                    <p id="stat-pending-count" style="font-size: 2rem; font-weight: bold;">{{ $reservationStats['incomplete'] ?? 0 }}</p>
                 </div>
                 <div style="background: linear-gradient(135deg, #F59E0B 0%, #B45309 100%); padding: 24px; border-radius: 12px; color: white;">
                     <h3 style="font-size: 1.1rem; margin-bottom: 12px;">Completed</h3>
-                    <p style="font-size: 2rem; font-weight: bold;">{{ $reservationStats['completed'] ?? 0 }}</p>
+                    <p id="stat-completed-count" style="font-size: 2rem; font-weight: bold;">{{ $reservationStats['completed'] ?? 0 }}</p>
                 </div>
                 <div style="background: linear-gradient(135deg, #EF4444 0%, #991B1B 100%); padding: 24px; border-radius: 12px; color: white;">
                     <h3 style="font-size: 1.1rem; margin-bottom: 12px;">Cancelled</h3>
-                    <p style="font-size: 2rem; font-weight: bold;">{{ $reservationStats['cancelled'] ?? 0 }}</p>
+                    <p id="stat-cancelled-count" style="font-size: 2rem; font-weight: bold;">{{ $reservationStats['cancelled'] ?? 0 }}</p>
                 </div>
             </div>
             
@@ -139,7 +139,7 @@
             <div style="margin: 20px; display: grid; gap: 16px;" id="reservations-container">
                 @forelse($reservations ?? [] as $reservation)
                 <!-- Reservation Card (4x2 grid) -->
-                <div class="reservation-card" data-res-id="{{ $reservation->id }}" data-res-number="{{ $reservation->reservation_id }}" data-res-date="{{ $reservation->created_at ? $reservation->created_at->format('M d, Y h:i A') : 'N/A' }}" data-customer-name="{{ $reservation->customer_name }}" data-customer-email="{{ $reservation->customer_email }}" data-customer-phone="{{ $reservation->customer_phone }}" data-pickup-date="{{ $reservation->pickup_date ? $reservation->pickup_date->format('M d, Y') : 'TBD' }}" data-pickup-time="{{ $reservation->pickup_time ?? 'TBD' }}" data-status="{{ $reservation->status }}" style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <div class="reservation-card" data-res-id="{{ $reservation->id }}" data-res-number="{{ $reservation->reservation_id }}" data-res-date="{{ $reservation->created_at ? $reservation->created_at->format('M d, Y h:i A') : 'N/A' }}" data-res-ts="{{ $reservation->created_at ? $reservation->created_at->timestamp : '' }}" data-customer-name="{{ $reservation->customer_name }}" data-customer-email="{{ $reservation->customer_email }}" data-customer-phone="{{ $reservation->customer_phone }}" data-pickup-date="{{ $reservation->pickup_date ? $reservation->pickup_date->format('M d, Y') : 'TBD' }}" data-pickup-time="{{ $reservation->pickup_time ?? 'TBD' }}" data-status="{{ $reservation->status }}" style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                     <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; align-items: start;">
                         <!-- Col 1 -->
                         <div>
@@ -252,12 +252,57 @@ function updateDateTime() {
 setInterval(updateDateTime, 1000);
 updateDateTime();
 
+// Ensure Pending reservations appear first (then Completed, then Cancelled), tie-breaker by newest date
+function sortReservations() {
+    const container = document.getElementById('reservations-container');
+    if (!container) return;
+    const priority = { pending: 0, completed: 1, cancelled: 2 };
+    const cards = Array.from(container.querySelectorAll('.reservation-card'));
+    if (!cards.length) return;
+    cards.sort((a, b) => {
+        const pa = priority[a.dataset.status] ?? 99;
+        const pb = priority[b.dataset.status] ?? 99;
+        if (pa !== pb) return pa - pb;
+        const ta = Number(a.dataset.resTs || 0);
+        const tb = Number(b.dataset.resTs || 0);
+        return tb - ta; // newest first
+    });
+    cards.forEach(card => container.appendChild(card));
+}
+
+// Update analytics counters in the header cards when a reservation changes status
+function updateAnalyticsCounts(oldStatus, newStatus) {
+    const map = { pending: 'stat-pending-count', completed: 'stat-completed-count', cancelled: 'stat-cancelled-count' };
+    if (!oldStatus && !newStatus) return;
+    if (oldStatus === newStatus) return;
+
+    // decrement old
+    if (oldStatus && map[oldStatus]) {
+        const elOld = document.getElementById(map[oldStatus]);
+        if (elOld) {
+            let v = parseInt((elOld.textContent || '').replace(/[^0-9-]/g, '')) || 0;
+            v = Math.max(0, v - 1);
+            elOld.textContent = v;
+        }
+    }
+
+    // increment new
+    if (newStatus && map[newStatus]) {
+        const elNew = document.getElementById(map[newStatus]);
+        if (elNew) {
+            let v = parseInt((elNew.textContent || '').replace(/[^0-9-]/g, '')) || 0;
+            v = v + 1;
+            elNew.textContent = v;
+        }
+    }
+}
+
 // Reservation status update function
-function updateReservationStatus(reservationId, status) {
+function updateReservationStatus(reservationId, status, options = { reload: true }) {
     const allowed = ['pending','completed','cancelled'];
-    if (!allowed.includes(status)) { alert('Invalid status'); return; }
-    if (!confirm(`Are you sure you want to change the status to ${status}?`)) return;
-    fetch(`{{ route('inventory.reservations.update-status', ['id' => 'RES_ID']) }}`.replace('RES_ID', reservationId), {
+    if (!allowed.includes(status)) { alert('Invalid status'); return Promise.reject(new Error('Invalid status')); }
+    if (!confirm(`Are you sure you want to change the status to ${status}?`)) return Promise.reject(new Error('User cancelled'));
+    return fetch(`{{ route('inventory.reservations.update-status', ['id' => 'RES_ID']) }}`.replace('RES_ID', reservationId), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -270,6 +315,7 @@ function updateReservationStatus(reservationId, status) {
         if (!data.success) throw new Error(data.message || 'Failed');
         // Update UI: card status pill, modal footer
         const card = document.querySelector(`.reservation-card[data-res-id="${reservationId}"]`);
+        const oldStatus = card ? card.dataset.status : null;
         if (card) {
             const pill = card.querySelector('.status-pill');
             if (pill) {
@@ -282,15 +328,30 @@ function updateReservationStatus(reservationId, status) {
                 };
                 pill.setAttribute('style', `display:inline-block;padding:4px 12px;border-radius:9999px;${styleMap[status] || styleMap.pending}font-weight:500;font-size:0.9rem;`);
             }
+            // update analytics counts based on old/new status
+            updateAnalyticsCounts(oldStatus, status);
             card.dataset.status = status;
+        } else {
+            // if card not in DOM, still try to update analytics if possible
+            updateAnalyticsCounts(oldStatus, status);
         }
         // Update modal actions and close modal if needed
         renderReservationModalActions(reservationId, status);
-        alert('Reservation status updated');
+        // Re-sort list so Pending stays on top
+        sortReservations();
+
+        // Optionally reload the page to fetch fresh data from server
+        if (options.reload) {
+            // show short notice then reload so user sees the change
+            setTimeout(() => { location.reload(); }, 700);
+        }
+
+        return data;
     })
     .catch(err => {
         console.error(err);
         alert('Failed to update reservation status');
+        throw err;
     });
 }
 
@@ -491,7 +552,7 @@ if (txPay) txPay.addEventListener('click', async function(){
     if (!(paid >= txContext.total)) return;
 
     // Optional: mark reservation completed first
-    try { await updateReservationStatus(txContext.reservationId, 'completed'); } catch (e) {}
+    try { await updateReservationStatus(txContext.reservationId, 'completed', { reload: false }); } catch (e) {}
 
     // Build a simple receipt content similar to POS
     const receiptWin = window.open('', '_blank', 'width=480,height=640');
@@ -605,6 +666,8 @@ if (bell) {
 
 // Ensure View buttons are bound after page load (in case SSR)
 document.addEventListener('DOMContentLoaded', function(){
+    // Initial sort on load
+    sortReservations();
     document.querySelectorAll('.view-reservation-btn').forEach(btn => {
         btn.addEventListener('click', function(){
             const card = this.closest('.reservation-card');
