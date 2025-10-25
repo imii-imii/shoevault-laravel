@@ -786,7 +786,7 @@ function renderSalesTable(transactions) {
     };
 
     if (!Array.isArray(transactions) || transactions.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9" style="color:#6b7280; text-align:center;">No sales found for the selected period.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" style="color:#6b7280; text-align:center;">No sales found for the selected period.</td></tr>`;
         return;
     }
 
@@ -794,12 +794,26 @@ function renderSalesTable(transactions) {
         const products = t.products || '';
         const cashier = t.cashier_name || '—';
         const stype = (t.sale_type || '').toString().toUpperCase();
+        // Extract subtotal from common server field names, fallback to a best-effort computation
+        const subtotalRaw = (t.subtotal ?? t.subtotal_amount ?? t.sub_total ?? t.sub_total_amount ?? t.subtotalAmount ?? t.subTotal);
+        let subtotalVal = typeof subtotalRaw !== 'undefined' && subtotalRaw !== null ? subtotalRaw : null;
+        if (subtotalVal === null) {
+            // fallback: if total_amount present, try to compute: total + discount - tax (works if total already includes tax)
+            const totalN = Number(t.total_amount ?? t.total ?? 0);
+            const taxN = Number(t.tax ?? 0);
+            const discountN = Number(t.discount_amount ?? t.discount ?? 0);
+            // best-effort: assume total_amount = subtotal + tax - discount (or subtotal + tax - discount depending on your schema)
+            // Rearranged: subtotal ≈ total + discount - tax
+            subtotalVal = totalN + discountN - taxN;
+        }
+
         return `
         <tr>
             <td>${t.transaction_id || ''}</td>
             <td>${stype}</td>
             <td>${cashier}</td>
             <td>${products}</td>
+            <td>${money(subtotalVal)}</td>
             <td>${money(t.discount_amount)}</td>
             <td>${money(t.total_amount)}</td>
             <td>${money(t.amount_paid)}</td>

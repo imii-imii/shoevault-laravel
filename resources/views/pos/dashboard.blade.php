@@ -1872,6 +1872,9 @@ async function processSaleAndPrint(summary, paymentAmount) {
         })),
         subtotal: summary.subtotal,
         tax: summary.tax || 0,
+        // Backend expects 'discount' (numeric) — include it so discount is persisted
+        discount: summary.discountAmount || 0,
+        // Keep more detailed fields for extensibility
         discount_type: summary.discountType,
         discount_value: summary.discountValue,
         discount_amount: summary.discountAmount,

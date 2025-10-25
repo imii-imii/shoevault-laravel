@@ -185,6 +185,7 @@
                             <th>Sale Type</th>
                             <th>Processed By</th>
                             <th>Products</th>
+                            <th>Subtotal</th>
                             <th>Discount</th>
                             <th>Total</th>
                             <th>Amount Paid</th>
