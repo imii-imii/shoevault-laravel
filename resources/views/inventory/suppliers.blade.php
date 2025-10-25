@@ -120,7 +120,7 @@
                             <th>ID</th>
                             <th>Supplier Name</th>
                             <th>Contact</th>
-                            <th>Brand</th>
+                            <th>Brand(s)</th>
                             <th>Stock</th>
                             <th>Country</th>
                             <th>Sizes</th>
@@ -136,7 +136,17 @@
                             <td>{{ $supplier->id }}</td>
                             <td>{{ $supplier->name }}</td>
                             <td>{{ $supplier->contact_person }}</td>
-                            <td>{{ $supplier->brand ?? 'N/A' }}</td>
+                            <td>
+                                @php
+                                    $brandText = 'N/A';
+                                    if (isset($supplier->brands) && is_array($supplier->brands)) {
+                                        $brandText = implode(', ', array_filter($supplier->brands));
+                                    } elseif (!empty($supplier->brand)) {
+                                        $brandText = $supplier->brand;
+                                    }
+                                @endphp
+                                {{ $brandText }}
+                            </td>
                             <td>{{ $supplier->total_stock ?? 0 }}</td>
                             <td>{{ $supplier->country ?? 'N/A' }}</td>
                             <td>{{ $supplier->available_sizes ?? 'N/A' }}</td>
@@ -181,8 +191,11 @@
                 <input type="text" id="supplier-contact" required>
             </div>
             <div class="form-group">
-                <label for="supplier-brand">Brand</label>
-                <input type="text" id="supplier-brand" placeholder="e.g., Nike" required>
+                <label>Brands</label>
+                <div id="brand-chip-input" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px;border:1px solid #e5e7eb;border-radius:8px;min-height:42px;cursor:text;">
+                    <input type="text" id="brand-entry" placeholder="Type a brand and press Enter" style="border:none;outline:none;flex:1;min-width:160px;" />
+                </div>
+                <small style="color:#6b7280;">Add multiple brands. Press Enter or comma to add a brand.</small>
             </div>
             <div class="form-group">
                 <label for="supplier-stock">Stock</label>
@@ -281,5 +294,112 @@ if (bell) {
     });
     badge.style.display = 'inline-block';
 }
+
+// --- Add Supplier: wire form to API and brand chips input ---
+(function(){
+    const form = document.getElementById('add-supplier-form');
+    const tbody = document.getElementById('supplier-tbody');
+    const chipBox = document.getElementById('brand-chip-input');
+    const entry = document.getElementById('brand-entry');
+    const brands = [];
+
+    function renderChips(){
+        if (!chipBox) return;
+        // Keep the entry input as last element
+        const inputs = Array.from(chipBox.querySelectorAll('.brand-chip, input'));
+        inputs.forEach(el => { if (el.classList && el.classList.contains('brand-chip')) el.remove(); });
+        brands.forEach((b, idx) => {
+            const chip = document.createElement('span');
+            chip.className = 'brand-chip';
+            chip.style.cssText = 'display:inline-flex;align-items:center;gap:6px;background:#eef2ff;color:#1e3a8a;border-radius:999px;padding:6px 10px;font-weight:700;font-size:.85rem;';
+            chip.innerHTML = `${b}<button type="button" aria-label="Remove ${b}" style="background:none;border:none;color:#1e3a8a;font-weight:800;cursor:pointer;line-height:1">&times;</button>`;
+            chip.querySelector('button')?.addEventListener('click', ()=>{ brands.splice(idx,1); renderChips(); });
+            entry.before(chip);
+        });
+    }
+
+    chipBox?.addEventListener('click', ()=> entry?.focus());
+    entry?.addEventListener('keydown', (e)=>{
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            const val = entry.value.trim();
+            if (val && !brands.includes(val)) { brands.push(val); renderChips(); }
+            entry.value = '';
+        } else if (e.key === 'Backspace' && !entry.value) {
+            brands.pop();
+            renderChips();
+        }
+    });
+
+    form?.addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        const name = document.getElementById('supplier-name')?.value.trim();
+        const contact = document.getElementById('supplier-contact')?.value.trim();
+        const totalStock = Number(document.getElementById('supplier-stock')?.value || 0);
+        const country = document.getElementById('supplier-country')?.value.trim();
+        const sizes = document.getElementById('supplier-sizes')?.value.trim();
+        const email = document.getElementById('supplier-email')?.value.trim();
+        const phone = document.getElementById('supplier-phone')?.value.trim();
+
+        if (!name) { alert('Supplier name is required'); return; }
+        if (!email) { alert('Email is required'); return; }
+
+        const payload = {
+            name,
+            contact_person: contact || null,
+            brands: brands.slice(0),
+            total_stock: isNaN(totalStock) ? 0 : totalStock,
+            country: country || null,
+            available_sizes: sizes || null,
+            email: email || null,
+            phone: phone || null,
+            status: 'active'
+        };
+
+        try {
+            const res = await fetch("{{ route('inventory.suppliers.store') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok || data.success === false) {
+                const msg = data.message || 'Failed to add supplier';
+                alert(msg);
+                return;
+            }
+            const s = data.supplier;
+            const brandText = Array.isArray(s.brands) ? s.brands.join(', ') : (s.brand || 'N/A');
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${s.id}</td>
+                <td>${s.name || ''}</td>
+                <td>${s.contact_person || ''}</td>
+                <td>${brandText}</td>
+                <td>${Number(s.total_stock||0)}</td>
+                <td>${s.country || 'N/A'}</td>
+                <td>${s.available_sizes || 'N/A'}</td>
+                <td>${s.email || ''}</td>
+                <td>${s.phone || ''}</td>
+                <td><span class="status-badge ${s.status||'active'}">${(s.status||'active').charAt(0).toUpperCase() + (s.status||'active').slice(1)}</span></td>
+                <td>
+                    <button class="btn btn-sm btn-primary" onclick="editSupplier(${s.id})"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteSupplier(${s.id})"><i class="fas fa-trash"></i></button>
+                </td>
+            `;
+            tbody?.prepend(tr);
+            // Reset and close
+            brands.splice(0, brands.length); renderChips(); entry.value = '';
+            form.reset();
+            closeModal('add-supplier-modal');
+        } catch (err) {
+            alert('Unable to add supplier right now.');
+        }
+    });
+})();
 </script>
 @endpush

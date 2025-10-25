@@ -301,10 +301,13 @@
 <script>
 	// Make sure Owner JS shows the correct section on this page
 	window.initialOwnerSection = 'settings';
-	// Provide routes object to avoid undefined access in owner.js
+	// Provide routes object to avoid undefined access in owner.js and settings scripts
 	window.laravelData = window.laravelData || { routes: {} };
 	window.laravelData.routes = Object.assign({}, window.laravelData.routes, {
-		settings: '{{ route('owner.settings') }}'
+		settings: '{{ route('owner.settings') }}',
+		usersIndex: '{{ route('owner.users.index') }}',
+		usersStore: '{{ route('owner.users.store') }}',
+		usersToggle: '{{ route('owner.users.toggle') }}'
 	});
 </script>
 <script src="{{ asset('js/owner.js') }}"></script>
@@ -342,6 +345,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 	<!-- Add User Modal -->
 	@php 
+		$userIndexRoute = \Illuminate\Support\Facades\Route::has('owner.users.index') ? route('owner.users.index') : null; 
 		$userStoreRoute = \Illuminate\Support\Facades\Route::has('owner.users.store') ? route('owner.users.store') : null; 
 		$userToggleRoute = \Illuminate\Support\Facades\Route::has('owner.users.toggle') ? route('owner.users.toggle') : null; 
 	@endphp
@@ -395,8 +399,9 @@ document.addEventListener('DOMContentLoaded', function() {
 		const cancelBtn = document.getElementById('au-cancel');
 		const form = document.getElementById('add-user-form');
 		const userList = document.getElementById('user-list');
-		const apiUrl = '{{ $userStoreRoute ?? '' }}';
-		const toggleUrl = '{{ $userToggleRoute ?? '' }}';
+	const apiUrl = '{{ $userStoreRoute ?? '' }}';
+	const toggleUrl = '{{ $userToggleRoute ?? '' }}';
+	const indexUrl = '{{ $userIndexRoute ?? '' }}';
 
 		function open(){ overlay.style.display='block'; modal.style.display='block'; }
 		function close(){ modal.style.display='none'; overlay.style.display='none'; form.reset(); clearErrors(); }
@@ -434,21 +439,39 @@ document.addEventListener('DOMContentLoaded', function() {
 		if(cancelBtn){ cancelBtn.addEventListener('click', close); }
 		if(overlay){ overlay.addEventListener('click', close); }
 
-		// Seed at least 6 placeholder profile cards if the list is empty
-		if (userList && userList.children.length === 0) {
-			const roles = ['manager','cashier'];
-			for (let i = 1; i <= 6; i++) {
-				const payload = {
-					name: `User ${i}`,
-					username: `user${i}`,
-					email: `user${i}@example.com`,
-					role: roles[i % roles.length],
-					phone: null
-				};
-				const enabled = i % 3 !== 0; // make every 3rd inactive for variety
-				userList.appendChild(buildUserCard(payload, '', enabled));
+		// Load users from API and render cards
+		const cachedUsers = { list: [] };
+		async function loadUsers(search = ''){
+			if (!indexUrl || !userList) return;
+			try{
+				const url = new URL(indexUrl, window.location.origin);
+				if (search) url.searchParams.set('search', search);
+				const res = await fetch(url.toString(), { headers: { 'Accept':'application/json' } });
+				const data = await res.json();
+				if (!res.ok || data.success === false) throw new Error(data.message || 'Failed to load users');
+				cachedUsers.list = Array.isArray(data.users) ? data.users : [];
+				renderUsers(cachedUsers.list);
+			} catch(err){
+				console.error(err);
+				userList.innerHTML = '<div style="color:#ef4444;">Failed to load users.</div>';
 			}
 		}
+
+		function renderUsers(items){
+			userList.innerHTML = '';
+			if (!Array.isArray(items) || items.length === 0) {
+				userList.innerHTML = '<div style="color:#6b7280;">No users found.</div>';
+				return;
+			}
+			items.forEach(u => {
+				const payload = { name: u.name, username: u.username, email: u.email, role: u.role, phone: u.phone };
+				const card = buildUserCard(payload, String(u.id), Boolean(u.is_active));
+				userList.appendChild(card);
+			});
+		}
+
+		// Initial load
+		loadUsers();
 
 		// Helper: Build a user card element with toggle and status badge
 		function buildUserCard(payload, userId = '', enabled = true){
@@ -539,7 +562,7 @@ document.addEventListener('DOMContentLoaded', function() {
 			return card;
 		}
 
-		form?.addEventListener('submit', async (e)=>{
+	form?.addEventListener('submit', async (e)=>{
 			e.preventDefault();
 			if(!validate()) return;
 
@@ -581,10 +604,21 @@ document.addEventListener('DOMContentLoaded', function() {
 				const userId = (serverData && (serverData.user?.id || serverData.id)) ? (serverData.user?.id || serverData.id) : '';
 				const card = buildUserCard(payload, userId, true);
 				userList.prepend(card);
+				// refresh cache
+				loadUsers();
 			}
 
 			close();
 		});
+		// Wire up search input
+		const searchEl = document.getElementById('user-search');
+		let st;
+		searchEl?.addEventListener('input', ()=>{
+			clearTimeout(st);
+			const val = searchEl.value.trim();
+			st = setTimeout(()=> loadUsers(val), 250);
+		});
+
 	})();
 	</script>
 

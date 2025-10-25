@@ -132,15 +132,79 @@ class OwnerController extends Controller
      */
     public function supplyLogs(Request $request)
     {
-        $period = $request->get('period', 'weekly');
-        
-        $supplyData = $this->getSupplyData($period);
-        $supplierStats = $this->getSupplierStats();
-        
+        // Connect to suppliers table and return normalized rows matching the UI columns
+        $search = trim((string) $request->get('search', ''));
+        $sort = $request->get('sort', 'date-desc');
+
+        $query = \App\Models\Supplier::query();
+
+        if ($search !== '') {
+            $like = "%$search%";
+            $query->where(function ($q) use ($like) {
+                $q->where('name', 'like', $like)
+                  ->orWhere('contact_person', 'like', $like)
+                  ->orWhere('email', 'like', $like)
+                  ->orWhere('phone', 'like', $like)
+                  ->orWhere('country', 'like', $like)
+                  ->orWhere('address', 'like', $like)
+                  ->orWhere('notes', 'like', $like);
+            });
+            // Basic JSON match for brands column if present
+            if (\Illuminate\Support\Facades\Schema::hasColumn('suppliers', 'brands')) {
+                $query->orWhere('brands', 'like', $like);
+            }
+        }
+
+        switch ($sort) {
+            case 'date-asc':
+                $query->orderBy('updated_at', 'asc');
+                break;
+            case 'id-asc':
+                $query->orderBy('id', 'asc');
+                break;
+            case 'id-desc':
+                $query->orderBy('id', 'desc');
+                break;
+            case 'date-desc':
+            default:
+                $query->orderBy('updated_at', 'desc');
+                break;
+        }
+
+        $suppliers = $query->limit(500)->get([
+            'id','name','contact_person','email','phone','country','brands','total_stock','available_sizes','status','is_active','created_at','updated_at'
+        ]);
+
+        $rows = $suppliers->map(function ($s) {
+            $brandText = null;
+            if (is_array($s->brands)) {
+                $brandText = implode(', ', array_filter($s->brands));
+            } elseif (!empty($s->brands)) {
+                // If stored as JSON string but not cast, try decode
+                $decoded = json_decode($s->brands, true);
+                $brandText = is_array($decoded) ? implode(', ', array_filter($decoded)) : (string)$s->brands;
+            }
+            $status = $s->status ?: ($s->is_active ? 'active' : 'inactive');
+            return [
+                'id' => $s->id,
+                'name' => $s->name,
+                'contact_person' => $s->contact_person,
+                'brands' => $brandText,
+                'total_stock' => (int)($s->total_stock ?? 0),
+                'country' => $s->country,
+                'available_sizes' => $s->available_sizes,
+                'email' => $s->email,
+                'phone' => $s->phone,
+                'status' => $status,
+                'created_at' => $s->created_at,
+                'updated_at' => $s->updated_at,
+            ];
+        })->values();
+
         return response()->json([
-            'supplyData' => $supplyData,
-            'supplierStats' => $supplierStats,
-            'period' => $period
+            'success' => true,
+            'supplyData' => $rows,
+            'count' => $rows->count(),
         ]);
     }
 

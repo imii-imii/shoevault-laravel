@@ -50,40 +50,60 @@ class InventoryController extends Controller
      */
     public function suppliers()
     {
-        // Get suppliers from database or provide mock data
-        $suppliers = Supplier::all();
-        
-        // If no suppliers exist, provide mock data for UI testing
-        if ($suppliers->isEmpty()) {
-            $suppliers = collect([
-                (object)[
-                    'id' => 1,
-                    'name' => 'Nike Philippines',
-                    'contact_person' => 'John Smith',
-                    'brand' => 'Nike',
-                    'total_stock' => 100,
-                    'country' => 'Philippines',
-                    'available_sizes' => '7-12',
-                    'email' => 'supplier@nike.com.ph',
-                    'phone' => '+63 2 123 4567',
-                    'status' => 'active'
-                ],
-                (object)[
-                    'id' => 2,
-                    'name' => 'Adidas Distributor',
-                    'contact_person' => 'Jane Doe',
-                    'brand' => 'Adidas',
-                    'total_stock' => 85,
-                    'country' => 'Philippines',
-                    'available_sizes' => '6-11',
-                    'email' => 'contact@adidas-ph.com',
-                    'phone' => '+63 2 987 6543',
-                    'status' => 'active'
-                ]
-            ]);
-        }
-
+        // Get suppliers from database only (no mock fallback)
+        $suppliers = Supplier::orderBy('name')->get();
         return view('inventory.suppliers', compact('suppliers'));
+    }
+
+    /**
+     * Store a new supplier
+     */
+    public function storeSupplier(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'contact_person' => 'nullable|string|max:255',
+                'brands' => 'nullable|array',
+                'brands.*' => 'string|max:100',
+                'email' => 'nullable|email|max:255',
+                'phone' => 'nullable|string|max:50',
+                'country' => 'nullable|string|max:120',
+                'available_sizes' => 'nullable|string|max:255',
+                'total_stock' => 'nullable|integer|min:0',
+                'status' => 'nullable|in:active,inactive',
+            ]);
+
+            $supplier = Supplier::create([
+                'name' => $validated['name'],
+                'contact_person' => $validated['contact_person'] ?? null,
+                'brands' => $validated['brands'] ?? null,
+                'email' => $validated['email'] ?? null,
+                'phone' => $validated['phone'] ?? null,
+                'country' => $validated['country'] ?? null,
+                'available_sizes' => $validated['available_sizes'] ?? null,
+                'total_stock' => $validated['total_stock'] ?? 0,
+                'status' => $validated['status'] ?? 'active',
+                'is_active' => ($validated['status'] ?? 'active') === 'active',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Supplier added successfully',
+                'supplier' => $supplier,
+            ], 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to add supplier: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**

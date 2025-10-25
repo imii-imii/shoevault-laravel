@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\OwnerController;
+use App\Http\Controllers\OwnerUsersController;
 use App\Http\Controllers\ReservationController;
 
 // Authentication routes
@@ -176,6 +177,7 @@ Route::middleware(['auth', 'role:manager,admin'])->prefix('inventory')->name('in
         return view('inventory.dashboard', compact('products', 'suppliers', 'reservations', 'reservationStats'));
     })->name('enhanced');
     Route::get('/suppliers', [InventoryController::class, 'suppliers'])->name('suppliers');
+    Route::post('/suppliers', [InventoryController::class, 'storeSupplier'])->name('suppliers.store');
     Route::get('/reservation-reports', [InventoryController::class, 'reservationReports'])->name('reservation-reports');
     Route::get('/settings', [InventoryController::class, 'settings'])->name('settings');
     Route::post('/profile/update', [InventoryController::class, 'updateProfile'])->name('profile.update');
@@ -206,6 +208,11 @@ Route::middleware(['auth', 'role:owner,admin'])->prefix('owner')->name('owner.')
     Route::post('/profile/update', [OwnerController::class, 'updateProfile'])->name('profile.update');
     Route::delete('/profile/picture', [OwnerController::class, 'removeProfilePicture'])->name('profile.picture.remove');
     Route::post('/password/update', [OwnerController::class, 'updatePassword'])->name('password.update');
+
+    // User management APIs
+    Route::get('/users', [OwnerUsersController::class, 'index'])->name('users.index');
+    Route::post('/users', [OwnerUsersController::class, 'store'])->name('users.store');
+    Route::post('/users/toggle', [OwnerUsersController::class, 'toggle'])->name('users.toggle');
 });
 
 // Analytics routes (for owners and admin) - Future implementation  

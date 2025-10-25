@@ -302,12 +302,19 @@ function applySupplyFilters({ search = '', sort = 'date-desc' } = {}) {
     let rows = Array.isArray(window.__supplyData) ? [...window.__supplyData] : [];
     const q = (search || '').toLowerCase();
     if (q) {
-        rows = rows.filter(r => String(r.date || '').toLowerCase().includes(q) || String(r.supplies || '').toLowerCase().includes(q));
+        rows = rows.filter(r => (
+            String(r.name || '').toLowerCase().includes(q) ||
+            String(r.contact_person || '').toLowerCase().includes(q) ||
+            String(r.brands || '').toLowerCase().includes(q) ||
+            String(r.country || '').toLowerCase().includes(q) ||
+            String(r.email || '').toLowerCase().includes(q) ||
+            String(r.phone || '').toLowerCase().includes(q)
+        ));
     }
-    if (sort === 'date-asc') rows.sort((a,b)=> new Date(a.date) - new Date(b.date));
-    else if (sort === 'date-desc') rows.sort((a,b)=> new Date(b.date) - new Date(a.date));
-    else if (sort === 'id-asc') rows = rows; // placeholder; IDs are mock in renderer
-    else if (sort === 'id-desc') rows = rows; // keep as-is
+    if (sort === 'date-asc') rows.sort((a,b)=> new Date(a.updated_at || a.created_at || 0) - new Date(b.updated_at || b.created_at || 0));
+    else if (sort === 'date-desc') rows.sort((a,b)=> new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0));
+    else if (sort === 'id-asc') rows.sort((a,b)=> Number(a.id||0) - Number(b.id||0));
+    else if (sort === 'id-desc') rows.sort((a,b)=> Number(b.id||0) - Number(a.id||0));
     renderSupplyTable(rows);
 }
 
@@ -909,20 +916,40 @@ function renderSupplyTable(supplyData) {
     const tbody = document.getElementById('supply-logs-tbody');
     if (!tbody) return;
 
-    tbody.innerHTML = supplyData.map((supply, index) => `
-        <tr>
-            <td>SUP-${String(index + 1).padStart(4, '0')}</td>
-            <td>Supplier ${index + 1}</td>
-            <td>Contact ${index + 1}</td>
-            <td>Brand ${index + 1}</td>
-            <td>${supply.supplies}</td>
-            <td>Philippines</td>
-            <td>${formatDate(supply.date)}</td>
-            <td>supplier${index + 1}@email.com</td>
-            <td>+63 900 000 000${index}</td>
-            <td><span class="status-badge status-active">Active</span></td>
-        </tr>
-    `).join('');
+    if (!Array.isArray(supplyData) || supplyData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#6b7280;">No suppliers found.</td></tr>';
+        return;
+    }
+
+    const rows = supplyData.map((s) => {
+        const id = s.id ?? '';
+        const name = s.name ?? '';
+        const contact = s.contact_person ?? '';
+        const brands = Array.isArray(s.brands) ? s.brands.join(', ') : (s.brands ?? '');
+        const stock = Number(s.total_stock ?? 0);
+        const country = s.country ?? 'N/A';
+        const updated = s.updated_at || s.created_at || '';
+        const email = s.email ?? '';
+        const phone = s.phone ?? '';
+        const statusTxt = (s.status || (s.is_active ? 'active' : 'inactive') || 'active').toString().toLowerCase();
+        const badgeClass = statusTxt === 'active' ? 'status-active' : 'status-inactive';
+        return `
+            <tr>
+                <td>${id}</td>
+                <td>${name}</td>
+                <td>${contact}</td>
+                <td>${brands || 'N/A'}</td>
+                <td>${stock}</td>
+                <td>${country}</td>
+                <td>${updated ? formatDate(updated) : ''}</td>
+                <td>${email}</td>
+                <td>${phone}</td>
+                <td><span class="status-badge ${badgeClass}">${statusTxt.charAt(0).toUpperCase() + statusTxt.slice(1)}</span></td>
+            </tr>
+        `;
+    }).join('');
+
+    tbody.innerHTML = rows;
 }
 
 // Inventory Overview: render as horizontal cards and wire modal

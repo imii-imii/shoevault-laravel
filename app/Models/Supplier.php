@@ -16,11 +16,17 @@ class Supplier extends Model
         'phone',
         'address',
         'notes',
-        'is_active'
+        'is_active',
+        'brands',
+        'total_stock',
+        'country',
+        'available_sizes',
+        'status',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'brands' => 'array',
     ];
 
     /**

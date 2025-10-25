@@ -59,7 +59,8 @@
         .status-badge { display:inline-block; padding: 3px 6px; font-size: 10px; border-radius: 10px; color: #0f172a; background: #e2f6e9; }
         .status-badge.status-completed { background:#dcfce7; color:#166534; }
         .status-badge.status-pending { background:#fff7ed; color:#9a3412; }
-        .status-badge.status-active { background:#e0f2fe; color:#075985; }
+    .status-badge.status-active { background:#e0f2fe; color:#075985; }
+    .status-badge.status-inactive { background:#fee2e2; color:#991b1b; }
     /* Sticky section header and filters */
     .content-grid { position: relative; }
     .content-section .section-header { position: sticky; top: 0; z-index: 30; background: #fff; padding-top: 6px; padding-bottom: 6px; }
