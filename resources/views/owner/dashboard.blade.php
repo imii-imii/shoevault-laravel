@@ -47,6 +47,11 @@
         .odash-product-name { font-size:13px; color:#1e3a8a; flex:1; }
         .odash-product-sales { font-size:12px; color:#60a5fa; font-weight:600; }
         .odash-product-rank { display:inline-block; width:20px; height:20px; line-height:20px; text-align:center; background:linear-gradient(135deg, #3b82f6, #2563eb); color:#fff; border-radius:50%; font-size:10px; font-weight:700; margin-right:8px; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3); }
+    /* Compact, trendy forecast controls */
+    .odash-btn { width:28px; height:28px; border-radius:9999px; border:1px solid #e5e7eb; background:#ffffff; color:#1e3a8a; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .2s ease; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+    .odash-btn:hover { background:linear-gradient(135deg,#eef2ff,#dbeafe); color:#0f172a; border-color:#bfdbfe; box-shadow:0 2px 6px rgba(59,130,246,.15); transform: translateY(-1px); }
+    .odash-btn:disabled { opacity:.45; cursor:not-allowed; transform:none; box-shadow:none; }
+    #odash-forecast-window { padding:6px 10px; border-radius:9999px; background:#eff6ff; color:#1e3a8a; border:1px solid #dbeafe; min-width:130px; font-size:12px; }
         
         @media (max-width: 1024px) {
             .odash-row-forecast { grid-template-columns: 1fr; }
@@ -203,6 +208,11 @@
                                         <option value="weekly">Weekly</option>
                                         <option value="monthly">Monthly</option>
                                     </select>
+                                </div>
+                                <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                                    <button id="odash-forecast-prev" class="odash-btn" title="Previous" aria-label="Previous"><i class="fas fa-chevron-left"></i></button>
+                                    <span id="odash-forecast-window" style="text-align:center; font-weight:600; color:#1e3a8a;"></span>
+                                    <button id="odash-forecast-next" class="odash-btn" title="Next" aria-label="Next"><i class="fas fa-chevron-right"></i></button>
                                 </div>
                             </div>
                         </div>
@@ -366,54 +376,58 @@ function initOwnerForecastCharts() {
     const rangeSelect = document.getElementById('odash-forecast-range');
     const typeSelect = document.getElementById('odash-forecast-type');
     const legendBox = document.getElementById('odash-forecast-legend');
+    const prevBtn = document.getElementById('odash-forecast-prev');
+    const nextBtn = document.getElementById('odash-forecast-next');
+    const windowText = document.getElementById('odash-forecast-window');
     let forecastChart;
     let currentMode = (typeSelect && typeSelect.value) ? typeSelect.value : 'sales';
+    let offset = 0; // 0 = current window, -1 = previous, +1 = next
 
-    function getForecastData(range, mode) {
+    function getForecastData(range, mode, offset = 0) {
         if (mode === 'demand') {
             if (range === 'weekly') {
                 return {
-                    labels: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
-                    menValues:   [50, 62, 70, 58, 78, 95, 88],
-                    womenValues: [44, 48, 52, 47, 60, 75, 68],
-                    accValues:   [20, 25, 28, 24, 30, 35, 32]
+                        labels: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+                        menValues:   [50, 62, 70, 58, 78, 95, 88].map(v => Math.max(5, Math.round(v * (1 + 0.05*offset)))),
+                        womenValues: [44, 48, 52, 47, 60, 75, 68].map(v => Math.max(4, Math.round(v * (1 + 0.05*offset)))),
+                        accValues:   [20, 25, 28, 24, 30, 35, 32].map(v => Math.max(2, Math.round(v * (1 + 0.05*offset))))
                 };
             } else if (range === 'monthly') {
                 const labels = Array.from({length: 30}, (_, i) => `${i+1}`);
                 return {
                     labels,
-                    menValues:   [20,24,22,28,35,30,32,40,44,38,34,42,48,46,52,49,56,52,58,60,57,62,60,64,66,64,70,75,72,78],
-                    womenValues: [18,20,19,23,27,24,26,30,34,31,29,33,36,36,40,38,42,40,44,45,44,48,45,48,50,50,52,55,53,55],
-                    accValues:   [8,  9, 10, 11, 12, 11, 12, 14, 15, 14, 13, 14, 16, 16, 18, 17, 18, 18, 19, 20, 19, 21, 20, 21, 22, 22, 23, 24, 23, 24]
+                        menValues:   [20,24,22,28,35,30,32,40,44,38,34,42,48,46,52,49,56,52,58,60,57,62,60,64,66,64,70,75,72,78].map(v => Math.max(5, Math.round(v * (1 + 0.04*offset)))),
+                        womenValues: [18,20,19,23,27,24,26,30,34,31,29,33,36,36,40,38,42,40,44,45,44,48,45,48,50,50,52,55,53,55].map(v => Math.max(4, Math.round(v * (1 + 0.04*offset)))),
+                        accValues:   [8,  9, 10, 11, 12, 11, 12, 14, 15, 14, 13, 14, 16, 16, 18, 17, 18, 18, 19, 20, 19, 21, 20, 21, 22, 22, 23, 24, 23, 24].map(v => Math.max(1, Math.round(v * (1 + 0.04*offset))))
                 };
             }
             // default day (hourly)
             return {
                 labels: ['9 AM','10 AM','11 AM','12 PM','1 PM','2 PM','3 PM','4 PM','5 PM','6 PM','7 PM','8 PM'],
-                menValues:   [6, 9, 11, 13, 18, 14, 12, 11, 15, 20, 14, 10],
-                womenValues: [5, 7,  9, 11, 16, 12, 10,  9, 12, 16, 11,  8],
-                accValues:   [2, 3,  4,  5,  6,  5,  5,  4,  6,  7,  5,  4]
+                    menValues:   [6, 9, 11, 13, 18, 14, 12, 11, 15, 20, 14, 10].map(v => Math.max(2, Math.round(v * (1 + 0.06*offset)))),
+                    womenValues: [5, 7,  9, 11, 16, 12, 10,  9, 12, 16, 11,  8].map(v => Math.max(2, Math.round(v * (1 + 0.06*offset)))),
+                    accValues:   [2, 3,  4,  5,  6,  5,  5,  4,  6,  7,  5,  4].map(v => Math.max(1, Math.round(v * (1 + 0.06*offset))))
             };
         }
         // sales mode
         if (range === 'weekly') {
             return {
                 labels: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
-                posValues: [80, 95, 110, 90, 120, 150, 130],
-                resvValues: [40, 55, 60, 50, 70, 90, 80]
+                    posValues: [80, 95, 110, 90, 120, 150, 130].map(v => Math.max(10, Math.round(v * (1 + 0.05*offset)))),
+                    resvValues: [40, 55, 60, 50, 70, 90, 80].map(v => Math.max(8, Math.round(v * (1 + 0.05*offset))))
             };
         } else if (range === 'monthly') {
             // 30 days mock
             const labels = Array.from({length: 30}, (_, i) => `${i+1}`);
-            const posValues = [40,48,42,52,62,50,58,72,78,68,62,75,85,80,90,88,98,95,100,105,102,110,108,115,118,115,125,130,128,135];
-            const resvValues = [20,24,23,28,33,28,30,38,42,37,36,40,45,45,50,47,52,50,55,57,56,60,57,60,62,63,65,70,67,70];
+                const posValues = [40,48,42,52,62,50,58,72,78,68,62,75,85,80,90,88,98,95,100,105,102,110,108,115,118,115,125,130,128,135].map(v => Math.max(10, Math.round(v * (1 + 0.04*offset))));
+                const resvValues = [20,24,23,28,33,28,30,38,42,37,36,40,45,45,50,47,52,50,55,57,56,60,57,60,62,63,65,70,67,70].map(v => Math.max(6, Math.round(v * (1 + 0.04*offset))));
             return { labels, posValues, resvValues };
         }
         // default day (hourly)
         return {
             labels: ['9 AM','10 AM','11 AM','12 PM','1 PM','2 PM','3 PM','4 PM','5 PM','6 PM','7 PM','8 PM'],
-            posValues: [8, 12, 16, 20, 32, 23, 21, 18, 26, 36, 25, 16],
-            resvValues: [4, 6, 8, 10, 16, 12, 11, 10, 14, 19, 13, 9]
+                posValues: [8, 12, 16, 20, 32, 23, 21, 18, 26, 36, 25, 16].map(v => Math.max(3, Math.round(v * (1 + 0.06*offset)))),
+                resvValues: [4, 6, 8, 10, 16, 12, 11, 10, 14, 19, 13, 9].map(v => Math.max(2, Math.round(v * (1 + 0.06*offset))))
         };
     }
 
@@ -461,8 +475,55 @@ function initOwnerForecastCharts() {
         }
     }
 
+    function formatDateMDY(d) {
+        return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+    }
+
+    function getWindowRange(range, offset) {
+        const base = new Date();
+        let start, end;
+        if (range === 'monthly') {
+            const m = base.getMonth() + offset;
+            const y = base.getFullYear();
+            const dt = new Date(y, base.getMonth(), 1);
+            dt.setMonth(dt.getMonth() + offset);
+            start = new Date(dt.getFullYear(), dt.getMonth(), 1);
+            end = new Date(dt.getFullYear(), dt.getMonth() + 1, 0);
+            if (offset === 0) return 'This Month';
+            if (offset === 1) return 'Next Month';
+            return `${start.toLocaleString('en-US', { month: 'long', year: 'numeric' })}`;
+        } else if (range === 'weekly') {
+            const dt = new Date(base);
+            dt.setDate(dt.getDate() + offset * 7);
+            // get Sunday as start of week
+            const day = dt.getDay();
+            start = new Date(dt);
+            start.setDate(dt.getDate() - day);
+            end = new Date(start);
+            end.setDate(start.getDate() + 6);
+            if (offset === 0) return 'This Week';
+            if (offset === 1) return 'Next Week';
+            return `${formatDateMDY(start)} – ${formatDateMDY(end)}`;
+        }
+        // day
+        const d = new Date(base);
+        d.setDate(d.getDate() + offset);
+        if (offset === 0) return 'Today';
+        if (offset === 1) return 'Tomorrow';
+        return `${formatDateMDY(d)}`;
+    }
+
+    function updateWindowText(range, offset) {
+        if (!windowText) return;
+        windowText.textContent = getWindowRange(range, offset);
+    }
+
+    function updateNavButtons(range, offset) {
+        if (nextBtn) nextBtn.disabled = offset >= 1; // limit to just 1 window into the future
+    }
+
     function updateForecast(range, mode) {
-        const data = getForecastData(range, mode);
+        const data = getForecastData(range, mode, offset);
         const labels = data.labels;
         
         // Destroy chart if switching modes to change dataset structure
@@ -530,7 +591,7 @@ function initOwnerForecastCharts() {
         }
 
         // sales mode
-        const { posValues, resvValues } = data;
+    const { posValues, resvValues } = data;
         const posPeaks = getTopIndices(posValues, 2);
         const resvPeaks = getTopIndices(resvValues, 2);
         const posPointRadius = posValues.map((_, i) => posPeaks.includes(i) ? 6 : 3);
@@ -650,17 +711,47 @@ function initOwnerForecastCharts() {
     const initialRange = rangeSelect && rangeSelect.value ? rangeSelect.value : 'day';
     setLegend(currentMode);
     updateForecast(initialRange, currentMode);
+    updateWindowText(initialRange, offset);
+    updateNavButtons(initialRange, offset);
 
     // Handle range changes
     if (rangeSelect) {
-        rangeSelect.addEventListener('change', () => updateForecast(rangeSelect.value, currentMode));
+        rangeSelect.addEventListener('change', () => {
+            offset = 0; // reset window when range changes
+            updateForecast(rangeSelect.value, currentMode);
+            updateWindowText(rangeSelect.value, offset);
+            updateNavButtons(rangeSelect.value, offset);
+        });
     }
     if (typeSelect) {
         typeSelect.addEventListener('change', () => {
             // Do NOT update currentMode here. Let updateForecast decide destruction based on previous mode.
             const newMode = typeSelect.value;
             setLegend(newMode);
+            offset = 0; // reset window when type changes
             updateForecast(rangeSelect ? rangeSelect.value : 'day', newMode);
+            updateWindowText(rangeSelect ? rangeSelect.value : 'day', offset);
+            updateNavButtons(rangeSelect ? rangeSelect.value : 'day', offset);
+        });
+    }
+
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            offset -= 1;
+            const r = rangeSelect ? rangeSelect.value : 'day';
+            updateForecast(r, currentMode);
+            updateWindowText(r, offset);
+            updateNavButtons(r, offset);
+        });
+    }
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            if (offset >= 1) return; // guard: only allow up to +1 into the future
+            offset += 1;
+            const r = rangeSelect ? rangeSelect.value : 'day';
+            updateForecast(r, currentMode);
+            updateWindowText(r, offset);
+            updateNavButtons(r, offset);
         });
     }
 
