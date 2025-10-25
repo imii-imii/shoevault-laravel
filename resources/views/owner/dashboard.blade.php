@@ -52,6 +52,17 @@
     .odash-btn:hover { background:linear-gradient(135deg,#eef2ff,#dbeafe); color:#0f172a; border-color:#bfdbfe; box-shadow:0 2px 6px rgba(59,130,246,.15); transform: translateY(-1px); }
     .odash-btn:disabled { opacity:.45; cursor:not-allowed; transform:none; box-shadow:none; }
     #odash-forecast-window { padding:6px 10px; border-radius:9999px; background:#eff6ff; color:#1e3a8a; border:1px solid #dbeafe; min-width:130px; font-size:12px; }
+
+        /* Futuristic gauge styles (refined for semicircular segmented look) */
+        .f-gauge { position: relative; display:flex; align-items:center; justify-content:center; }
+        .f-gauge svg { overflow: visible; }
+        .f-gauge .g-glow { filter: drop-shadow(0 8px 18px rgba(14, 165, 233, 0.08)); }
+        .f-gauge .g-segment { transition: stroke-opacity .25s ease, transform .3s ease; }
+        .f-gauge .g-center { transition: transform .25s ease; }
+
+    /* Opening animations for cards */
+        .reveal { opacity: 0; transform: translateY(12px) scale(.98); }
+        .reveal.in { opacity: 1; transform: translateY(0) scale(1); transition: opacity .6s ease, transform .6s cubic-bezier(.2,.7,.2,1); }
         
         @media (max-width: 1024px) {
             .odash-row-forecast { grid-template-columns: 1fr; }
@@ -221,18 +232,18 @@
                         </div>
                     </div>
 
-                    <!-- Reservation Gauge (Mock) -->
+                    <!-- Reservation Gauge (Futuristic) -->
                     <div class="odash-card">
                         <div class="odash-card-header">
                             <div class="odash-title">Reservations Status</div>
                         </div>
                         <div class="odash-gauge-shell" style="position:relative;">
-                            <canvas id="odash-resv-gauge" style="max-width:220px; width:100%; height:auto;"></canvas>
-                            <div id="odash-gauge-center" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); text-align:center; pointer-events:none; margin-top:-20px;">
+                            <div id="odash-resv-gauge" class="f-gauge" style="width:260px; height:180px;"></div>
+                            <div id="odash-gauge-center" style="position:absolute; top:40%; left:50%; transform:translate(-50%, -50%); text-align:center; pointer-events:none; margin-top:-20px;">
                                 <div style="color:#64748b; font-size:13px; font-weight:500; margin-bottom:4px;">Total</div>
                                 <div style="color:#1e3a8a; font-size:28px; font-weight:700; line-height:1;" id="odash-resv-total">50</div>
                             </div>
-                            <div class="odash-gauge-legend" style="margin-top:16px; justify-content:center; flex-wrap:wrap;">
+                            <div class="odash-gauge-legend" style="margin-top:5px; justify-content:center; flex-wrap:wrap;">
                                 <div style="text-align:center; margin:0 8px;">
                                     <div style="display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
                                         <span class="dot" style="background:#10b981"></span><span style="font-size:12px;">Completed</span>
@@ -355,6 +366,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initOwnerForecastCharts();
     initPopularProducts();
     initStockLevels();
+    initOpeningAnimations();
 });
 
 function updateDateTime() {
@@ -755,56 +767,156 @@ function initOwnerForecastCharts() {
         });
     }
 
-    // Reservation gauge (live values)
-    const resvCanvas = document.getElementById('odash-resv-gauge');
-    if (resvCanvas) {
-        const ctx2 = resvCanvas.getContext('2d');
+    // Reservation gauge (live values) - Futuristic SVG
+    const resvContainer = document.getElementById('odash-resv-gauge');
+    if (resvContainer) {
         const dd = (window.laravelData && window.laravelData.dashboardData) ? window.laravelData.dashboardData : {};
         const completed = Number(dd.completedReservations || 0);
         const cancelled = Number(dd.cancelledReservations || 0);
-        const pending = Number(dd.activeReservations || 0); // active pending
-        const total = completed + cancelled + pending;
-        const safePct = (n, d) => (d > 0 ? Math.round((n / d) * 100) : 0);
-        const completedPct = safePct(completed, total);
-        const cancelledPct = safePct(cancelled, total);
-        const pendingPct = safePct(pending, total);
-        
-        // Update center text and percentages
+        const pending = Number(dd.activeReservations || 0);
+        const total = Math.max(0, completed + cancelled + pending);
+        const pct = (n, d) => (d > 0 ? Math.round((n / d) * 100) : 0);
         document.getElementById('odash-resv-total').textContent = total;
-        document.getElementById('odash-resv-completed-pct').textContent = completedPct + '%';
-        document.getElementById('odash-resv-cancelled-pct').textContent = cancelledPct + '%';
-        document.getElementById('odash-resv-pending-pct').textContent = pendingPct + '%';
-        
-        new Chart(ctx2, {
-            type: 'doughnut',
-            data: {
-                labels: ['Completed', 'Cancelled', 'Pending'],
-                datasets: [{
-                    data: [completed, cancelled, pending],
-                    backgroundColor: ['#10b981', '#ef4444', '#f59e0b'],
-                    borderWidth: 0,
-                    borderRadius: 0
-                }]
-            },
-            options: {
-                maintainAspectRatio: false,
-                cutout: '75%',
-                rotation: -90,
-                circumference: 180,
-                plugins: { 
-                    legend: { display: false },
-                    tooltip: { 
-                        enabled: true,
-                        backgroundColor: '#1e3a8a',
-                        titleColor: '#fff',
-                        bodyColor: '#bfdbfe',
-                        borderColor: '#3b82f6',
-                        borderWidth: 1
-                    }
-                }
-            }
-        });
+        document.getElementById('odash-resv-completed-pct').textContent = pct(completed, total) + '%';
+        document.getElementById('odash-resv-cancelled-pct').textContent = pct(cancelled, total) + '%';
+        document.getElementById('odash-resv-pending-pct').textContent = pct(pending, total) + '%';
+
+        renderNeonGauge(resvContainer, { completed, cancelled, pending, total });
     }
+}
+
+// ===== Futuristic Neon Gauge (SVG) =====
+function renderNeonGauge(container, { completed, cancelled, pending, total }) {
+    // Clear
+    container.innerHTML = '';
+    const width = Math.max(container.clientWidth || 220, 220);
+    const height = Math.max(container.clientHeight || 150, 150);
+    const vbw = 520, vbh = 300; // wider viewbox to make the semicircle feel more open
+    const cx = vbw/2, cy = vbh/2 + 10; // center
+    const r = 140; // larger radius for a bigger diameter
+    const stroke = 26; // thicker stroke for a bolder ring
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', `0 0 ${vbw} ${vbh}`);
+    svg.setAttribute('width', width);
+    svg.setAttribute('height', height);
+
+    // defs: gradients & glow
+    const defs = document.createElementNS(svg.namespaceURI, 'defs');
+    defs.innerHTML = `
+        <linearGradient id="gradCompleted" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#10b981"/>
+            <stop offset="100%" stop-color="#34d399"/>
+        </linearGradient>
+        <linearGradient id="gradCancelled" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#ef4444"/>
+            <stop offset="100%" stop-color="#f97316"/>
+        </linearGradient>
+        <linearGradient id="gradPending" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#f59e0b"/>
+            <stop offset="100%" stop-color="#fbbf24"/>
+        </linearGradient>
+        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+            <feMerge>
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+        </filter>`;
+    svg.appendChild(defs);
+
+    // We'll group the visual elements so we can rotate the whole semicircle by 90deg
+    const g = document.createElementNS(svg.namespaceURI, 'g');
+    // rotate by 90 degrees around center to shift start point
+    g.setAttribute('transform', `rotate(90 ${cx} ${cy})`);
+
+    // Background faint track (full semicircle)
+    const track = pathArc(cx, cy, r, -180, 0);
+    track.setAttribute('stroke', '#eef2f7');
+    track.setAttribute('stroke-width', String(stroke));
+    track.setAttribute('fill', 'none');
+    track.setAttribute('stroke-linecap', 'round');
+    track.setAttribute('opacity', '.95');
+    track.classList.add('g-glow');
+    g.appendChild(track);
+
+    // Segmented arcs with tiny gaps
+    const segments = [];
+    const values = [completed, cancelled, pending];
+    const colors = ['url(#gradCompleted)', 'url(#gradCancelled)', 'url(#gradPending)'];
+    const totalSafe = total > 0 ? total : 1;
+    const gapDeg = 4; // small gap between segments
+    const usableArc = 180 - gapDeg * (values.length - 1);
+    const rawSpans = values.map(v => (v / totalSafe) * usableArc);
+    let startAng = -180;
+    for (let i = 0; i < values.length; i++) {
+        const span = rawSpans[i];
+        const seg = pathArc(cx, cy, r, startAng, startAng + span);
+        seg.setAttribute('stroke', colors[i]);
+        seg.setAttribute('stroke-width', String(stroke));
+        seg.setAttribute('stroke-linecap', 'round');
+        seg.setAttribute('fill', 'none');
+        seg.setAttribute('opacity', '0.98');
+        seg.classList.add('g-segment');
+        g.appendChild(seg);
+        segments.push(seg);
+        startAng += span + gapDeg;
+    }
+
+    svg.appendChild(g);
+    container.appendChild(svg);
+
+    // Reveal animation: stroke-dash technique per segment
+    const duration = 850;
+    segments.forEach((seg, idx) => {
+        const len = seg.getTotalLength();
+        seg.style.strokeDasharray = `${len}`;
+        seg.style.strokeDashoffset = `${len}`;
+        const delay = 90 * idx;
+        const start = performance.now() + delay;
+        const tick = (now) => {
+            const t = Math.max(0, Math.min(1, (now - start) / duration));
+            const eased = 1 - Math.pow(1 - t, 3);
+            seg.style.strokeDashoffset = `${Math.round((1 - eased) * len)}`;
+            if (t < 1) requestAnimationFrame(tick);
+            else seg.style.strokeDashoffset = '0';
+        };
+        requestAnimationFrame(tick);
+    });
+}
+
+// Helpers for SVG arc
+function pathArc(cx, cy, r, startAngle, endAngle) {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', describeArc(cx, cy, r, startAngle, endAngle));
+    return path;
+}
+function describeArc(cx, cy, r, startAngle, endAngle) {
+    const start = polarToCartesian(cx, cy, r, endAngle);
+    const end = polarToCartesian(cx, cy, r, startAngle);
+    const largeArcFlag = endAngle - startAngle <= 180 ? 0 : 1;
+    return [
+        'M', start.x, start.y,
+        'A', r, r, 0, largeArcFlag, 0, end.x, end.y
+    ].join(' ');
+}
+function polarToCartesian(cx, cy, r, angleInDegrees) {
+    const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
+    return {
+        x: cx + (r * Math.cos(angleInRadians)),
+        y: cy + (r * Math.sin(angleInRadians))
+    };
+}
+
+// ===== Opening animations for dashboard cards =====
+function initOpeningAnimations() {
+    const cards = document.querySelectorAll('#inventory-dashboard .odash-card');
+    cards.forEach((card, i) => {
+        card.classList.add('reveal');
+        const delay = 80 * i; // ms
+        setTimeout(() => {
+            card.classList.add('in');
+        }, delay);
+    });
 }
 
 // Utilities

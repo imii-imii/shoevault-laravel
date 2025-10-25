@@ -917,11 +917,11 @@
         });
 
         // ==== Reservation Reports logic (ported) ====
-        function updateReservationStatus(reservationId, status) {
+        function updateReservationStatus(reservationId, status, options = { reload: true }) {
             const allowed = ['pending','completed','cancelled'];
-            if (!allowed.includes(status)) { alert('Invalid status'); return; }
-            if (status !== 'completed' && !confirm(`Are you sure you want to change the status to ${status}?`)) return;
-            fetch(`{{ route('pos.reservations.update-status', ['id' => 'RES_ID']) }}`.replace('RES_ID', reservationId), {
+            if (!allowed.includes(status)) { alert('Invalid status'); return Promise.reject(new Error('Invalid status')); }
+            if (status !== 'completed' && !confirm(`Are you sure you want to change the status to ${status}?`)) return Promise.resolve({ cancelled: true });
+            return fetch(`{{ route('pos.reservations.update-status', ['id' => 'RES_ID']) }}`.replace('RES_ID', reservationId), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -949,10 +949,15 @@
                 }
                 renderReservationModalActions(reservationId, status);
                 showNotification('Reservation status updated', 'success');
+                if (options && options.reload !== false) {
+                    setTimeout(() => { try { location.reload(); } catch(_) {} }, 500);
+                }
+                return data;
             })
             .catch(err => {
                 console.error(err);
                 showNotification('Failed to update reservation status', 'error');
+                throw err;
             });
         }
 
@@ -1143,7 +1148,7 @@
             const paid = parseFloat(paidRaw || '0');
             if (!(paid >= txContext.total)) return;
 
-            try { await updateReservationStatus(txContext.reservationId, 'completed'); } catch (e) {}
+            try { await updateReservationStatus(txContext.reservationId, 'completed', { reload: false }); } catch (e) {}
 
             const receiptWin = window.open('', '_blank', 'width=480,height=640');
             const now = new Date();
@@ -1192,6 +1197,8 @@
             `);
             receiptWin.document.close();
             closeTransactionModal();
+            // Auto-refresh to remove the completed reservation from the list
+            setTimeout(() => { try { location.reload(); } catch(_) {} }, 600);
         });
 
         function closeReservationModal() {
