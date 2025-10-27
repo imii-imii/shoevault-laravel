@@ -6,9 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Carbon\Carbon;
 
-class Sale extends Model
+class Transaction extends Model
 {
     use HasFactory;
+
+    protected $table = 'transactions';
+    protected $primaryKey = 'transaction_id';
+    public $incrementing = false;
+    protected $keyType = 'string';
 
     protected $fillable = [
         'transaction_id',
@@ -33,7 +38,7 @@ class Sale extends Model
     ];
 
     /**
-     * Get the cashier who made this sale
+     * Get the cashier who made this transaction
      */
     public function cashier()
     {
@@ -41,7 +46,7 @@ class Sale extends Model
     }
 
     /**
-     * Get the reservation associated with this sale
+     * Get the reservation associated with this transaction
      */
     public function reservation()
     {
@@ -49,11 +54,11 @@ class Sale extends Model
     }
 
     /**
-     * Get the sale items for this sale
+     * Get the transaction items for this transaction
      */
     public function items()
     {
-        return $this->hasMany(SaleItem::class);
+        return $this->hasMany(TransactionItem::class, 'transaction_id', 'transaction_id');
     }
 
     /**
@@ -90,7 +95,7 @@ class Sale extends Model
     }
 
     /**
-     * Status is always 'completed' for sales (refunds would be separate records)
+     * Status is always 'completed' for transactions (refunds would be separate records)
      */
     public function getStatusAttribute()
     {

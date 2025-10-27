@@ -355,14 +355,27 @@ document.addEventListener('DOMContentLoaded', function() {
         const key = `${data.id}__${data.sizeId}__${data.color}`;
         let existing = cart.find(i => i.key === key);
         
+        // Maximum total items in cart limit
+        const MAX_CART_TOTAL = 5;
+        const currentTotal = cart.reduce((sum, item) => sum + item.qty, 0);
+        
         if (existing) {
-            if (existing.qty < data.maxStock) {
+            if (currentTotal < MAX_CART_TOTAL && existing.qty < data.maxStock) {
                 existing.qty += 1;
             } else {
-                alert(`Only ${data.maxStock} items available in stock`);
+                if (currentTotal >= MAX_CART_TOTAL) {
+                    alert(`Maximum ${MAX_CART_TOTAL} items allowed in cart total`);
+                } else {
+                    alert(`Only ${data.maxStock} items available in stock`);
+                }
                 return;
             }
         } else {
+            if (currentTotal >= MAX_CART_TOTAL) {
+                alert(`Maximum ${MAX_CART_TOTAL} items allowed in cart total`);
+                return;
+            }
+            
             cart.push({
                 key,
                 id: data.id,
@@ -411,6 +424,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 ? item.priceNumber
                 : parseCurrencyToNumber(item.price);
             total += priceNum * (item.qty || 0);
+            
+            // Calculate current cart total and check if + button should be disabled
+            const MAX_CART_TOTAL = 5;
+            const currentCartTotal = cart.reduce((sum, cartItem) => sum + cartItem.qty, 0);
+            const canAddMore = currentCartTotal < MAX_CART_TOTAL && item.qty < item.maxStock;
+            
             const div = document.createElement('div');
             div.className = 'cart-item trendy';
             div.innerHTML = `
@@ -425,7 +444,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="cart-item-qty">
                                 <button class="qty-btn ${item.qty <= 1 ? 'disabled' : ''}" data-key="${item.key}" data-delta="-1">−</button>
                                 <span class="qty-val">${item.qty}</span>
-                                <button class="qty-btn ${item.qty >= item.maxStock ? 'disabled' : ''}" data-key="${item.key}" data-delta="1">+</button>
+                                <button class="qty-btn ${!canAddMore ? 'disabled' : ''}" data-key="${item.key}" data-delta="1">+</button>
                             </div>
                             <button class="cart-remove-btn" data-remove="${item.key}" title="Remove"><i class="fas fa-trash"></i></button>
                         </div>
@@ -470,8 +489,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!item) return;
                 
                 const newQty = item.qty + delta;
+                const MAX_CART_TOTAL = 5; // Maximum total items in cart
+                const currentTotal = cart.reduce((sum, cartItem) => sum + cartItem.qty, 0);
+                const newTotal = currentTotal + delta;
+                
                 if (newQty <= 0) {
                     cart = cart.filter(i => i.key !== key);
+                } else if (delta > 0 && newTotal > MAX_CART_TOTAL) {
+                    alert(`Maximum ${MAX_CART_TOTAL} items allowed in cart total`);
+                    return;
                 } else if (newQty <= item.maxStock) {
                     item.qty = newQty;
                 } else {

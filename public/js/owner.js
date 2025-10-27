@@ -193,26 +193,35 @@ document.addEventListener('DOMContentLoaded', function() {
 // --- Data Loading Functions ---
 async function loadSalesHistory(period = 'weekly') {
     try {
+        console.log(`Loading sales history for period: ${period}`);
         const response = await fetch(`${laravelRoutes.salesHistory}?period=${period}`);
         const data = await response.json();
+        
+        console.log('Sales history response:', data);
         
         if (response.ok) {
             // Cache transactions for client-side filtering on reports page
             window.__salesTransactions = Array.isArray(data.transactions) ? data.transactions : [];
+            console.log('Cached transactions:', window.__salesTransactions.length);
+            
             updateSalesKPIs(data);
             renderSalesChart(data.salesData, period);
             renderTopSellingProducts(data.topProducts);
             // Prefer transactional rows if provided; fallback to aggregated structure
             if (Array.isArray(data.transactions)) {
+                console.log('Rendering sales table with', data.transactions.length, 'transactions');
                 renderSalesTable(data.transactions);
             } else {
+                console.log('No transactions array found, rendering empty table');
                 renderSalesTable([]);
             }
         } else {
             console.error('Failed to load sales history:', data.message);
+            renderSalesTable([]);
         }
     } catch (error) {
         console.error('Error loading sales history:', error);
+        renderSalesTable([]);
     }
 }
 
@@ -779,6 +788,8 @@ function renderSalesTable(transactions) {
     const tbody = document.getElementById('sales-history-tbody');
     if (!tbody) return;
 
+    console.log('Rendering sales table with transactions:', transactions); // Debug log
+
     const fmt = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 2 });
     const money = (v) => {
         const n = Number(v ?? 0);
@@ -798,7 +809,8 @@ function renderSalesTable(transactions) {
     }
 
     tbody.innerHTML = transactions.map((t) => {
-        const products = t.products || '';
+        const products = t.products || 'No items found';
+        console.log(`Transaction ${t.transaction_id} products:`, products); // Debug log
         const cashier = t.cashier_name || '—';
         const stype = (t.sale_type || '').toString().toUpperCase();
         // Extract subtotal from common server field names, fallback to a best-effort computation
@@ -819,7 +831,7 @@ function renderSalesTable(transactions) {
             <td>${t.transaction_id || ''}</td>
             <td>${stype}</td>
             <td>${cashier}</td>
-            <td>${products}</td>
+            <td style="max-width: 200px; word-wrap: break-word;">${products}</td>
             <td>${money(subtotalVal)}</td>
             <td>${money(t.discount_amount)}</td>
             <td>${money(t.total_amount)}</td>

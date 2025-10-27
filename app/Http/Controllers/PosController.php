@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Models\Product;
 use App\Models\ProductSize;
-use App\Models\Sale;
-use App\Models\SaleItem;
+use App\Models\Transaction;
+use App\Models\TransactionItem;
 use App\Models\Reservation;
 use Carbon\Carbon;
 
@@ -377,9 +377,9 @@ class PosController extends Controller
                 throw new \Exception('Insufficient payment amount');
             }
             
-            // Create sale record with simplified structure
-            $sale = Sale::create([
-                'transaction_id' => Sale::generateTransactionId(),
+            // Create transaction record with simplified structure
+            $transaction = Transaction::create([
+                'transaction_id' => Transaction::generateTransactionId(),
                 'sale_type' => 'pos',
                 'reservation_id' => null,
                 'cashier_id' => Auth::id(),
@@ -388,14 +388,13 @@ class PosController extends Controller
                 'total_amount' => $validated['total'],
                 'amount_paid' => $validated['amount_paid'],
                 'change_given' => $change,
-                'sale_date' => now(),
-                'notes' => $request->notes ?? null
+                'sale_date' => now()
             ]);
 
-            // Create individual sale items
+            // Create individual transaction items
             foreach ($saleItems as $item) {
-                SaleItem::create([
-                    'sale_id' => $sale->id,
+                TransactionItem::create([
+                    'transaction_id' => $transaction->transaction_id,
                     'product_id' => $item['product_id'],
                     'size_id' => $item['size_id'],
                     'product_name' => $item['product_name'],
@@ -422,24 +421,24 @@ class PosController extends Controller
             
             DB::commit();
             
-            Log::info('POS Sale processed successfully', [
-                'transaction_id' => $sale->transaction_id,
-                'total_amount' => $sale->total_amount,
-                'items_count' => $sale->total_items,
-                'total_quantity' => $sale->total_quantity,
+            Log::info('POS Transaction processed successfully', [
+                'transaction_id' => $transaction->transaction_id,
+                'total_amount' => $transaction->total_amount,
+                'items_count' => $transaction->total_items,
+                'total_quantity' => $transaction->total_quantity,
                 'cashier_id' => Auth::id()
             ]);
             
             return response()->json([
                 'success' => true,
-                'message' => 'Sale processed successfully',
-                'transaction_id' => $sale->transaction_id,
+                'message' => 'Transaction processed successfully',
+                'transaction_id' => $transaction->transaction_id,
                 'change' => $change
             ]);
             
         } catch (\Exception $e) {
             DB::rollback();
-            Log::error('POS Sale processing failed: ' . $e->getMessage());
+            Log::error('POS Transaction processing failed: ' . $e->getMessage());
             
             return response()->json([
                 'success' => false,

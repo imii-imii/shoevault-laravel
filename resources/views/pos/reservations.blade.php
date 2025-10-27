@@ -1223,53 +1223,66 @@
                 button.disabled = true;
                 button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
                 
-                // Here you would typically make an AJAX call to your Laravel backend
-                // For now, we'll simulate the process
-                setTimeout(() => {
-                    // Find the status badge in the same row
-                    const row = button.closest('tr');
-                    const statusBadge = row.querySelector('.status-badge');
-                    
-                    // Update status to completed
-                    statusBadge.className = 'status-badge status-completed';
-                    statusBadge.textContent = 'Completed';
-                    
-                    // Replace button with completed indicator
-                    button.outerHTML = '<span class="completed-indicator" title="Completed"><i class="fas fa-check-circle" style="color: #10b981; font-size: 1.2rem;"></i></span>';
-                    
-                    // Show success message
-                    showNotification('Reservation ' + reservationId + ' marked as complete!', 'success');
-                }, 1000);
+                console.log('Attempting to complete reservation:', reservationId);
                 
-                // In a real application, you would make an AJAX call like this:
-                /*
-                fetch('/pos/reservations/' + reservationId + '/complete', {
+                // Make AJAX call to update reservation status
+                fetch('/pos/reservations/' + reservationId + '/status', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                     },
                     body: JSON.stringify({
-                        reservation_id: reservationId
+                        status: 'completed'
                     })
                 })
-                .then(response => response.json())
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    console.log('Response headers:', response.headers);
+                    return response.text().then(text => {
+                        console.log('Raw response:', text);
+                        try {
+                            return JSON.parse(text);
+                        } catch (e) {
+                            console.error('Failed to parse JSON:', e);
+                            throw new Error('Invalid JSON response: ' + text);
+                        }
+                    });
+                })
                 .then(data => {
+                    console.log('Parsed response data:', data);
                     if (data.success) {
-                        // Update UI as above
+                        // Find the status badge in the same row
+                        const row = button.closest('tr');
+                        const statusBadge = row.querySelector('.status-badge');
+                        
+                        // Update status to completed
+                        statusBadge.className = 'status-badge status-completed';
+                        statusBadge.textContent = 'Completed';
+                        
+                        // Replace button with completed indicator
+                        button.outerHTML = '<span class="completed-indicator" title="Completed"><i class="fas fa-check-circle" style="color: #10b981; font-size: 1.2rem;"></i></span>';
+                        
+                        // Show success message
+                        showNotification('Reservation ' + reservationId + ' marked as complete!', 'success');
+                        
+                        // Remove auto-refresh to see any errors - commented out for debugging
+                        // setTimeout(() => {
+                        //     location.reload();
+                        // }, 2000);
                     } else {
-                        alert('Error: ' + data.message);
+                        console.error('Server returned error:', data);
+                        alert('Error: ' + (data.message || 'Unknown error'));
                         button.disabled = false;
                         button.innerHTML = '<i class="fas fa-check"></i>';
                     }
                 })
                 .catch(error => {
-                    console.error('Error:', error);
-                    alert('An error occurred while updating the reservation.');
+                    console.error('Complete error details:', error);
+                    alert('An error occurred while updating the reservation: ' + error.message);
                     button.disabled = false;
                     button.innerHTML = '<i class="fas fa-check"></i>';
                 });
-                */
             }
         }
 

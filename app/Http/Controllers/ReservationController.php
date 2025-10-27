@@ -167,9 +167,19 @@ class ReservationController extends Controller
                 'items' => 'required|array|min:1',
                 'items.*.id' => 'required|integer|exists:products,id',
                 'items.*.sizeId' => 'required|integer|exists:product_sizes,id',
-                'items.*.qty' => 'required|integer|min:1|max:10',
+                'items.*.qty' => 'required|integer|min:1',
                 'total' => 'required|numeric|min:0'
             ]);
+
+            // Custom validation: Check total quantity across all items (max 5 total)
+            $totalQuantity = collect($validated['items'])->sum('qty');
+            if ($totalQuantity > 5) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Maximum 5 items allowed in cart total',
+                    'errors' => ['items' => ['Total quantity cannot exceed 5 items']]
+                ], 422);
+            }
 
             Log::info('Reservation validation passed:', $validated);
 

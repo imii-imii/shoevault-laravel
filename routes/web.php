@@ -9,6 +9,16 @@ use App\Http\Controllers\OwnerController;
 use App\Http\Controllers\OwnerUsersController;
 use App\Http\Controllers\ReservationController;
 
+// Debug route for inventory types
+Route::get('/debug/inventory', function() {
+    return [
+        'total_products' => \App\Models\Product::count(),
+        'pos_products' => \App\Models\Product::posInventory()->count(),
+        'reservation_products' => \App\Models\Product::reservationInventory()->count(),
+        'products_with_types' => \App\Models\Product::select('id', 'name', 'inventory_type')->get()
+    ];
+});
+
 // Authentication routes
 Route::get('/', [ReservationController::class, 'index'])->name('reservation.home');
 Route::get('/portal', [ReservationController::class, 'portal'])->name('reservation.portal');

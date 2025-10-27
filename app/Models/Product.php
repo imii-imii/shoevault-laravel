@@ -229,10 +229,7 @@ class Product extends Model
      */
     public function scopePosInventory($query)
     {
-        return $query->where(function($q) {
-            $q->where('inventory_type', 'pos')
-              ->orWhere('inventory_type', 'both');
-        });
+        return $query->where('inventory_type', 'pos');
     }
 
     /**
@@ -240,10 +237,7 @@ class Product extends Model
      */
     public function scopeReservationInventory($query)
     {
-        return $query->where(function($q) {
-            $q->where('inventory_type', 'reservation')
-              ->orWhere('inventory_type', 'both');
-        });
+        return $query->where('inventory_type', 'reservation');
     }
 
     /**
@@ -251,12 +245,6 @@ class Product extends Model
      */
     public function scopeInventoryType($query, $type)
     {
-        if ($type === 'both') {
-            return $query;
-        }
-        return $query->where(function($q) use ($type) {
-            $q->where('inventory_type', $type)
-              ->orWhere('inventory_type', 'both');
-        });
+        return $query->where('inventory_type', $type);
     }
 }

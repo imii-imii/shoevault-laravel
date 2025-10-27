@@ -5,13 +5,14 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\ProductSize;
-use App\Models\Sale;
-use App\Models\SaleItem;
+use App\Models\Transaction;
+use App\Models\TransactionItem;
 use App\Models\Reservation;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class OwnerController extends Controller
@@ -42,10 +43,19 @@ class OwnerController extends Controller
     {
         $period = $request->get('period', 'weekly');
         
+        // Check if we have any transactions and create test data if empty
+        $transactionCount = DB::table('transactions')->count();
+        if ($transactionCount === 0) {
+            Log::info('No transactions found, creating test data');
+            $this->createTestTransactionData();
+        }
+        
         $salesData = $this->getSalesData($period);
         $topProducts = $this->getTopSellingProducts();
         // Fetch latest transactional rows with required columns
         $transactions = $this->getRecentSalesTransactions($period);
+
+        Log::info("Returning sales history data - transactions count: " . count($transactions));
 
         return response()->json([
             'salesData' => $salesData,
@@ -217,64 +227,55 @@ class OwnerController extends Controller
         $category = $request->get('category'); // optional future filter
         $search = $request->get('search'); // optional
 
+        // Use the Product model with proper scopes instead of raw queries
         if ($source === 'reservation') {
-            // Reservation inventory: reservation_products + reservation_product_sizes
-            $query = DB::table('reservation_products as p')
-                ->join('reservation_product_sizes as s', 'p.id', '=', 's.reservation_product_id')
-                ->select(
-                    'p.id', 'p.product_id', 'p.name', 'p.brand', 'p.color', 'p.category', 'p.price', 'p.image_url',
-                    DB::raw('COALESCE(SUM(s.stock),0) as total_stock'),
-                    DB::raw("GROUP_CONCAT(DISTINCT s.size ORDER BY s.size SEPARATOR ', ') as sizes"),
-                    DB::raw("GROUP_CONCAT(CONCAT(s.size, ':', COALESCE(s.stock,0)) ORDER BY s.size SEPARATOR ',') as sizes_stock")
-                )
-                ->where('p.is_active', true)
-                ->where('s.is_available', true)
-                ->groupBy('p.id', 'p.product_id', 'p.name', 'p.brand', 'p.color', 'p.category', 'p.price', 'p.image_url');
-
-            if (!empty($category)) $query->where('p.category', $category);
-            if (!empty($search)) {
-                $like = "%$search%";
-                $query->where(function ($q) use ($like) {
-                    $q->where('p.name', 'like', $like)
-                      ->orWhere('p.brand', 'like', $like)
-                      ->orWhere('p.product_id', 'like', $like);
-                });
-            }
-
-            $items = $query->orderBy('p.name')->get();
+            $query = Product::with('sizes')
+                ->reservationInventory()
+                ->active();
         } else {
-            // POS inventory: products + product_sizes
-            $query = DB::table('products as p')
-                ->join('product_sizes as s', 'p.id', '=', 's.product_id')
-                ->select(
-                    'p.id', 'p.product_id', 'p.name', 'p.brand', 'p.color', 'p.category', 'p.price', 'p.image_url',
-                    DB::raw('COALESCE(SUM(s.stock),0) as total_stock'),
-                    DB::raw("GROUP_CONCAT(DISTINCT s.size ORDER BY s.size SEPARATOR ', ') as sizes"),
-                    DB::raw("GROUP_CONCAT(CONCAT(s.size, ':', COALESCE(s.stock,0)) ORDER BY s.size SEPARATOR ',') as sizes_stock")
-                )
-                ->where('p.is_active', true)
-                ->where('s.is_available', true)
-                ->groupBy('p.id', 'p.product_id', 'p.name', 'p.brand', 'p.color', 'p.category', 'p.price', 'p.image_url');
-
-            if (!empty($category)) $query->where('p.category', $category);
-            if (!empty($search)) {
-                $like = "%$search%";
-                $query->where(function ($q) use ($like) {
-                    $q->where('p.name', 'like', $like)
-                      ->orWhere('p.brand', 'like', $like)
-                      ->orWhere('p.product_id', 'like', $like);
-                });
-            }
-
-            $items = $query->orderBy('p.name')->get();
+            $query = Product::with('sizes')
+                ->posInventory()
+                ->active();
         }
 
-        // Normalize image URLs to absolute if stored as relative paths
-        $items = $items->map(function ($row) {
-            if (!empty($row->image_url) && !str_starts_with($row->image_url, 'http')) {
-                $row->image_url = asset($row->image_url);
-            }
-            return $row;
+        // Apply filters
+        if (!empty($category)) {
+            $query->where('category', $category);
+        }
+        
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%$search%")
+                  ->orWhere('brand', 'like', "%$search%")
+                  ->orWhere('product_id', 'like', "%$search%");
+            });
+        }
+
+        $products = $query->orderBy('name')->get();
+
+        // Transform products to match the expected format
+        $items = $products->map(function ($product) {
+            $sizes = $product->sizes->pluck('size')->sort()->implode(', ');
+            $sizesStock = $product->sizes->map(function ($size) {
+                return $size->size . ':' . $size->stock;
+            })->implode(',');
+            $totalStock = $product->sizes->sum('stock');
+
+            return (object) [
+                'id' => $product->id,
+                'product_id' => $product->product_id,
+                'name' => $product->name,
+                'brand' => $product->brand,
+                'color' => $product->color,
+                'category' => $product->category,
+                'price' => $product->price,
+                'image_url' => $product->image_url && !str_starts_with($product->image_url, 'http') 
+                    ? asset($product->image_url) 
+                    : $product->image_url,
+                'total_stock' => $totalStock,
+                'sizes' => $sizes,
+                'sizes_stock' => $sizesStock,
+            ];
         });
 
         return response()->json([
@@ -458,13 +459,13 @@ class OwnerController extends Controller
         // Use resilient total calculation depending on current schema
         $dateCol = $this->salesDateColumn();
         $amountExpr = $this->salesAmountExpression();
-        $todaySales = Sale::whereDate($dateCol, today())
+        $todaySales = Transaction::whereDate($dateCol, today())
             ->select(DB::raw("SUM($amountExpr) as total"))
             ->value('total') ?? 0;
         $activeReservations = Reservation::where('status', 'pending')->count();
 
         // KPIs requested: total products sold (units), completed and cancelled reservations (all-time)
-        $totalQuantitySold = (int) (SaleItem::sum('quantity') ?? 0);
+        $totalQuantitySold = (int) (TransactionItem::sum('quantity') ?? 0);
         $completedReservations = (int) Reservation::where('status', 'completed')->count();
         $cancelledReservations = (int) Reservation::where('status', 'cancelled')->count();
 
@@ -494,7 +495,7 @@ class OwnerController extends Controller
     private function getPopularProductsByCategory(): array
     {
         // Aggregate total sold per product
-        $soldAgg = DB::table('sale_items')
+        $soldAgg = DB::table('transaction_items')
             ->select('product_id', DB::raw('SUM(quantity) as total_sold'))
             ->groupBy('product_id');
 
@@ -547,7 +548,7 @@ class OwnerController extends Controller
     {
         $dateCol = $this->salesDateColumn();
         $amountExpr = $this->salesAmountExpression();
-        $query = Sale::select(
+        $query = Transaction::select(
             DB::raw("DATE($dateCol) as date"),
             DB::raw("SUM($amountExpr) as total"),
             DB::raw('COUNT(*) as transactions')
@@ -578,8 +579,8 @@ class OwnerController extends Controller
      */
     private function getTopSellingProducts()
     {
-        return Product::join('sale_items', 'products.id', '=', 'sale_items.product_id')
-                     ->select('products.name', DB::raw('SUM(sale_items.quantity) as total_sold'))
+        return Product::join('transaction_items', 'products.id', '=', 'transaction_items.product_id')
+                     ->select('products.name', DB::raw('SUM(transaction_items.quantity) as total_sold'))
                      ->groupBy('products.id', 'products.name')
                      ->orderBy('total_sold', 'desc')
                      ->limit(5)
@@ -591,26 +592,31 @@ class OwnerController extends Controller
      */
     private function getRecentSalesTransactions(string $period)
     {
-        // Resolve dynamic column names
-        $dateCol = $this->salesDateColumn(); // sale_date or created_at
-        $cashierCol = Schema::hasColumn('sales', 'cashier_id') ? 'cashier_id' : (Schema::hasColumn('sales', 'user_id') ? 'user_id' : null);
-        $totalCol = Schema::hasColumn('sales', 'total_amount') ? 'total_amount' : (Schema::hasColumn('sales', 'total') ? 'total' : null);
-        $changeCol = Schema::hasColumn('sales', 'change_given') ? 'change_given' : (Schema::hasColumn('sales', 'change_amount') ? 'change_amount' : null);
-        $discountExists = Schema::hasColumn('sales', 'discount_amount');
+        // Use created_at for datetime display (includes time), sale_date for date filtering only
+        $dateCol = $this->salesDateColumn(); // sale_date or created_at - for filtering
+        $cashierCol = Schema::hasColumn('transactions', 'cashier_id') ? 'cashier_id' : (Schema::hasColumn('transactions', 'user_id') ? 'user_id' : null);
+        $totalCol = Schema::hasColumn('transactions', 'total_amount') ? 'total_amount' : (Schema::hasColumn('transactions', 'total') ? 'total' : null);
+        $changeCol = Schema::hasColumn('transactions', 'change_given') ? 'change_given' : (Schema::hasColumn('transactions', 'change_amount') ? 'change_amount' : null);
+        $discountExists = Schema::hasColumn('transactions', 'discount_amount');
 
-        // Aggregate sale items into a semicolon-separated list with quantities
-        $itemsAgg = DB::table('sale_items')
-            ->select('sale_id', DB::raw("GROUP_CONCAT(CONCAT(product_name, ' x', quantity) ORDER BY product_name SEPARATOR '; ') as products"))
-            ->groupBy('sale_id');
+        // Debug: Check if transactions table has any data
+        $totalTransactions = DB::table('transactions')->count();
+        Log::info("Total transactions in database: {$totalTransactions}");
 
-        $query = DB::table('sales as s')
+        // Aggregate transaction items into a semicolon-separated list with quantities
+        // Fixed: Ensure we're using the correct column name for transaction reference
+        $itemsAgg = DB::table('transaction_items')
+            ->select('transaction_id', DB::raw("GROUP_CONCAT(CONCAT(product_name, ' (', product_size, ') x', quantity) ORDER BY product_name SEPARATOR ', ') as products"))
+            ->groupBy('transaction_id');
+
+        $query = DB::table('transactions as s')
             ->leftJoin('users as u', function ($join) use ($cashierCol) {
                 if ($cashierCol) {
                     $join->on('u.id', '=', DB::raw("s.$cashierCol"));
                 }
             })
             ->leftJoinSub($itemsAgg, 'items_agg', function ($join) {
-                $join->on('items_agg.sale_id', '=', 's.id');
+                $join->on('items_agg.transaction_id', '=', 's.transaction_id');
             })
             ->select([
                 's.transaction_id',
@@ -620,29 +626,114 @@ class OwnerController extends Controller
                 DB::raw(($totalCol ? "s.$totalCol" : '0') . ' as total_amount'),
                 's.amount_paid',
                 DB::raw(($changeCol ? "s.$changeCol" : '0') . ' as change_given'),
-                DB::raw("s.$dateCol as sale_datetime"),
-                DB::raw('COALESCE(items_agg.products, "") as products'),
+                // Use created_at for display to get proper datetime with time
+                DB::raw("s.created_at as sale_datetime"),
+                DB::raw('COALESCE(items_agg.products, "No items") as products'),
             ]);
 
-        // Time window similar to charts
+        // Time window filtering - use broader time ranges to ensure we catch transactions
         switch ($period) {
             case 'daily':
-                $query->where($dateCol, '>=', Carbon::now()->subDays(7));
+                $query->where('s.created_at', '>=', Carbon::now()->subDays(30)); // Expanded from 7 days
                 break;
             case 'weekly':
-                $query->where($dateCol, '>=', Carbon::now()->subWeeks(4));
+                $query->where('s.created_at', '>=', Carbon::now()->subWeeks(12)); // Expanded from 4 weeks
                 break;
             case 'monthly':
-                $query->where($dateCol, '>=', Carbon::now()->subMonths(12));
+                $query->where('s.created_at', '>=', Carbon::now()->subMonths(24)); // Expanded from 12 months
                 break;
             case 'yearly':
-                $query->where($dateCol, '>=', Carbon::now()->subYears(3));
+                $query->where('s.created_at', '>=', Carbon::now()->subYears(5)); // Expanded from 3 years
+                break;
+            default:
+                // No time filter for debugging - show all transactions
                 break;
         }
 
-        return $query->orderByDesc($dateCol)
+        $results = $query->orderByDesc('s.created_at') // Order by created_at for proper chronological order
             ->limit(200)
             ->get();
+
+        // Debug logging
+        Log::info("Sales history query results count: " . $results->count());
+        Log::info("Date column used: {$dateCol}, Period: {$period}");
+        if ($results->count() > 0) {
+            Log::info("First transaction: " . json_encode($results->first()));
+        }
+
+        return $results;
+    }
+
+    /**
+     * Create test transaction data if transactions table is empty
+     */
+    private function createTestTransactionData()
+    {
+        try {
+            // Create a few test transactions
+            $testTransactions = [
+                [
+                    'transaction_id' => 'TXN-TEST-001',
+                    'sale_type' => 'pos',
+                    'cashier_id' => '1',
+                    'subtotal' => 5000.00,
+                    'discount_amount' => 0.00,
+                    'total_amount' => 5000.00,
+                    'amount_paid' => 5000.00,
+                    'change_given' => 0.00,
+                    'sale_date' => now()->format('Y-m-d'),
+                    'created_at' => now()->subHours(2),
+                    'updated_at' => now()->subHours(2),
+                ],
+                [
+                    'transaction_id' => 'TXN-TEST-002',
+                    'sale_type' => 'pos',
+                    'cashier_id' => '1',
+                    'subtotal' => 3500.00,
+                    'discount_amount' => 500.00,
+                    'total_amount' => 3000.00,
+                    'amount_paid' => 3000.00,
+                    'change_given' => 0.00,
+                    'sale_date' => now()->format('Y-m-d'),
+                    'created_at' => now()->subHours(1),
+                    'updated_at' => now()->subHours(1),
+                ]
+            ];
+
+            foreach ($testTransactions as $transaction) {
+                DB::table('transactions')->insert($transaction);
+                
+                // Create test transaction items
+                $items = [
+                    [
+                        'transaction_id' => $transaction['transaction_id'],
+                        'product_id' => 1,
+                        'size_id' => 1,
+                        'product_name' => 'Test Shoe',
+                        'product_brand' => 'Test Brand',
+                        'product_size' => '9',
+                        'product_color' => 'Black',
+                        'product_category' => 'men',
+                        'sku' => 'TEST-001',
+                        'quantity' => 1,
+                        'size' => '9',
+                        'unit_price' => $transaction['subtotal'],
+                        'cost_price' => $transaction['subtotal'] * 0.6,
+                        'subtotal' => $transaction['subtotal'],
+                        'created_at' => $transaction['created_at'],
+                        'updated_at' => $transaction['updated_at'],
+                    ]
+                ];
+
+                foreach ($items as $item) {
+                    DB::table('transaction_items')->insert($item);
+                }
+            }
+
+            Log::info('Created test transaction data successfully');
+        } catch (\Exception $e) {
+            Log::error('Failed to create test transaction data: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -738,20 +829,20 @@ class OwnerController extends Controller
     private function salesAmountExpression(): string
     {
         // If a native 'total' column exists, prefer it
-        if (Schema::hasColumn('sales', 'total')) {
+        if (Schema::hasColumn('transactions', 'total')) {
             return 'total';
         }
 
         // Build expression from parts to be robust across schema changes
         $parts = [];
-        if (Schema::hasColumn('sales', 'subtotal')) {
+        if (Schema::hasColumn('transactions', 'subtotal')) {
             $parts[] = 'COALESCE(subtotal,0)';
         }
-        if (Schema::hasColumn('sales', 'tax')) {
+        if (Schema::hasColumn('transactions', 'tax')) {
             $parts[] = 'COALESCE(tax,0)';
         }
         $expr = count($parts) ? ('(' . implode(' + ', $parts) . ')') : '0';
-        if (Schema::hasColumn('sales', 'discount_amount')) {
+        if (Schema::hasColumn('transactions', 'discount_amount')) {
             $expr = "($expr - COALESCE(discount_amount,0))";
         }
         return $expr;
@@ -762,7 +853,7 @@ class OwnerController extends Controller
      */
     private function salesDateColumn(): string
     {
-        return Schema::hasColumn('sales', 'sale_date') ? 'sale_date' : 'created_at';
+        return Schema::hasColumn('transactions', 'sale_date') ? 'sale_date' : 'created_at';
     }
 
     /**

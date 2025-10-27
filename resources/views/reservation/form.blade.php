@@ -142,10 +142,12 @@
         <div class="inline-date-time">
           <div class="field-group">
             <label for="pickupDate">Pick-Up Date</label>
+            <small style="color: #666; font-size: 0.85em; display: block; margin-bottom: 4px;">Available tomorrow to 14 days from today</small>
             <input id="pickupDate" name="pickupDate" type="date" required />
           </div>
           <div class="field-group">
             <label for="pickupTime">Pick-Up Time</label>
+            <small style="color: #666; font-size: 0.85em; display: block; margin-bottom: 4px;">Business hours: 8:00 AM - 6:00 PM</small>
             <input id="pickupTime" name="pickupTime" type="time" required />
           </div>
         </div>
@@ -262,14 +264,20 @@
       const emailOK = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
       const phoneOK = /^((\+?63)|0)9\d{9}$/.test(phone);
 
-      // Date: ensure value and >= tomorrow (we set min on the input already)
+      // Date: ensure value is between tomorrow and 14 days from today
       let dateOK = false;
       if (pickupDate) {
         const selected = new Date(pickupDate + 'T00:00:00');
         const today = new Date();
         const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-        // compare by date only
-        dateOK = selected.getTime() >= new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate()).getTime();
+        const maxDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 14);
+        
+        // compare by date only - must be >= tomorrow and <= 14 days from today
+        const selectedTime = new Date(selected.getFullYear(), selected.getMonth(), selected.getDate()).getTime();
+        const tomorrowTime = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate()).getTime();
+        const maxDateTime = new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate()).getTime();
+        
+        dateOK = selectedTime >= tomorrowTime && selectedTime <= maxDateTime;
       }
 
       // Time: ensure within working hours 08:00 - 18:00
@@ -365,9 +373,9 @@
           localStorage.removeItem(cartKey);
           
           // Show success message
-          alert(`Reservation created successfully! Reservation ID: ${result.reservation_id}`);
+          alert(`Reservation created successfully! Reservation ID: ${result.reservation_id}\n\nYour receipt will be displayed next. You can download it as PDF if needed.`);
           
-          // Show receipt and redirect or reload
+          // Show receipt - when closed, will redirect to homepage
           setTimeout(() => {
             openReceipt(payload);
           }, 100);
@@ -407,17 +415,25 @@
     updateConfirmState();
 
     // Enforce future date/time minimal
-    // - pickupDate: cannot pick the present date (min = tomorrow)
+    // - pickupDate: cannot pick the present date (min = tomorrow, max = 14 days from today)
     // - pickupTime: restricted to working hours 08:00 - 18:00
     const dateInput = document.getElementById('pickupDate');
     const timeInput = document.getElementById('pickupTime');
     const now = new Date();
+    
     // compute tomorrow's date for min
     const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    const yyyy = tomorrow.getFullYear();
-    const mm = String(tomorrow.getMonth()+1).padStart(2,'0');
-    const dd = String(tomorrow.getDate()).padStart(2,'0');
-    dateInput.min = `${yyyy}-${mm}-${dd}`;
+    const minYyyy = tomorrow.getFullYear();
+    const minMm = String(tomorrow.getMonth()+1).padStart(2,'0');
+    const minDd = String(tomorrow.getDate()).padStart(2,'0');
+    dateInput.min = `${minYyyy}-${minMm}-${minDd}`;
+    
+    // compute 14 days from today for max
+    const maxDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 14);
+    const maxYyyy = maxDate.getFullYear();
+    const maxMm = String(maxDate.getMonth()+1).padStart(2,'0');
+    const maxDd = String(maxDate.getDate()).padStart(2,'0');
+    dateInput.max = `${maxYyyy}-${maxMm}-${maxDd}`;
     // set working hours limits on time input
     const WORK_START = '08:00';
     const WORK_END = '18:00';
@@ -509,6 +525,11 @@
     function closeReceipt(){
       receiptModal.classList.remove('active');
       receiptModal.setAttribute('aria-hidden','true');
+      
+      // Redirect to homepage after closing receipt
+      setTimeout(() => {
+        window.location.href = "{{ route('reservation.home') }}";
+      }, 300); // Small delay for smooth modal close animation
     }
 
     // Print-based PDF export: opens a print window containing the receipt and calls print

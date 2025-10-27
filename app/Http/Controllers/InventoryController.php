@@ -645,6 +645,14 @@ class InventoryController extends Controller
      */
     public function updateReservationStatus(Request $request, $id)
     {
+        // Add debugging
+        Log::info('updateReservationStatus called', [
+            'reservation_id' => $id,
+            'request_data' => $request->all(),
+            'user_id' => Auth::id(),
+            'user_role' => Auth::user() ? Auth::user()->role : 'unknown'
+        ]);
+
         try {
             $request->validate([
                 'status' => 'required|string|in:pending,completed,cancelled'
@@ -654,6 +662,12 @@ class InventoryController extends Controller
             $reservation = \App\Models\Reservation::findOrFail($id);
             $oldStatus = $reservation->status;
             $newStatus = $request->status;
+
+            Log::info('Reservation status change', [
+                'reservation_id' => $id,
+                'old_status' => $oldStatus,
+                'new_status' => $newStatus
+            ]);
 
             DB::beginTransaction();
 
@@ -673,6 +687,11 @@ class InventoryController extends Controller
 
             DB::commit();
 
+            Log::info('Reservation status updated successfully', [
+                'reservation_id' => $id,
+                'new_status' => $newStatus
+            ]);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Reservation status updated successfully',
@@ -684,13 +703,21 @@ class InventoryController extends Controller
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
+            Log::error('Reservation not found', [
+                'reservation_id' => $id,
+                'error' => $e->getMessage()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Reservation not found'
             ], 404);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error updating reservation status: ' . $e->getMessage());
+            Log::error('Error updating reservation status', [
+                'reservation_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             
             return response()->json([
                 'success' => false,
@@ -712,17 +739,29 @@ class InventoryController extends Controller
         // Status transition: pending -> completed (deduct stock)
         if ($oldStatus === 'pending' && $newStatus === 'completed') {
             foreach ($reservation->items as $item) {
-                $sizeId = $item['size_id'] ?? null;
-                if (!$sizeId) {
-                    throw new \Exception("Size ID not found for item: {$item['product_name']}");
+                $productId = $item['product_id'] ?? null;
+                $productSize = $item['product_size'] ?? null;
+                
+                if (!$productId || !$productSize) {
+                    Log::warning("Product ID or size not found for item: {$item['product_name']}, skipping stock deduction");
+                    continue;
                 }
                 
-                $size = ProductSize::find($sizeId);
-                if ($size && $size->stock >= $item['quantity']) {
+                // Find the product size using product_id and size from the consolidated tables
+                $size = ProductSize::where('product_id', $productId)
+                                  ->where('size', $productSize)
+                                  ->first();
+                
+                if (!$size) {
+                    Log::warning("Product size not found for product ID {$productId}, size {$productSize} ({$item['product_name']}), skipping stock deduction");
+                    continue;
+                }
+                
+                if ($size->stock >= $item['quantity']) {
                     $size->decrement('stock', $item['quantity']);
-                    Log::info("Stock deducted: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
+                    Log::info("Stock deducted: Product ID {$productId}, Size: {$productSize}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
                 } else {
-                    throw new \Exception("Insufficient stock for {$item['product_name']} (Size: {$item['product_size']}). Available: " . ($size ? $size->stock : 0) . ", Required: {$item['quantity']}");
+                    throw new \Exception("Insufficient stock for {$item['product_name']} (Size: {$productSize}). Available: " . $size->stock . ", Required: {$item['quantity']}");
                 }
             }
         }
@@ -730,12 +769,18 @@ class InventoryController extends Controller
         // Status transition: completed -> pending (restore stock)
         elseif ($oldStatus === 'completed' && $newStatus === 'pending') {
             foreach ($reservation->items as $item) {
-                $sizeId = $item['size_id'] ?? null;
-                if ($sizeId) {
-                    $size = ProductSize::find($sizeId);
+                $productId = $item['product_id'] ?? null;
+                $productSize = $item['product_size'] ?? null;
+                
+                if ($productId && $productSize) {
+                    $size = ProductSize::where('product_id', $productId)
+                                      ->where('size', $productSize)
+                                      ->first();
                     if ($size) {
                         $size->increment('stock', $item['quantity']);
-                        Log::info("Stock restored: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
+                        Log::info("Stock restored: Product ID {$productId}, Size: {$productSize}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
+                    } else {
+                        Log::warning("Product size not found for product ID {$productId}, size {$productSize} ({$item['product_name']}), skipping stock restoration");
                     }
                 }
             }
@@ -744,12 +789,18 @@ class InventoryController extends Controller
         // Status transition: completed -> cancelled (restore stock)
         elseif ($oldStatus === 'completed' && $newStatus === 'cancelled') {
             foreach ($reservation->items as $item) {
-                $sizeId = $item['size_id'] ?? null;
-                if ($sizeId) {
-                    $size = ProductSize::find($sizeId);
+                $productId = $item['product_id'] ?? null;
+                $productSize = $item['product_size'] ?? null;
+                
+                if ($productId && $productSize) {
+                    $size = ProductSize::where('product_id', $productId)
+                                      ->where('size', $productSize)
+                                      ->first();
                     if ($size) {
                         $size->increment('stock', $item['quantity']);
-                        Log::info("Stock restored due to cancellation: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
+                        Log::info("Stock restored due to cancellation: Product ID {$productId}, Size: {$productSize}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
+                    } else {
+                        Log::warning("Product size not found for product ID {$productId}, size {$productSize} ({$item['product_name']}), skipping stock restoration");
                     }
                 }
             }
@@ -760,17 +811,28 @@ class InventoryController extends Controller
         // Status transition: cancelled -> completed (deduct stock like pending -> completed)
         elseif ($oldStatus === 'cancelled' && $newStatus === 'completed') {
             foreach ($reservation->items as $item) {
-                $sizeId = $item['size_id'] ?? null;
-                if (!$sizeId) {
-                    throw new \Exception("Size ID not found for item: {$item['product_name']}");
+                $productId = $item['product_id'] ?? null;
+                $productSize = $item['product_size'] ?? null;
+                
+                if (!$productId || !$productSize) {
+                    Log::warning("Product ID or size not found for item: {$item['product_name']}, skipping stock deduction");
+                    continue;
                 }
                 
-                $size = ProductSize::find($sizeId);
-                if ($size && $size->stock >= $item['quantity']) {
+                $size = ProductSize::where('product_id', $productId)
+                                  ->where('size', $productSize)
+                                  ->first();
+                
+                if (!$size) {
+                    Log::warning("Product size not found for product ID {$productId}, size {$productSize} ({$item['product_name']}), skipping stock deduction");
+                    continue;
+                }
+                
+                if ($size->stock >= $item['quantity']) {
                     $size->decrement('stock', $item['quantity']);
-                    Log::info("Stock deducted from cancelled to completed: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
+                    Log::info("Stock deducted from cancelled to completed: Product ID {$productId}, Size: {$productSize}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
                 } else {
-                    throw new \Exception("Insufficient stock for {$item['product_name']} (Size: {$item['product_size']}). Available: " . ($size ? $size->stock : 0) . ", Required: {$item['quantity']}");
+                    throw new \Exception("Insufficient stock for {$item['product_name']} (Size: {$productSize}). Available: " . $size->stock . ", Required: {$item['quantity']}");
                 }
             }
         }
@@ -797,15 +859,27 @@ class InventoryController extends Controller
             $saleItems = [];
             foreach ($reservation->items as $item) {
                 $quantity = (int) ($item['quantity'] ?? 1);
-                $unitPrice = (float) ($item['unit_price'] ?? $item['price'] ?? 0);
+                $unitPrice = (float) ($item['unit_price'] ?? $item['product_price'] ?? 0);
                 $itemSubtotal = $quantity * $unitPrice;
 
+                // Find the size_id from the consolidated tables using product_id and size
+                $productId = $item['product_id'] ?? null;
+                $productSize = $item['product_size'] ?? null;
+                $sizeId = null;
+                
+                if ($productId && $productSize) {
+                    $size = ProductSize::where('product_id', $productId)
+                                      ->where('size', $productSize)
+                                      ->first();
+                    $sizeId = $size ? $size->id : null;
+                }
+
                 $saleItems[] = [
-                    'product_id' => $item['product_id'] ?? null,
-                    'size_id' => $item['size_id'] ?? null,
+                    'product_id' => $productId,
+                    'size_id' => $sizeId,
                     'product_name' => $item['product_name'] ?? 'Unknown Product',
                     'product_brand' => $item['product_brand'] ?? '',
-                    'product_size' => $item['product_size'] ?? '',
+                    'product_size' => $productSize ?? '',
                     'product_color' => $item['product_color'] ?? '',
                     'product_category' => $item['product_category'] ?? 'uncategorized',
                     'unit_price' => $unitPrice,
@@ -819,10 +893,10 @@ class InventoryController extends Controller
                 $itemCount++;
             }
 
-            // Create the sale record with simplified structure
-            $sale = \App\Models\Sale::create([
-                'transaction_id' => \App\Models\Sale::generateTransactionId(),
-                'sale_type' => 'reservation', // Distinguish from POS sales
+            // Create the transaction record with simplified structure
+            $transaction = \App\Models\Transaction::create([
+                'transaction_id' => \App\Models\Transaction::generateTransactionId(),
+                'sale_type' => 'reservation', // Distinguish from POS transactions
                 'reservation_id' => $reservation->reservation_id,
                 'cashier_id' => Auth::id(), // Current user who marked it complete
                 'subtotal' => $subtotal,
@@ -830,14 +904,13 @@ class InventoryController extends Controller
                 'total_amount' => $subtotal,
                 'amount_paid' => $subtotal, // Assume full payment for completed reservations
                 'change_given' => 0,
-                'sale_date' => now(),
-                'notes' => "Sale created from completed reservation #{$reservation->reservation_id}"
+                'sale_date' => now()
             ]);
 
-            // Create individual sale items
+            // Create individual transaction items
             foreach ($saleItems as $item) {
-                \App\Models\SaleItem::create([
-                    'sale_id' => $sale->id,
+                \App\Models\TransactionItem::create([
+                    'transaction_id' => $transaction->transaction_id,
                     'product_id' => $item['product_id'],
                     'size_id' => $item['size_id'],
                     'product_name' => $item['product_name'],
@@ -854,18 +927,17 @@ class InventoryController extends Controller
                 ]);
             }
 
-            Log::info("Sale record created from reservation completion", [
+            Log::info("Transaction record created from reservation completion", [
                 'reservation_id' => $reservation->id,
-                'sale_id' => $sale->id,
-                'transaction_id' => $sale->transaction_id,
+                'transaction_id' => $transaction->transaction_id,
                 'total_amount' => $subtotal,
                 'items_count' => $itemCount
             ]);
 
         } catch (\Exception $e) {
-            Log::error("Failed to create sale from reservation {$reservation->id}: " . $e->getMessage());
+            Log::error("Failed to create transaction from reservation {$reservation->id}: " . $e->getMessage());
             // Don't throw the exception to avoid breaking the reservation completion
-            // The reservation status update should still succeed even if sale creation fails
+            // The reservation status update should still succeed even if transaction creation fails
         }
     }
 
