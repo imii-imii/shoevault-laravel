@@ -241,7 +241,9 @@ class PosController extends Controller
             
             $query = Product::with(['sizes' => function($query) {
                 $query->where('stock', '>', 0)->where('is_available', true);
-            }])->where('is_active', true);
+            }])
+            ->where('is_active', true)
+            ->posInventory(); // Filter for POS inventory only
             
             if ($category !== 'all') {
                 $query->where('category', $category);
@@ -278,6 +280,7 @@ class PosController extends Controller
                     'category' => $product->category,
                     'color' => $product->color,
                     'price' => (float) $product->price,
+                    'inventory_type' => $product->inventory_type,
                     'total_stock' => (int) $product->sizes->sum('stock'),
                     'sizes' => $sizes,
                 ];

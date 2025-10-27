@@ -20,7 +20,8 @@ class Product extends Model
         'price',
         'sku',
         'image_url',
-        'is_active'
+        'is_active',
+        'inventory_type'
     ];
 
     protected $casts = [
@@ -221,5 +222,41 @@ class Product extends Model
     public function scopeCategory($query, $category)
     {
         return $query->where('category', $category);
+    }
+
+    /**
+     * Scope for POS inventory products
+     */
+    public function scopePosInventory($query)
+    {
+        return $query->where(function($q) {
+            $q->where('inventory_type', 'pos')
+              ->orWhere('inventory_type', 'both');
+        });
+    }
+
+    /**
+     * Scope for reservation inventory products
+     */
+    public function scopeReservationInventory($query)
+    {
+        return $query->where(function($q) {
+            $q->where('inventory_type', 'reservation')
+              ->orWhere('inventory_type', 'both');
+        });
+    }
+
+    /**
+     * Scope for specific inventory type
+     */
+    public function scopeInventoryType($query, $type)
+    {
+        if ($type === 'both') {
+            return $query;
+        }
+        return $query->where(function($q) use ($type) {
+            $q->where('inventory_type', $type)
+              ->orWhere('inventory_type', 'both');
+        });
     }
 }

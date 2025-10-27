@@ -5,7 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use App\Models\ReservationProduct;
+use App\Models\Product;
+use App\Models\ProductSize;
 
 class ReservationController extends Controller
 {
@@ -22,8 +23,9 @@ class ReservationController extends Controller
      */
     public function portal(Request $request)
     {
-        $query = ReservationProduct::with('sizes')
-            ->where('is_active', true)
+        $query = Product::with('sizes')
+            ->active()
+            ->reservationInventory()
             ->inStock();
 
         // Handle category filtering
@@ -35,7 +37,8 @@ class ReservationController extends Controller
         $products = $query->get();
 
         // Get available categories for the filter buttons
-        $categories = ReservationProduct::where('is_active', true)
+        $categories = Product::active()
+            ->reservationInventory()
             ->inStock()
             ->distinct()
             ->pluck('category')
@@ -67,8 +70,9 @@ class ReservationController extends Controller
      */
     public function getFilteredProducts(Request $request)
     {
-        $query = ReservationProduct::with('sizes')
-            ->where('is_active', true)
+        $query = Product::with('sizes')
+            ->active()
+            ->reservationInventory()
             ->inStock();
 
         // Handle category filtering
@@ -102,9 +106,11 @@ class ReservationController extends Controller
      */
     public function getProductDetails($id)
     {
-        $product = ReservationProduct::with(['sizes' => function($query) {
+        $product = Product::with(['sizes' => function($query) {
             $query->where('is_available', true)->where('stock', '>', 0);
-        }])->findOrFail($id);
+        }])
+        ->reservationInventory()
+        ->findOrFail($id);
 
         return response()->json([
             'id' => $product->id,
@@ -112,7 +118,7 @@ class ReservationController extends Controller
             'brand' => $product->brand,
             'price' => $product->price,
             'formatted_price' => '₱ ' . number_format($product->price, 0),
-            'total_stock' => $product->getTotalStock(),
+            'total_stock' => $product->sizes->sum('stock'),
             'image_url' => $product->image_url,
             'color' => $product->color,
             'sizes' => $product->sizes->map(function($size) {
@@ -159,8 +165,8 @@ class ReservationController extends Controller
                 }],
                 'customer.notes' => 'nullable|string|max:1000',
                 'items' => 'required|array|min:1',
-                'items.*.id' => 'required|integer|exists:reservation_products,id',
-                'items.*.sizeId' => 'required|integer|exists:reservation_product_sizes,id',
+                'items.*.id' => 'required|integer|exists:products,id',
+                'items.*.sizeId' => 'required|integer|exists:product_sizes,id',
                 'items.*.qty' => 'required|integer|min:1|max:10',
                 'total' => 'required|numeric|min:0'
             ]);
@@ -171,7 +177,7 @@ class ReservationController extends Controller
 
             // Check stock availability for all items
             foreach ($validated['items'] as $item) {
-                $size = \App\Models\ReservationProductSize::findOrFail($item['sizeId']);
+                $size = ProductSize::findOrFail($item['sizeId']);
                 if ($size->stock < $item['qty']) {
                     throw new \Exception("Insufficient stock for product size ID {$item['sizeId']}. Available: {$size->stock}, Requested: {$item['qty']}");
                 }
@@ -182,8 +188,8 @@ class ReservationController extends Controller
             $itemsData = [];
             
             foreach ($validated['items'] as $item) {
-                $product = ReservationProduct::findOrFail($item['id']);
-                $size = \App\Models\ReservationProductSize::findOrFail($item['sizeId']);
+                $product = Product::findOrFail($item['id']);
+                $size = ProductSize::findOrFail($item['sizeId']);
                 
                 // Calculate final price with size adjustment
                 $finalPrice = $product->price + ($size->price_adjustment ?? 0);

@@ -5,8 +5,6 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\ProductSize;
-use App\Models\ReservationProduct;
-use App\Models\ReservationProductSize;
 use App\Models\Supplier;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -23,11 +21,17 @@ class InventoryController extends Controller
         $inventoryType = $request->get('type', 'pos'); // Default to POS
         
         if ($inventoryType === 'reservation') {
-            // Get reservation products from database
-            $products = ReservationProduct::with('sizes')->active()->get();
+            // Get reservation products from consolidated products table
+            $products = Product::with('sizes')
+                ->reservationInventory()
+                ->active()
+                ->get();
         } else {
-            // Get POS products from database
-            $products = Product::with('sizes')->active()->get();
+            // Get POS products from consolidated products table
+            $products = Product::with('sizes')
+                ->posInventory()
+                ->active()
+                ->get();
         }
         
         // Get suppliers from database (or empty collection if not implemented yet)
@@ -314,9 +318,15 @@ class InventoryController extends Controller
         $inventoryType = $request->get('type', 'pos'); // Default to POS
         
         if ($inventoryType === 'reservation') {
-            $products = ReservationProduct::with('sizes')->active()->get();
+            $products = Product::with('sizes')
+                ->reservationInventory()
+                ->active()
+                ->get();
         } else {
-            $products = Product::with('sizes')->active()->get();
+            $products = Product::with('sizes')
+                ->posInventory()
+                ->active()
+                ->get();
         }
         
         // Transform products to include size and stock information
@@ -381,40 +391,31 @@ class InventoryController extends Controller
 
             $data = $request->except(['image', 'sizes', 'inventory_type']);
             
-            if ($inventoryType === 'reservation') {
-                // Generate unique reservation product ID and SKU
-                $data['product_id'] = ReservationProduct::generateUniqueProductId($request->category);
-                $data['sku'] = ReservationProduct::generateUniqueSku($request->category);
-                $productModel = ReservationProduct::class;
-                $sizeModel = ReservationProductSize::class;
-                $relationKey = 'reservation_product_id';
-            } else {
-                // Generate unique POS product ID and SKU
-                $data['product_id'] = Product::generateUniqueProductId($request->category);
-                $data['sku'] = Product::generateUniqueSku($request->category);
-                $productModel = Product::class;
-                $sizeModel = ProductSize::class;
-                $relationKey = 'product_id';
-            }
+            // Set inventory type for the product
+            $data['inventory_type'] = $inventoryType;
+            
+            // Generate unique product ID and SKU (use Product model for all products now)
+            $data['product_id'] = Product::generateUniqueProductId($request->category);
+            $data['sku'] = Product::generateUniqueSku($request->category);
             
             // Handle image upload with custom naming
             if ($request->hasFile('image')) {
                 $image = $request->file('image');
                 
                 // Create a temporary product instance to generate filename
-                $tempProduct = new $productModel(['product_id' => $data['product_id']]);
+                $tempProduct = new Product(['product_id' => $data['product_id']]);
                 $imageName = $tempProduct->generateImageFilename($image->getClientOriginalName());
                 
                 $image->move(public_path('assets/images/products'), $imageName);
                 $data['image_url'] = 'assets/images/products/' . $imageName;
             }
 
-            $product = $productModel::create($data);
+            $product = Product::create($data);
 
             // Create product sizes
             foreach ($request->sizes as $sizeData) {
-                $sizeModel::create([
-                    $relationKey => $product->id,
+                ProductSize::create([
+                    'product_id' => $product->id, // Use the auto-increment id, not product_id string
                     'size' => $sizeData['size'],
                     'stock' => $sizeData['stock'],
                     'price_adjustment' => $sizeData['price_adjustment'] ?? 0,
@@ -473,12 +474,8 @@ class InventoryController extends Controller
         try {
             $inventoryType = $request->get('type', 'pos'); // Default to POS
             
-            // Determine which model to use based on inventory type
-            if ($inventoryType === 'reservation') {
-                $product = ReservationProduct::with('sizes')->findOrFail($id);
-            } else {
-                $product = Product::with('sizes')->findOrFail($id);
-            }
+            // Get product from consolidated products table
+            $product = Product::with('sizes')->findOrFail($id);
             
             // Format the product data for frontend
             $formattedProduct = [
@@ -489,6 +486,7 @@ class InventoryController extends Controller
                 'color' => $product->color,
                 'price' => $product->price,
                 'image_url' => $product->image_url,
+                'inventory_type' => $product->inventory_type,
                 'sizes' => $product->sizes->map(function($size) {
                     return [
                         'id' => $size->id,
@@ -522,18 +520,8 @@ class InventoryController extends Controller
         try {
             $inventoryType = $request->get('inventory_type', 'pos'); // Default to POS
             
-            // Determine which model to use based on inventory type
-            if ($inventoryType === 'reservation') {
-                $product = ReservationProduct::with('sizes')->findOrFail($id);
-                $productModel = ReservationProduct::class;
-                $sizeModel = ReservationProductSize::class;
-                $relationKey = 'reservation_product_id';
-            } else {
-                $product = Product::with('sizes')->findOrFail($id);
-                $productModel = Product::class;
-                $sizeModel = ProductSize::class;
-                $relationKey = 'product_id';
-            }
+            // Get product from consolidated products table
+            $product = Product::with('sizes')->findOrFail($id);
             
             $request->validate([
                 'name' => 'required|string|max:255',
@@ -545,20 +533,19 @@ class InventoryController extends Controller
                 'sizes.*.price_adjustment' => 'nullable|numeric',
                 'price' => 'required|numeric|min:0',
                 'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-                'inventory_type' => 'required|in:pos,reservation'
+                'inventory_type' => 'required|in:pos,reservation,both'
             ]);
 
             DB::beginTransaction();
 
             $data = $request->except(['image', 'sizes', 'inventory_type']);
             
+            // Set inventory type
+            $data['inventory_type'] = $inventoryType;
+            
             // Generate new SKU if it doesn't exist or if category changed
             if (empty($product->sku) || $product->category !== $request->category) {
-                if ($inventoryType === 'reservation') {
-                    $data['sku'] = ReservationProduct::generateUniqueSku($request->category);
-                } else {
-                    $data['sku'] = Product::generateUniqueSku($request->category);
-                }
+                $data['sku'] = Product::generateUniqueSku($request->category);
             }
             
             // Handle image upload for update
@@ -579,8 +566,8 @@ class InventoryController extends Controller
             // Update sizes - delete old ones and create new ones
             $product->sizes()->delete();
             foreach ($request->sizes as $sizeData) {
-                $sizeModel::create([
-                    $relationKey => $product->id,
+                ProductSize::create([
+                    'product_id' => $product->id, // Use the auto-increment id, not product_id string
                     'size' => $sizeData['size'],
                     'stock' => $sizeData['stock'],
                     'price_adjustment' => $sizeData['price_adjustment'] ?? 0,
@@ -730,7 +717,7 @@ class InventoryController extends Controller
                     throw new \Exception("Size ID not found for item: {$item['product_name']}");
                 }
                 
-                $size = ReservationProductSize::find($sizeId);
+                $size = ProductSize::find($sizeId);
                 if ($size && $size->stock >= $item['quantity']) {
                     $size->decrement('stock', $item['quantity']);
                     Log::info("Stock deducted: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
@@ -745,7 +732,7 @@ class InventoryController extends Controller
             foreach ($reservation->items as $item) {
                 $sizeId = $item['size_id'] ?? null;
                 if ($sizeId) {
-                    $size = ReservationProductSize::find($sizeId);
+                    $size = ProductSize::find($sizeId);
                     if ($size) {
                         $size->increment('stock', $item['quantity']);
                         Log::info("Stock restored: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
@@ -759,7 +746,7 @@ class InventoryController extends Controller
             foreach ($reservation->items as $item) {
                 $sizeId = $item['size_id'] ?? null;
                 if ($sizeId) {
-                    $size = ReservationProductSize::find($sizeId);
+                    $size = ProductSize::find($sizeId);
                     if ($size) {
                         $size->increment('stock', $item['quantity']);
                         Log::info("Stock restored due to cancellation: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
@@ -778,7 +765,7 @@ class InventoryController extends Controller
                     throw new \Exception("Size ID not found for item: {$item['product_name']}");
                 }
                 
-                $size = ReservationProductSize::find($sizeId);
+                $size = ProductSize::find($sizeId);
                 if ($size && $size->stock >= $item['quantity']) {
                     $size->decrement('stock', $item['quantity']);
                     Log::info("Stock deducted from cancelled to completed: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
