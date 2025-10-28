@@ -224,6 +224,7 @@ Route::middleware(['auth', 'role:owner,admin'])->prefix('owner')->name('owner.')
     Route::get('/reservation-logs', [OwnerController::class, 'reservationLogs'])->name('reservation-logs');
     Route::get('/supply-logs', [OwnerController::class, 'supplyLogs'])->name('supply-logs');
     Route::get('/inventory-overview', [OwnerController::class, 'inventoryOverview'])->name('inventory-overview');
+    Route::get('/popular-products', [OwnerController::class, 'popularProducts'])->name('popular-products');
     Route::get('/settings', [OwnerController::class, 'settings'])->name('settings');
     Route::post('/profile/update', [OwnerController::class, 'updateProfile'])->name('profile.update');
     Route::delete('/profile/picture', [OwnerController::class, 'removeProfilePicture'])->name('profile.picture.remove');

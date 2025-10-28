@@ -780,6 +780,76 @@ class OwnerController extends Controller
     }
 
     /**
+     * Popular products endpoint with optional range and exact month/year filters.
+     * Query params:
+     * - range: monthly|quarterly|yearly (default: monthly)
+     * - month: 1-12 (used when range=monthly or to infer quarter when provided)
+     * - year: four-digit year (defaults to current year)
+     * - limit: number of items to return (default: 20)
+     */
+    public function popularProducts(Request $request)
+    {
+        try {
+            $range = strtolower((string) $request->get('range', 'monthly'));
+            $month = $request->integer('month');
+            $year = $request->integer('year');
+            $limit = max(1, min(100, (int) $request->get('limit', 20)));
+
+            $now = Carbon::now();
+            $y = $year ?: (int)$now->year;
+
+            $start = null; $end = null;
+            if ($month && $y && $range === 'monthly') {
+                $start = Carbon::create($y, max(1, min(12, (int)$month)), 1)->startOfMonth();
+                $end = (clone $start)->endOfMonth();
+            } elseif ($range === 'quarterly') {
+                // If a month is specified, infer its quarter; otherwise use current quarter of selected year
+                $m = $month ?: (int)$now->month;
+                $q = (int) ceil($m / 3);
+                $qStartMonth = ($q - 1) * 3 + 1; // 1,4,7,10
+                $start = Carbon::create($y, $qStartMonth, 1)->startOfMonth();
+                $end = (clone $start)->addMonths(2)->endOfMonth();
+            } elseif ($range === 'yearly') {
+                $start = Carbon::create($y, 1, 1)->startOfYear();
+                $end = (clone $start)->endOfYear();
+            } else {
+                // default monthly window for current month/year
+                $start = Carbon::create($y, (int)($month ?: $now->month), 1)->startOfMonth();
+                $end = (clone $start)->endOfMonth();
+            }
+
+            // Aggregate sold quantity per product within window using transactions schema
+            $items = DB::table('transaction_items as ti')
+                ->join('transactions as t', 't.transaction_id', '=', 'ti.transaction_id')
+                ->whereBetween('t.created_at', [$start, $end])
+                ->select(
+                    DB::raw('COALESCE(ti.product_id, 0) as product_id'),
+                    DB::raw('COALESCE(ti.product_name, "Unknown") as name'),
+                    DB::raw('SUM(ti.quantity) as sold')
+                )
+                ->groupBy('product_id', 'name')
+                ->orderByDesc('sold')
+                ->limit($limit)
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'range' => $range,
+                'month' => $month,
+                'year' => $y,
+                'start' => $start->toDateString(),
+                'end' => $end->toDateString(),
+                'items' => $items,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load popular products: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Get supply data (for demonstration - you may need to create a supplies table)
      */
     private function getSupplyData($period)

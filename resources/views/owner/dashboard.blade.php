@@ -271,8 +271,26 @@
                 <div class="odash-row-products">
                     <!-- Popular Products List (Scrollable) -->
                     <div class="odash-card">
-                        <div class="odash-card-header">
+                        <div class="odash-card-header" style="justify-content:space-between; align-items:center;">
                             <div class="odash-title">Popular Products</div>
+                            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                                <!-- Range selector removed: use month + year only -->
+                                <select id="odash-popular-month" class="odash-select" title="Month">
+                                    <option value="1">Jan</option>
+                                    <option value="2">Feb</option>
+                                    <option value="3">Mar</option>
+                                    <option value="4">Apr</option>
+                                    <option value="5">May</option>
+                                    <option value="6">Jun</option>
+                                    <option value="7">Jul</option>
+                                    <option value="8">Aug</option>
+                                    <option value="9">Sep</option>
+                                    <option value="10">Oct</option>
+                                    <option value="11">Nov</option>
+                                    <option value="12">Dec</option>
+                                </select>
+                                <select id="odash-popular-year" class="odash-select" title="Year"></select>
+                            </div>
                         </div>
                         <div class="odash-products-list" id="odash-popular-products">
                             <!-- Populated by JS -->
@@ -338,6 +356,7 @@ window.laravelData = {
         reservationLogs: '{{ route("owner.reservation-logs") }}',
         supplyLogs: '{{ route("owner.supply-logs") }}',
         inventoryOverview: '{{ route("owner.inventory-overview") }}',
+        popularProducts: '{{ route("owner.popular-products") }}',
         settings: '{{ route("owner.settings") }}'
     }
 };
@@ -947,51 +966,147 @@ function getTopIndices(arr, k) {
 // ===== Popular Products List (Mock Data) =====
 function initPopularProducts() {
     const container = document.getElementById('odash-popular-products');
+    // rangeSelect removed; default to monthly behavior
+    const rangeSelect = null;
+    const monthSelect = document.getElementById('odash-popular-month');
+    const yearSelect = document.getElementById('odash-popular-year');
     if (!container) return;
 
-    // Prefer live dashboard data if available
-    const dd = (window.laravelData && window.laravelData.dashboardData) ? window.laravelData.dashboardData : {};
-    let list = [];
-    if (dd.popularProducts && typeof dd.popularProducts === 'object') {
-        ['men','women','accessories'].forEach(cat => {
-            const arr = dd.popularProducts[cat];
-            if (Array.isArray(arr)) {
-                arr.forEach(p => list.push({ name: p.name || 'Unknown', sales: Number(p.sold ?? p.total_sold ?? p.sales ?? 0) }));
-            }
-        });
-        list.sort((a,b)=> b.sales - a.sales);
+    // Populate year select with a sensible range (current year +/- 4)
+    const now = new Date();
+    const thisYear = now.getFullYear();
+    if (yearSelect && !yearSelect.options.length) {
+        // Only include the current year down to (currentYear - 4). Do not include next year.
+        for (let y = thisYear; y >= thisYear - 4; y--) {
+            const opt = document.createElement('option');
+            opt.value = String(y);
+            opt.textContent = String(y);
+            if (y === thisYear) opt.selected = true;
+            yearSelect.appendChild(opt);
+        }
     }
-    // Fallback to mock if backend didn't provide
-    if (!list.length) {
-        list = [
-            { name: 'Nike Air Max 270', sales: 245 },
-            { name: 'Adidas Ultraboost 22', sales: 198 },
-            { name: 'Puma RS-X', sales: 176 },
-            { name: 'New Balance 574', sales: 142 },
-            { name: 'Converse Chuck Taylor', sales: 128 },
-            { name: 'Vans Old Skool', sales: 115 },
-            { name: 'Reebok Classic Leather', sales: 98 },
-            { name: 'Asics Gel-Kayano', sales: 87 },
-            { name: 'Skechers D\'Lites', sales: 76 },
-            { name: 'Fila Disruptor II', sales: 65 },
-            { name: 'Under Armour HOVR', sales: 54 },
-            { name: 'Brooks Ghost 14', sales: 43 }
-        ];
+    if (monthSelect) {
+        monthSelect.value = String(now.getMonth() + 1);
     }
 
-    let html = '';
-    list.slice(0, 12).forEach((product, index) => {
-        const isTop3 = index < 3;
-        const rankBadge = isTop3 ? `<span class="odash-product-rank">${index + 1}</span>` : '';
-        const itemClass = isTop3 ? 'odash-product-item top-product' : 'odash-product-item';
-        html += `
-            <div class="${itemClass}">
-                <span class="odash-product-name">${rankBadge}${product.name}</span>
-                <span class="odash-product-sales">${product.sales} sold</span>
-            </div>
-        `;
-    });
-    container.innerHTML = html;
+    const dd = (window.laravelData && window.laravelData.dashboardData) ? window.laravelData.dashboardData : {};
+    let currentRange = 'monthly';
+
+    function normalizeFromCategories(srcObj) {
+        const out = [];
+        ['men','women','accessories'].forEach(cat => {
+            const arr = srcObj?.[cat];
+            if (Array.isArray(arr)) {
+                arr.forEach(p => out.push({
+                    name: p.name || p.product_name || 'Unknown',
+                    sales: Number(p.sold ?? p.total_sold ?? p.sales ?? 0)
+                }));
+            }
+        });
+        return out.sort((a,b)=> b.sales - a.sales);
+    }
+
+    function adjustByRange(list, range) {
+        const factor = range === 'yearly' ? 12 : (range === 'quarterly' ? 3 : 1);
+        return list.map(it => ({ ...it, sales: Math.max(0, Math.round(it.sales * factor)) }));
+    }
+
+    async function fetchPopularFromApi(range, month, year) {
+        try {
+            const base = window.laravelData?.routes?.popularProducts;
+            if (!base) return null;
+            const url = new URL(base, window.location.origin);
+            if (range) url.searchParams.set('range', range);
+            if (month) url.searchParams.set('month', String(month));
+            if (year) url.searchParams.set('year', String(year));
+            url.searchParams.set('limit', '24');
+            const res = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
+            const data = await res.json();
+            if (!res.ok || data.success === false) throw new Error(data.message || 'Failed');
+            const items = Array.isArray(data.items) ? data.items : [];
+            return items.map(i => ({ name: i.name || i.product_name || 'Unknown', sales: Number(i.sold ?? i.sales ?? 0) }))
+                        .sort((a,b)=> b.sales - a.sales);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    async function getPopularList(range, month, year) {
+        // Prefer API if available
+        const apiList = await fetchPopularFromApi(range, month, year);
+        if (apiList && apiList.length) return apiList;
+
+        // Try explicit keyed objects first: popularProducts[range]
+        if (dd.popularProducts && typeof dd.popularProducts === 'object' && dd.popularProducts[range]) {
+            const src = dd.popularProducts[range];
+            if (Array.isArray(src)) {
+                return src.map(p => ({ name: p.name || p.product_name || 'Unknown', sales: Number(p.sold ?? p.total_sold ?? p.sales ?? 0) }))
+                          .sort((a,b)=> b.sales - a.sales);
+            }
+            if (typeof src === 'object') {
+                return normalizeFromCategories(src);
+            }
+        }
+        // Try alternative flat keys
+        const altKey = range === 'monthly' ? 'popularProductsMonthly' : (range === 'quarterly' ? 'popularProductsQuarterly' : 'popularProductsYearly');
+        if (dd[altKey]) {
+            const src = dd[altKey];
+            if (Array.isArray(src)) {
+                return src.map(p => ({ name: p.name || p.product_name || 'Unknown', sales: Number(p.sold ?? p.total_sold ?? p.sales ?? 0) }))
+                          .sort((a,b)=> b.sales - a.sales);
+            }
+            if (typeof src === 'object') {
+                return normalizeFromCategories(src);
+            }
+        }
+        // Baseline categories or mock
+        let base = [];
+        if (dd.popularProducts && typeof dd.popularProducts === 'object') {
+            base = normalizeFromCategories(dd.popularProducts);
+        }
+        if (!base.length) {
+            base = [
+                { name: 'Nike Air Max 270', sales: 245 },
+                { name: 'Adidas Ultraboost 22', sales: 198 },
+                { name: 'Puma RS-X', sales: 176 },
+                { name: 'New Balance 574', sales: 142 },
+                { name: 'Converse Chuck Taylor', sales: 128 },
+                { name: 'Vans Old Skool', sales: 115 },
+                { name: 'Reebok Classic Leather', sales: 98 },
+                { name: 'Asics Gel-Kayano', sales: 87 },
+                { name: 'Skechers D\'Lites', sales: 76 },
+                { name: 'Fila Disruptor II', sales: 65 },
+                { name: 'Under Armour HOVR', sales: 54 },
+                { name: 'Brooks Ghost 14', sales: 43 }
+            ];
+        }
+        return adjustByRange(base, range);
+    }
+
+    async function render(range) {
+        const month = monthSelect ? Number(monthSelect.value) : undefined;
+        const year = yearSelect ? Number(yearSelect.value) : undefined;
+        const list = await getPopularList(range, month, year);
+        let html = '';
+        list.slice(0, 12).forEach((product, index) => {
+            const isTop3 = index < 3;
+            const rankBadge = isTop3 ? `<span class="odash-product-rank">${index + 1}</span>` : '';
+            const itemClass = isTop3 ? 'odash-product-item top-product' : 'odash-product-item';
+            html += `
+                <div class="${itemClass}">
+                    <span class="odash-product-name">${rankBadge}${product.name}</span>
+                    <span class="odash-product-sales">${product.sales} sold</span>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    }
+
+    // Initial render
+    render(currentRange);
+    // Re-render on changes
+    monthSelect?.addEventListener('change', () => render(currentRange));
+    yearSelect?.addEventListener('change', () => render(currentRange));
 }
 
 // ===== Stock Levels Horizontal Bar Chart (Mock Data) =====
