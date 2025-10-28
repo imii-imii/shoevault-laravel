@@ -8,6 +8,7 @@ use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\OwnerController;
 use App\Http\Controllers\OwnerUsersController;
 use App\Http\Controllers\ReservationController;
+use App\Http\Controllers\Auth\SocialAuthController;
 
 // Debug route for inventory types
 Route::get('/debug/inventory', function() {
@@ -36,6 +37,15 @@ Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::get('/logout', [AuthController::class, 'logout'])->name('logout.get'); // Alternative logout route
+
+// Customer-facing authentication (UI only)
+Route::get('/customer/login', function() {
+    return view('auth.customer');
+})->name('customer.login');
+
+// Google OAuth placeholders (configure Socialite to enable)
+Route::get('/auth/google', [SocialAuthController::class, 'redirect'])->name('auth.google');
+Route::get('/auth/google/callback', [SocialAuthController::class, 'callback'])->name('auth.google.callback');
 
 // POS routes (for cashiers and admin)
 Route::middleware(['auth', 'role:cashier,admin'])->prefix('pos')->name('pos.')->group(function () {

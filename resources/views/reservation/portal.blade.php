@@ -54,10 +54,13 @@
       <i class="fas fa-search"></i>
       <input type="text" placeholder="Search for shoes, brands, or models...">
     </div>
-    <div class="cart-container">
+    <div class="cart-container" style="display:flex;align-items:center;gap:10px;">
       <button class="res-portal-cart-btn" title="View Cart">
         <i class="fas fa-shopping-cart"></i>
       </button>
+      <a href="{{ route('customer.login') }}" class="res-portal-profile-btn" title="Sign in / Create account" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:999px;border:1px solid rgba(0,0,0,.06);background:#ffffff;box-shadow:0 6px 16px rgba(0,0,0,.08);color:#0f172a;transition:filter .15s ease, transform .05s ease;">
+        <i class="fas fa-user"></i>
+      </a>
       <div class="cart-dropdown" id="cartDropdown">
         <div class="cart-dropdown-header">
           <div class="cart-header-title">

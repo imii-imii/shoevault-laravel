@@ -42,6 +42,22 @@
 		.odash-status-badge { position:absolute; top:10px; right:10px; padding:4px 8px; border-radius:999px; font-size:0.7rem; font-weight:800; letter-spacing:.02em; border:1px solid transparent; transition: transform .2s ease, background .2s ease, color .2s ease; }
 		.odash-status-badge.active { background:#dcfce7; color:#166534; border-color:#bbf7d0; }
 		.odash-status-badge.inactive { background:#fee2e2; color:#991b1b; border-color:#fecaca; }
+
+		/* Segmented toggle for Employee vs Customer management */
+		.seg-toggle { display:inline-flex; gap:6px; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:999px; padding:6px; box-shadow: inset 0 1px 0 rgba(255,255,255,.6); }
+		.seg-toggle .seg-btn { border:0; background:transparent; padding:8px 14px; border-radius:999px; font-size:12px; font-weight:800; color:#64748b; cursor:pointer; transition: all .18s ease; }
+		.seg-toggle .seg-btn:hover { color:#111827; }
+		.seg-toggle .seg-btn.active { border:1px solid transparent; color:#0b1220; background:
+			linear-gradient(#ffffff,#f8fbff) padding-box,
+			linear-gradient(135deg, #000e2e 0%, #2343ce 100%) border-box;
+			box-shadow: 0 8px 22px -10px rgba(35,67,206,.28);
+		}
+
+		/* Customer card states */
+		.odash-status-badge.locked { background:#fef3c7; color:#92400e; border-color:#fde68a; }
+		.odash-status-badge.banned { background:#fee2e2; color:#991b1b; border-color:#fecaca; }
+		.odash-card.is-locked { filter: grayscale(.2) brightness(.98); }
+		.odash-card.is-banned { filter: grayscale(.45); border-color:#fecaca !important; box-shadow:0 4px 14px rgba(185,28,28,.12) !important; }
 	</style>
 </head>
 <body>
@@ -149,14 +165,35 @@
 				<div class="settings-panels">
 					<!-- User Account Management -->
 					<div class="settings-panel active" id="settings-panel-user-accounts">
-						<div style="display:flex; gap:12px; align-items:center; margin-bottom:18px;">
-							<input type="text" id="user-search" placeholder="Search users..." class="search-input" style="flex:1; min-width:180px;">
-							<button class="btn btn-primary" id="add-user-btn">
-								<i class="fas fa-user-plus"></i> Add User
-							</button>
+						<!-- Trendy account type toggle -->
+						<div style="display:flex; gap:12px; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap;">
+							<div class="seg-toggle" id="account-type-toggle" role="tablist" aria-label="Account type">
+								<button type="button" class="seg-btn active" data-type="employees" aria-selected="true">Employees</button>
+								<button type="button" class="seg-btn" data-type="customers" aria-selected="false">Customers</button>
+							</div>
+							<div style="display:flex; gap:10px; align-items:center;">
+								<!-- Right side can hold extra actions for active segment if needed -->
+							</div>
 						</div>
-						<div id="user-list" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:16px; align-items:stretch;">
-							<!-- User cards will be rendered here by JavaScript -->
+
+						<!-- Employees management (existing) -->
+						<div id="employee-management">
+							<div style="display:flex; gap:12px; align-items:center; margin-bottom:14px;">
+								<input type="text" id="user-search" placeholder="Search employees..." class="search-input" style="flex:1; min-width:180px;">
+								<button class="btn btn-primary" id="add-user-btn">
+									<i class="fas fa-user-plus"></i> Add User
+								</button>
+							</div>
+							<div id="user-list" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:16px; align-items:stretch;"></div>
+						</div>
+
+						<!-- Customers management (UI only) -->
+						<div id="customer-management" style="display:none;">
+							<div style="display:flex; gap:12px; align-items:center; margin-bottom:14px;">
+								<input type="text" id="customer-search" placeholder="Search customers..." class="search-input" style="flex:1; min-width:180px;">
+							</div>
+							<div id="customer-list" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:16px; align-items:stretch;"></div>
+							<div style="margin-top:10px; color:#6b7280; font-size:0.85rem;">Note: Customer account actions are UI-only in this build.</div>
 						</div>
 					</div>
 
@@ -619,6 +656,133 @@ document.addEventListener('DOMContentLoaded', function() {
 			st = setTimeout(()=> loadUsers(val), 250);
 		});
 
+	})();
+	</script>
+
+	<script>
+	// Employee/Customer account type toggle and Customer UI (no backend)
+	(function(){
+		const toggle = document.getElementById('account-type-toggle');
+		const emp = document.getElementById('employee-management');
+		const cust = document.getElementById('customer-management');
+		if (toggle && emp && cust) {
+			toggle.addEventListener('click', (e)=>{
+				const btn = e.target.closest('.seg-btn');
+				if (!btn) return;
+				toggle.querySelectorAll('.seg-btn').forEach(b=>{
+					b.classList.remove('active');
+					b.setAttribute('aria-selected','false');
+				});
+				btn.classList.add('active');
+				btn.setAttribute('aria-selected','true');
+				const type = btn.getAttribute('data-type');
+				if (type === 'customers') { emp.style.display = 'none'; cust.style.display=''; }
+				else { cust.style.display='none'; emp.style.display=''; }
+			});
+		}
+
+		// Customer UI only: mock data and interactions
+		const customerListEl = document.getElementById('customer-list');
+		const customerSearchEl = document.getElementById('customer-search');
+		const customersCache = { list: [
+			{id: 101, name:'Ana Reyes', username:'anareyes', email:'ana@example.com', phone:'+63 900 123 4567', status:'active'},
+			{id: 102, name:'Marco Santos', username:'marcos', email:'marco@example.com', phone:'+63 917 555 1212', status:'locked'},
+			{id: 103, name:'Lia Gomez', username:'liag', email:'lia@example.com', phone:'+63 905 111 2222', status:'banned'},
+			{id: 104, name:'Ken Tan', username:'kent', email:'ken@example.com', phone:'+63 918 333 4444', status:'active'},
+			{id: 105, name:'Mica Cruz', username:'micacruz', email:'mica@example.com', phone:'+63 912 777 8888', status:'active'}
+		] };
+
+		function renderCustomers(items){
+			if (!customerListEl) return;
+			customerListEl.innerHTML = '';
+			if (!Array.isArray(items) || items.length === 0) {
+				customerListEl.innerHTML = '<div style="color:#6b7280;">No customers found.</div>';
+				return;
+			}
+			items.forEach(c => customerListEl.appendChild(buildCustomerCard(c)));
+		}
+
+		function buildCustomerCard(c){
+			const card = document.createElement('div');
+			card.className = 'odash-list-item odash-card';
+			const isLocked = c.status === 'locked';
+			const isBanned = c.status === 'banned';
+			if (isLocked) card.classList.add('is-locked');
+			if (isBanned) card.classList.add('is-banned');
+			const badgeClass = isBanned ? 'banned' : (isLocked ? 'locked' : 'active');
+			const badgeText = isBanned ? 'Banned' : (isLocked ? 'Locked' : 'Active');
+			card.style.cssText = [
+				'width:200px','height:300px','display:flex','flex-direction:column','align-items:center','justify-content:flex-start','padding:14px',
+				'border:1px solid #e5e7eb','border-radius:12px','background:#fff','box-shadow:0 2px 8px rgba(0,0,0,0.04)','position:relative'
+			].join(';');
+			card.innerHTML = `
+				<div class="odash-status-badge ${badgeClass}">${badgeText}</div>
+				<div style="flex:0 0 auto;display:flex;justify-content:center;width:100%;margin-top:8px;">
+					<img src="{{ asset('images/profile.png') }}" alt="Avatar" style="width:88px;height:88px;border-radius:9999px;object-fit:cover;border:3px solid #eef2ff;">
+				</div>
+				<div style="flex:0 0 auto;text-align:center;margin-top:12px;">
+					<div class="name" style="font-weight:800;color:#111827;">${c.name}</div>
+					<div class="sub" style="color:#6b7280;font-size:0.85rem;">@${c.username}</div>
+				</div>
+				<!-- Email and phone intentionally hidden for customer privacy -->
+				<div style="flex:0 0 auto;height:8px;margin-top:8px;"></div>
+				<div style="flex:1 1 auto"></div>
+				<div style="flex:0 0 auto;margin-top:8px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+					<div style="display:flex;align-items:center;gap:10px;">
+						<label class="odash-switch" title="Lock account">
+							<input type="checkbox" class="odash-switch-input cust-lock" ${isLocked ? 'checked' : ''} ${isBanned ? 'disabled' : ''}>
+							<span class="odash-switch-track"></span>
+						</label>
+						<span style="font-size:0.8rem;color:#374151;font-weight:700;">Lock</span>
+					</div>
+					<div style="display:flex;align-items:center;gap:10px;">
+						<label class="odash-switch" title="Ban account">
+							<input type="checkbox" class="odash-switch-input cust-ban" ${isBanned ? 'checked' : ''}>
+							<span class="odash-switch-track" style="background:#fecaca"></span>
+						</label>
+						<span style="font-size:0.8rem;color:#7f1d1d;font-weight:800;">Ban</span>
+					</div>
+				</div>
+			`;
+
+			const badge = card.querySelector('.odash-status-badge');
+			const lockInput = card.querySelector('.cust-lock');
+			const banInput = card.querySelector('.cust-ban');
+
+			function refreshState(){
+				card.classList.toggle('is-locked', lockInput?.checked && !banInput?.checked);
+				card.classList.toggle('is-banned', !!banInput?.checked);
+				let state = 'Active';
+				let cls = 'active';
+				if (banInput?.checked) { state='Banned'; cls='banned'; }
+				else if (lockInput?.checked) { state='Locked'; cls='locked'; }
+				badge.textContent = state;
+				badge.className = 'odash-status-badge ' + cls;
+				lockInput.disabled = !!banInput?.checked; // cannot lock while banned
+			}
+
+			lockInput?.addEventListener('change', ()=>{
+				refreshState();
+			});
+			banInput?.addEventListener('change', ()=>{
+				refreshState();
+			});
+
+			return card;
+		}
+
+		function applyCustomerSearch(){
+			const q = (customerSearchEl?.value || '').toLowerCase();
+			let rows = [...customersCache.list];
+			if (q) rows = rows.filter(x => (
+				String(x.name).toLowerCase().includes(q) || String(x.username).toLowerCase().includes(q) || String(x.email).toLowerCase().includes(q)
+			));
+			renderCustomers(rows);
+		}
+
+		if (customerListEl) { renderCustomers(customersCache.list); }
+		let ct;
+		customerSearchEl?.addEventListener('input', ()=>{ clearTimeout(ct); ct = setTimeout(applyCustomerSearch, 200); });
 	})();
 	</script>
 
