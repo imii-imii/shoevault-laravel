@@ -217,7 +217,7 @@
       <div class="right">
         <div class="hero">
           <div class="hero-graphic">
-            <i class="fa-solid fa-shoe-prints" style="font-size:3rem;opacity:.6"></i>
+            <img src="{{ asset('images/logo.png') }}" alt="ShoeVault" style="width:200;height:200px;object-fit:contain;border-radius:12px;background:rgba(255,255,255,0.06);padding:10px;" />
           </div>
           <h2>Step into seamless reservations</h2>
           <p>Keep your sizes secure, and checkout faster across devices.</p>
