@@ -193,25 +193,62 @@ document.addEventListener('DOMContentLoaded', function() {
 // --- Data Loading Functions ---
 async function loadSalesHistory(period = 'weekly') {
     try {
+        console.log(`Loading sales history for period: ${period}`);
         const response = await fetch(`${laravelRoutes.salesHistory}?period=${period}`);
         const data = await response.json();
         
+        console.log('Sales history response:', data);
+        
         if (response.ok) {
+            // Cache transactions for client-side filtering on reports page
+            window.__salesTransactions = Array.isArray(data.transactions) ? data.transactions : [];
+            console.log('Cached transactions:', window.__salesTransactions.length);
+            
             updateSalesKPIs(data);
             renderSalesChart(data.salesData, period);
             renderTopSellingProducts(data.topProducts);
             // Prefer transactional rows if provided; fallback to aggregated structure
             if (Array.isArray(data.transactions)) {
+                console.log('Rendering sales table with', data.transactions.length, 'transactions');
                 renderSalesTable(data.transactions);
             } else {
+                console.log('No transactions array found, rendering empty table');
                 renderSalesTable([]);
             }
         } else {
             console.error('Failed to load sales history:', data.message);
+            renderSalesTable([]);
         }
     } catch (error) {
         console.error('Error loading sales history:', error);
+        renderSalesTable([]);
     }
+}
+
+// Apply filters on cached sales transactions and re-render the table
+function applySalesFilters({ search = '', sort = 'date-desc', periodUi = '' } = {}) {
+    let rows = Array.isArray(window.__salesTransactions) ? [...window.__salesTransactions] : [];
+    const todayStr = new Date().toISOString().slice(0,10);
+    // periodUi can be: '', 'today', 'week', 'month'
+    if (periodUi === 'today') {
+        rows = rows.filter(r => (r.sale_datetime || '').slice(0,10) === todayStr);
+    }
+    // Search across transaction_id, cashier_name, products
+    const q = (search || '').toLowerCase();
+    if (q) {
+        rows = rows.filter(r => (
+            String(r.transaction_id || '').toLowerCase().includes(q) ||
+            String(r.cashier_name || '').toLowerCase().includes(q) ||
+            String(r.products || '').toLowerCase().includes(q)
+        ));
+    }
+    // Sorting
+    const num = (v) => Number(v ?? 0);
+    if (sort === 'date-asc') rows.sort((a,b)=> new Date(a.sale_datetime) - new Date(b.sale_datetime));
+    else if (sort === 'date-desc') rows.sort((a,b)=> new Date(b.sale_datetime) - new Date(a.sale_datetime));
+    else if (sort === 'amount-asc') rows.sort((a,b)=> num(a.total_amount) - num(b.total_amount));
+    else if (sort === 'amount-desc') rows.sort((a,b)=> num(b.total_amount) - num(a.total_amount));
+    renderSalesTable(rows);
 }
 
 async function loadReservationLogs(period = 'weekly') {
@@ -259,6 +296,8 @@ async function loadSupplyLogs() {
         const data = await response.json();
         
         if (response.ok) {
+            // Cache supply data for client-side filters
+            window.__supplyData = Array.isArray(data.supplyData) ? data.supplyData : [];
             renderSupplyTable(data.supplyData);
         } else {
             console.error('Failed to load supply logs:', data.message);
@@ -268,14 +307,48 @@ async function loadSupplyLogs() {
     }
 }
 
-async function loadInventoryOverview(source = 'pos') {
+function applySupplyFilters({ search = '', sort = 'date-desc' } = {}) {
+    let rows = Array.isArray(window.__supplyData) ? [...window.__supplyData] : [];
+    const q = (search || '').toLowerCase();
+    if (q) {
+        rows = rows.filter(r => (
+            String(r.name || '').toLowerCase().includes(q) ||
+            String(r.contact_person || '').toLowerCase().includes(q) ||
+            String(r.brands || '').toLowerCase().includes(q) ||
+            String(r.country || '').toLowerCase().includes(q) ||
+            String(r.email || '').toLowerCase().includes(q) ||
+            String(r.phone || '').toLowerCase().includes(q)
+        ));
+    }
+    if (sort === 'date-asc') rows.sort((a,b)=> new Date(a.updated_at || a.created_at || 0) - new Date(b.updated_at || b.created_at || 0));
+    else if (sort === 'date-desc') rows.sort((a,b)=> new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0));
+    else if (sort === 'id-asc') rows.sort((a,b)=> Number(a.id||0) - Number(b.id||0));
+    else if (sort === 'id-desc') rows.sort((a,b)=> Number(b.id||0) - Number(a.id||0));
+    renderSupplyTable(rows);
+}
+
+async function loadInventoryOverview(source = 'pos', opts = {}) {
     try {
         const url = new URL(laravelRoutes.inventoryOverview, window.location.origin);
         if (source) url.searchParams.set('source', source);
+        if (opts.category) url.searchParams.set('category', opts.category);
+        if (opts.search) url.searchParams.set('search', opts.search);
         const response = await fetch(url.toString());
         const data = await response.json();
         
         if (response.ok) {
+            // Optionally sort client-side
+            const sort = opts.sort || '';
+            if (Array.isArray(data.items) && sort) {
+                const items = [...data.items];
+                if (sort === 'name-asc') items.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||'')));
+                else if (sort === 'name-desc') items.sort((a,b)=> String(b.name||'').localeCompare(String(a.name||'')));
+                else if (sort === 'brand-asc') items.sort((a,b)=> String(a.brand||'').localeCompare(String(b.brand||'')));
+                else if (sort === 'brand-desc') items.sort((a,b)=> String(b.brand||'').localeCompare(String(a.brand||'')));
+                else if (sort === 'stock-asc') items.sort((a,b)=> Number(a.total_stock||0) - Number(b.total_stock||0));
+                else if (sort === 'stock-desc') items.sort((a,b)=> Number(b.total_stock||0) - Number(a.total_stock||0));
+                data.items = items;
+            }
             renderInventoryOverviewCards(data);
         } else {
             console.error('Failed to load inventory overview:', data.message);
@@ -715,6 +788,8 @@ function renderSalesTable(transactions) {
     const tbody = document.getElementById('sales-history-tbody');
     if (!tbody) return;
 
+    console.log('Rendering sales table with transactions:', transactions); // Debug log
+
     const fmt = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 2 });
     const money = (v) => {
         const n = Number(v ?? 0);
@@ -729,20 +804,35 @@ function renderSalesTable(transactions) {
     };
 
     if (!Array.isArray(transactions) || transactions.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9" style="color:#6b7280; text-align:center;">No sales found for the selected period.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" style="color:#6b7280; text-align:center;">No sales found for the selected period.</td></tr>`;
         return;
     }
 
     tbody.innerHTML = transactions.map((t) => {
-        const products = t.products || '';
+        const products = t.products || 'No items found';
+        console.log(`Transaction ${t.transaction_id} products:`, products); // Debug log
         const cashier = t.cashier_name || '—';
         const stype = (t.sale_type || '').toString().toUpperCase();
+        // Extract subtotal from common server field names, fallback to a best-effort computation
+        const subtotalRaw = (t.subtotal ?? t.subtotal_amount ?? t.sub_total ?? t.sub_total_amount ?? t.subtotalAmount ?? t.subTotal);
+        let subtotalVal = typeof subtotalRaw !== 'undefined' && subtotalRaw !== null ? subtotalRaw : null;
+        if (subtotalVal === null) {
+            // fallback: if total_amount present, try to compute: total + discount - tax (works if total already includes tax)
+            const totalN = Number(t.total_amount ?? t.total ?? 0);
+            const taxN = Number(t.tax ?? 0);
+            const discountN = Number(t.discount_amount ?? t.discount ?? 0);
+            // best-effort: assume total_amount = subtotal + tax - discount (or subtotal + tax - discount depending on your schema)
+            // Rearranged: subtotal ≈ total + discount - tax
+            subtotalVal = totalN + discountN - taxN;
+        }
+
         return `
         <tr>
             <td>${t.transaction_id || ''}</td>
             <td>${stype}</td>
             <td>${cashier}</td>
-            <td>${products}</td>
+            <td style="max-width: 200px; word-wrap: break-word;">${products}</td>
+            <td>${money(subtotalVal)}</td>
             <td>${money(t.discount_amount)}</td>
             <td>${money(t.total_amount)}</td>
             <td>${money(t.amount_paid)}</td>
@@ -838,20 +928,40 @@ function renderSupplyTable(supplyData) {
     const tbody = document.getElementById('supply-logs-tbody');
     if (!tbody) return;
 
-    tbody.innerHTML = supplyData.map((supply, index) => `
-        <tr>
-            <td>SUP-${String(index + 1).padStart(4, '0')}</td>
-            <td>Supplier ${index + 1}</td>
-            <td>Contact ${index + 1}</td>
-            <td>Brand ${index + 1}</td>
-            <td>${supply.supplies}</td>
-            <td>Philippines</td>
-            <td>${formatDate(supply.date)}</td>
-            <td>supplier${index + 1}@email.com</td>
-            <td>+63 900 000 000${index}</td>
-            <td><span class="status-badge status-active">Active</span></td>
-        </tr>
-    `).join('');
+    if (!Array.isArray(supplyData) || supplyData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#6b7280;">No suppliers found.</td></tr>';
+        return;
+    }
+
+    const rows = supplyData.map((s) => {
+        const id = s.id ?? '';
+        const name = s.name ?? '';
+        const contact = s.contact_person ?? '';
+        const brands = Array.isArray(s.brands) ? s.brands.join(', ') : (s.brands ?? '');
+        const stock = Number(s.total_stock ?? 0);
+        const country = s.country ?? 'N/A';
+        const updated = s.updated_at || s.created_at || '';
+        const email = s.email ?? '';
+        const phone = s.phone ?? '';
+        const statusTxt = (s.status || (s.is_active ? 'active' : 'inactive') || 'active').toString().toLowerCase();
+        const badgeClass = statusTxt === 'active' ? 'status-active' : 'status-inactive';
+        return `
+            <tr>
+                <td>${id}</td>
+                <td>${name}</td>
+                <td>${contact}</td>
+                <td>${brands || 'N/A'}</td>
+                <td>${stock}</td>
+                <td>${country}</td>
+                <td>${updated ? formatDate(updated) : ''}</td>
+                <td>${email}</td>
+                <td>${phone}</td>
+                <td><span class="status-badge ${badgeClass}">${statusTxt.charAt(0).toUpperCase() + statusTxt.slice(1)}</span></td>
+            </tr>
+        `;
+    }).join('');
+
+    tbody.innerHTML = rows;
 }
 
 // Inventory Overview: render as horizontal cards and wire modal

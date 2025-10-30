@@ -10,13 +10,6 @@
 .logout-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.9rem 1rem;background:linear-gradient(to top right,#112c70 0%,#2a6aff 100%);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:9999px;font-size:.86rem;font-weight:700;cursor:pointer;transition:all .2s ease;text-decoration:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 6px 20px rgba(42,106,255,.35)}
 .logout-btn:hover{background:linear-gradient(135deg,#ef4444,#b91c1c);filter:brightness(1.05);box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 10px 24px rgba(185,28,28,.45)}
 .logout-btn i{font-size:1rem}
-/* Settings panels: loading overlay & entry animation */
-@keyframes slideFadeIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0);} }
-.settings-panels { position: relative; }
-.settings-panel { position: relative; }
-.settings-panel .loading-overlay{ position:absolute; inset:0; display:grid; place-items:center; gap:8px; background:linear-gradient(180deg, rgba(255,255,255,0.94), rgba(248,250,252,0.92)); backdrop-filter: blur(6px); z-index:20; border-radius:8px; }
-.settings-panel .loading-overlay i{ font-size:18px; color:#64748b }
-.settings-panel.animate-entry { animation: slideFadeIn 360ms ease both; }
 </style>
 @endpush
 
@@ -244,31 +237,16 @@ function initializeSettings() {
     document.querySelectorAll('.settings-tab').forEach(tab => {
         tab.addEventListener('click', function() {
             const tabId = this.getAttribute('data-tab');
-            // Remove active class from all tabs
+            
+            // Remove active class from all tabs and panels
             document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
+            
+            // Add active class to clicked tab and corresponding panel
             this.classList.add('active');
-
-            // Show a small loading overlay on the target panel, then activate it with an entry animation
             const panel = document.getElementById(`settings-panel-${tabId}`);
             if (panel) {
-                // hide any currently active panels and remove animation classes
-                document.querySelectorAll('.settings-panel').forEach(p => { p.classList.remove('active'); p.classList.remove('animate-entry'); });
-
-                let lo = panel.querySelector('.loading-overlay');
-                if (!lo) {
-                    lo = document.createElement('div');
-                    lo.className = 'loading-overlay';
-                    lo.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-                    panel.appendChild(lo);
-                }
-                lo.style.display = 'grid';
-
-                // small delay to simulate load and allow CSS animations
-                setTimeout(() => {
-                    lo.style.display = 'none';
-                    panel.classList.add('active');
-                    panel.classList.add('animate-entry');
-                }, 260);
+                panel.classList.add('active');
             }
         });
     });

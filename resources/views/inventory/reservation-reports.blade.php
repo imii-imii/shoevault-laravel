@@ -10,20 +10,6 @@
 .logout-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.9rem 1rem;background:linear-gradient(to top right,#112c70 0%,#2a6aff 100%);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:9999px;font-size:.86rem;font-weight:700;cursor:pointer;transition:all .2s ease;text-decoration:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 6px 20px rgba(42,106,255,.35)}
 .logout-btn:hover{background:linear-gradient(135deg,#ef4444,#b91c1c);filter:brightness(1.05);box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 10px 24px rgba(185,28,28,.45)}
 .logout-btn i{font-size:1rem}
-/* Reservations: loading overlay & entry animation */
-@keyframes slideFadeIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0);} }
-#reservations-container { position: relative; }
-#reservations-container .loading-overlay{ position:absolute; inset:0; display:grid; place-items:center; gap:10px; background:linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.94)); backdrop-filter: blur(6px); z-index:20; border-radius:8px; }
-#reservations-container .loading-overlay i{ font-size:20px; color:#64748b }
-#reservations-container.animate-entry > .reservation-card { animation: slideFadeIn 420ms ease both; }
-#reservations-container.animate-entry > .reservation-card:nth-child(1){ animation-delay: 40ms }
-#reservations-container.animate-entry > .reservation-card:nth-child(2){ animation-delay: 80ms }
-#reservations-container.animate-entry > .reservation-card:nth-child(3){ animation-delay: 120ms }
-#reservations-container.animate-entry > .reservation-card:nth-child(4){ animation-delay: 160ms }
-#reservations-container.animate-entry > .reservation-card:nth-child(5){ animation-delay: 200ms }
-#reservations-container.animate-entry > .reservation-card:nth-child(6){ animation-delay: 240ms }
-#reservations-container.animate-entry > .reservation-card:nth-child(7){ animation-delay: 280ms }
-#reservations-container.animate-entry > .reservation-card:nth-child(8){ animation-delay: 320ms }
 </style>
 @endpush
 
@@ -688,22 +674,6 @@ document.addEventListener('DOMContentLoaded', function(){
             if (card) openReservationModalFromCard(card);
         });
     });
-    // brief loading overlay + entry animation for reservations container
-    const resContainer = document.getElementById('reservations-container');
-    if (resContainer) {
-        let lo = resContainer.querySelector('.loading-overlay');
-        if (!lo) {
-            lo = document.createElement('div');
-            lo.className = 'loading-overlay';
-            lo.innerHTML = '<i class="fas fa-spinner fa-spin"></i><div style="color:#475569;font-weight:700;">Loading reservations…</div>';
-            resContainer.appendChild(lo);
-        }
-        lo.style.display = 'grid';
-        setTimeout(() => {
-            resContainer.classList.add('animate-entry');
-            lo.style.display = 'none';
-        }, 360);
-    }
 });
 </script>
 @endpush

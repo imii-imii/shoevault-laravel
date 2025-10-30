@@ -45,6 +45,25 @@
     font-size: 1rem;
     background-color: transparent;
   }
+  /* Make profile icon slightly smaller on mobile so it fits the compact navbar */
+  .res-portal-navbar .res-portal-profile-btn,
+  .res-portal-profile-btn {
+    width: 20px !important;
+    height: 20px !important;
+    font-size: 0.9rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+  }
+  /* Scale the inner icon to match the resized profile button */
+  .res-portal-profile-btn i,
+  .res-portal-navbar .res-portal-profile-btn i {
+    font-size: 10px !important;
+    line-height: 1 !important;
+    display: inline-block !important;
+    vertical-align: middle !important;
+  }
   .res-portal-navbar .fa-shopping-cart {
     font-size: 1rem;
   }
@@ -803,6 +822,8 @@ html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavi
   background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%);
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
   transition: background .2s ease, transform .2s ease, box-shadow .2s ease;
+  /* push button to bottom of the flex column card */
+  margin-top: auto;
 }
 .res-portal-add-cart-btn:hover { background: linear-gradient(90deg,#3b82f6 0%,#1d4ed8 100%); transform: translateY(-1px); box-shadow:0 8px 18px rgba(37,99,235,0.45); }
 .res-portal-add-cart-btn:active { transform: translateY(0); box-shadow:0 3px 8px rgba(0,0,0,0.2); }
