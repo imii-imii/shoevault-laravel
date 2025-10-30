@@ -661,66 +661,6 @@
             font-size: 2rem;
             margin-bottom: var(--spacing-md);
         }
-        /* Loading products (used inside reservation modal) */
-        .loading-products {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 12px;
-            gap: 8px;
-            color: var(--gray-600);
-        }
-        .loading-products i { font-size: 1.6rem; color: #2a6aff; }
-        /* --- Section skeleton & entry animations --- */
-        .section-loading-overlay {
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.95));
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            padding: 20px;
-            z-index: 9999;
-            align-items: stretch;
-            justify-content: flex-start;
-            border-radius: inherit;
-        }
-        .skeleton { background: linear-gradient(90deg, #f3f4f6 25%, #e6eefc 50%, #f3f4f6 75%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; border-radius: 6px; }
-        .skeleton.title { height: 20px; width: 40%; }
-        .skeleton.line { height: 12px; width: 100%; }
-        .skeleton.card { height: 78px; width: 100%; border-radius: 10px; }
-
-        @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
-
-        .animate-entry { opacity: 0; transform: translateY(14px); }
-        @keyframes entryUp { to { opacity: 1; transform: translateY(0); } }
-        .animate-entry.play { animation: entryUp 900ms cubic-bezier(.2,.9,.2,1) forwards; }
-        /* Modal zoom / overlay fade animations */
-        #reservation-modal.zoom-enter, #transaction-modal.zoom-enter {
-            animation: modalZoomIn 320ms cubic-bezier(.2,.9,.2,1) forwards;
-            transform-origin: center center;
-        }
-        #reservation-modal.zoom-exit, #transaction-modal.zoom-exit {
-            animation: modalZoomOut 220ms cubic-bezier(.4,.0,.2,1) forwards;
-            transform-origin: center center;
-        }
-        @keyframes modalZoomIn {
-            from { transform: translate(-50%, -50%) scale(0.92); opacity: 0; }
-            to   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-        }
-        @keyframes modalZoomOut {
-            from { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-            to   { transform: translate(-50%, -50%) scale(0.96); opacity: 0; }
-        }
-        #reservation-modal-overlay.fade-in, #transaction-modal-overlay.fade-in {
-            animation: overlayFadeIn 240ms ease forwards;
-        }
-        #reservation-modal-overlay.fade-out, #transaction-modal-overlay.fade-out {
-            animation: overlayFadeOut 200ms ease forwards;
-        }
-        @keyframes overlayFadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes overlayFadeOut { from { opacity: 1; } to { opacity: 0; } }
     </style>
 </head>
 
@@ -1026,49 +966,6 @@
         const modalBodyEl = document.getElementById('reservation-modal-body');
         const modalCloseEl = document.getElementById('reservation-modal-close');
 
-        // Helper to show/hide modals with zoom + overlay fade animations
-        function showModal(modal, overlay) {
-            if (!modal || !overlay) return;
-            // ensure overlay visible and play fade-in
-            overlay.style.display = 'block';
-            overlay.classList.remove('fade-out');
-            // trigger reflow then add fade-in
-            void overlay.offsetWidth;
-            overlay.classList.add('fade-in');
-
-            // show modal and animate zoom in
-            modal.style.display = 'block';
-            modal.classList.remove('zoom-exit');
-            void modal.offsetWidth;
-            modal.classList.add('zoom-enter');
-        }
-
-        function hideModal(modal, overlay) {
-            if (!modal || !overlay) return;
-            // play modal exit animation
-            modal.classList.remove('zoom-enter');
-            modal.classList.add('zoom-exit');
-
-            // play overlay fade out
-            overlay.classList.remove('fade-in');
-            overlay.classList.add('fade-out');
-
-            // after animations end, hide from layout
-            const cleanup = (e) => {
-                if (e && e.target !== modal && e.target !== overlay) return;
-                try { modal.style.display = 'none'; } catch(_) {}
-                try { overlay.style.display = 'none'; } catch(_) {}
-                modal.classList.remove('zoom-exit');
-                overlay.classList.remove('fade-out');
-                modal.removeEventListener('animationend', cleanup);
-                overlay.removeEventListener('animationend', cleanup);
-            };
-            modal.addEventListener('animationend', cleanup);
-            overlay.addEventListener('animationend', cleanup);
-            // fallback in case animationend doesn't fire
-            setTimeout(()=> cleanup(), 420);
-        }
-
         function openReservationModalFromCard(card) {
             const id = card.dataset.resId;
             const number = card.dataset.resNumber;
@@ -1110,10 +1007,7 @@
                 <div style="margin-top:16px;padding-top:16px;border-top:1px solid #e5e7eb;">
                     <h4 style="margin:0 0 8px 0;">Products</h4>
                     <div id="reservation-products" style="display:grid;gap:8px;">
-                        <div class="loading-products" aria-live="polite">
-                            <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
-                            <div style="font-size:0.95rem;color:#6B7280;">Loading products…</div>
-                        </div>
+                        <div style=\"color:#6B7280;font-size:0.9rem;\">Loading products…</div>
                     </div>
                     <div id="reservation-total" style="margin-top:12px;text-align:right;font-weight:800;font-size:1rem;"></div>
                 </div>
@@ -1150,7 +1044,8 @@
                 });
 
             renderReservationModalActions(id, status);
-            showModal(modalEl, modalOverlayEl);
+            modalOverlayEl.style.display = 'block';
+            modalEl.style.display = 'block';
         }
 
         function renderReservationModalActions(reservationId, status) {
@@ -1231,7 +1126,8 @@
                         txPay.disabled = !(paid >= txContext.total);
                     });
 
-                    showModal(txModal, txOverlay);
+                    txOverlay.style.display = 'block';
+                    txModal.style.display = 'block';
                 })
                 .catch(() => {
                     alert('Unable to load reservation details.');
@@ -1239,7 +1135,8 @@
         }
 
         function closeTransactionModal(){
-            hideModal(txModal, txOverlay);
+            txModal.style.display = 'none';
+            txOverlay.style.display = 'none';
         }
 
         if (txClose) txClose.addEventListener('click', closeTransactionModal);
@@ -1305,7 +1202,8 @@
         });
 
         function closeReservationModal() {
-            hideModal(modalEl, modalOverlayEl);
+            modalEl.style.display = 'none';
+            modalOverlayEl.style.display = 'none';
         }
         if (modalCloseEl) modalCloseEl.addEventListener('click', closeReservationModal);
         if (modalOverlayEl) modalOverlayEl.addEventListener('click', closeReservationModal);
@@ -1480,46 +1378,6 @@
                 document.querySelectorAll('.notification-wrapper.open').forEach(w => w.classList.remove('open'));
             });
         }
-
-        // --- Section loading & slow entry animation (visual only) ---
-        (function(){
-            function makeSkeleton(section) {
-                const overlay = document.createElement('div');
-                overlay.className = 'section-loading-overlay';
-                overlay.setAttribute('aria-hidden','true');
-                const t = document.createElement('div'); t.className = 'skeleton title'; overlay.appendChild(t);
-                for (let i=0;i<2;i++){ const l=document.createElement('div'); l.className='skeleton line'; overlay.appendChild(l); }
-                const cardCount = 3;
-                for (let i=0;i<cardCount;i++){ const c=document.createElement('div'); c.className='skeleton card'; overlay.appendChild(c); }
-                overlay.style.pointerEvents = 'none';
-                overlay.style.opacity = '1';
-                return overlay;
-            }
-
-            function playSection(section){
-                if (!section) return;
-                if (getComputedStyle(section).position === 'static') section.style.position = 'relative';
-                const overlay = makeSkeleton(section);
-                section.appendChild(overlay);
-                const delay = 550 + Math.random()*300;
-                setTimeout(()=>{
-                    overlay.style.transition = 'opacity 280ms ease';
-                    overlay.style.opacity = '0';
-                    setTimeout(()=> overlay.remove(), 320);
-                    const children = Array.from(section.querySelectorAll(':scope > *'))
-                        .filter(el => !el.classList.contains('section-loading-overlay'));
-                    children.forEach((el, i)=>{
-                        el.classList.add('animate-entry');
-                        setTimeout(()=> el.classList.add('play'), 120*i + 40);
-                    });
-                }, delay);
-            }
-
-            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ()=>{
-                document.querySelectorAll('.reservation-section, .reservation-cards, .reservation-table-wrapper').forEach(playSection);
-            });
-            else document.querySelectorAll('.reservation-section, .reservation-cards, .reservation-table-wrapper').forEach(playSection);
-        })();
     </script>
 </body>
 </html>
