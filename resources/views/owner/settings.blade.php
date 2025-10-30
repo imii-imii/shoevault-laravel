@@ -58,9 +58,22 @@
 		.odash-status-badge.banned { background:#fee2e2; color:#991b1b; border-color:#fecaca; }
 		.odash-card.is-locked { filter: grayscale(.2) brightness(.98); }
 		.odash-card.is-banned { filter: grayscale(.45); border-color:#fecaca !important; box-shadow:0 4px 14px rgba(185,28,28,.12) !important; }
+
+		/* Loading + animations */
+		@keyframes shimmer { 0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; } }
+		@keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+		.section-loader { position: absolute; inset: 0; background: rgba(255,255,255,0.85); backdrop-filter: blur(2px); display: none; align-items: center; justify-content: center; z-index: 20000; }
+		.loader { width: 48px; height: 48px; border-radius: 50%; border: 3px solid #bfdbfe; border-top-color: #3b82f6; animation: spin 0.8s linear infinite; }
+		.content-section { position: relative; }
+		@keyframes spin { to { transform: rotate(360deg); } }
+		.skeleton { position: relative; overflow: hidden; background: #eef2f7; border-radius: 10px; }
+		.skeleton::after { content: ""; position: absolute; inset: 0; background-image: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.6) 40%, rgba(255,255,255,0) 80%); background-size: 1000px 100%; animation: shimmer 1.2s infinite; opacity: .7; }
+		.skeleton.line { height: 12px; margin: 6px 0; }
+		.animate-in { animation: fadeInUp .35s ease both; }
 	</style>
 </head>
 <body>
+<!-- section-scoped loaders are created dynamically inside the active section -->
 <!-- Sidebar Navigation -->
 <nav class="sidebar">
 	<div class="logo">
@@ -351,6 +364,12 @@
 <script>
 // Time/date header
 document.addEventListener('DOMContentLoaded', function() {
+	// Section-scoped loader helpers (settings page)
+	function getActiveSection() { return document.querySelector('.content-section.active') || document.querySelector('.content-section'); }
+	function ensureSectionPosition(sec) { if (!sec) return; const pos = window.getComputedStyle(sec).position; if (!pos || pos === 'static') sec.style.position = 'relative'; }
+	function showSectionLoader() { const sec = getActiveSection(); if (!sec) return; ensureSectionPosition(sec); if (sec.querySelector('.section-loader')) return; const loader = document.createElement('div'); loader.className='section-loader'; loader.style.position='absolute'; loader.style.inset='0'; loader.style.display='flex'; loader.style.alignItems='center'; loader.style.justifyContent='center'; loader.style.background='rgba(255,255,255,0.85)'; loader.style.backdropFilter='blur(2px)'; loader.style.zIndex=20000; loader.innerHTML = '<div class="loader" aria-label="Loading"></div>'; sec.appendChild(loader); }
+	function hideSectionLoader() { const sec = getActiveSection(); if (!sec) return; const loader = sec.querySelector('.section-loader'); if (loader) loader.remove(); }
+	showSectionLoader();
 	function updateDateTime() {
 		const now = new Date();
 		document.getElementById('current-time').textContent = now.toLocaleTimeString();
@@ -360,6 +379,8 @@ document.addEventListener('DOMContentLoaded', function() {
 	}
 	updateDateTime();
 	setInterval(updateDateTime, 1000);
+	// Expose hide loader for later
+	window.__hideSettingsLoader = hideSectionLoader;
 });
 </script>
 
@@ -478,9 +499,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
 		// Load users from API and render cards
 		const cachedUsers = { list: [] };
+		function injectUserSkeletons(count = 8){
+			if (!userList) return;
+			userList.innerHTML = '';
+			for (let i=0;i<count;i++){
+				const sk = document.createElement('div');
+				sk.className = 'odash-card skeleton';
+				sk.style.cssText = 'width:200px;height:300px;border-radius:12px;';
+				userList.appendChild(sk);
+			}
+		}
+		function animateUserCards(){
+			Array.from(userList.children||[]).forEach((el,i)=>{ el.classList.add('animate-in'); el.style.animationDelay = `${i*30}ms`; });
+		}
 		async function loadUsers(search = ''){
 			if (!indexUrl || !userList) return;
 			try{
+				injectUserSkeletons(8);
 				const url = new URL(indexUrl, window.location.origin);
 				if (search) url.searchParams.set('search', search);
 				const res = await fetch(url.toString(), { headers: { 'Accept':'application/json' } });
@@ -488,9 +523,12 @@ document.addEventListener('DOMContentLoaded', function() {
 				if (!res.ok || data.success === false) throw new Error(data.message || 'Failed to load users');
 				cachedUsers.list = Array.isArray(data.users) ? data.users : [];
 				renderUsers(cachedUsers.list);
+				animateUserCards();
+				window.__hideSettingsLoader && window.__hideSettingsLoader();
 			} catch(err){
 				console.error(err);
 				userList.innerHTML = '<div style="color:#ef4444;">Failed to load users.</div>';
+				window.__hideSettingsLoader && window.__hideSettingsLoader();
 			}
 		}
 
@@ -780,7 +818,11 @@ document.addEventListener('DOMContentLoaded', function() {
 			renderCustomers(rows);
 		}
 
-		if (customerListEl) { renderCustomers(customersCache.list); }
+		// Initial customer skeleton then render
+		if (customerListEl) {
+			customerListEl.innerHTML = Array.from({length:6}).map(()=>'<div class="odash-card skeleton" style="width:200px;height:300px;border-radius:12px;"></div>').join('');
+			setTimeout(()=> renderCustomers(customersCache.list), 300);
+		}
 		let ct;
 		customerSearchEl?.addEventListener('input', ()=>{ clearTimeout(ct); ct = setTimeout(applyCustomerSearch, 200); });
 	})();

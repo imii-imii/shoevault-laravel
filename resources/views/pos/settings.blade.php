@@ -99,6 +99,30 @@
             font-size: 2rem;
             margin-bottom: var(--spacing-md);
         }
+        /* --- Section skeleton & entry animations --- */
+        .section-loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.95));
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 16px;
+            z-index: 9999;
+            align-items: stretch;
+            justify-content: flex-start;
+            border-radius: inherit;
+        }
+        .skeleton { background: linear-gradient(90deg, #f3f4f6 25%, #e6eefc 50%, #f3f4f6 75%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; border-radius: 6px; }
+        .skeleton.title { height: 20px; width: 40%; }
+        .skeleton.line { height: 12px; width: 100%; }
+        .skeleton.card { height: 78px; width: 100%; border-radius: 10px; }
+
+        @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+        .animate-entry { opacity: 0; transform: translateY(14px); }
+        @keyframes entryUp { to { opacity: 1; transform: translateY(0); } }
+        .animate-entry.play { animation: entryUp 900ms cubic-bezier(.2,.9,.2,1) forwards; }
     </style>
 </head>
 
@@ -401,6 +425,46 @@
             document.querySelectorAll('.notification-wrapper.open').forEach(w => w.classList.remove('open'));
         });
     }
+
+    // --- Section loading & slow entry animation (visual only) for settings ---
+    (function(){
+        function makeSkeleton(section) {
+            const overlay = document.createElement('div');
+            overlay.className = 'section-loading-overlay';
+            overlay.setAttribute('aria-hidden','true');
+            const t = document.createElement('div'); t.className = 'skeleton title'; overlay.appendChild(t);
+            for (let i=0;i<2;i++){ const l=document.createElement('div'); l.className='skeleton line'; overlay.appendChild(l); }
+            const cardCount = 2;
+            for (let i=0;i<cardCount;i++){ const c=document.createElement('div'); c.className='skeleton card'; overlay.appendChild(c); }
+            overlay.style.pointerEvents = 'none';
+            overlay.style.opacity = '1';
+            return overlay;
+        }
+
+        function playSection(section){
+            if (!section) return;
+            if (getComputedStyle(section).position === 'static') section.style.position = 'relative';
+            const overlay = makeSkeleton(section);
+            section.appendChild(overlay);
+            const delay = 450 + Math.random()*400;
+            setTimeout(()=>{
+                overlay.style.transition = 'opacity 280ms ease';
+                overlay.style.opacity = '0';
+                setTimeout(()=> overlay.remove(), 320);
+                const children = Array.from(section.querySelectorAll(':scope > *'))
+                    .filter(el => !el.classList.contains('section-loading-overlay'));
+                children.forEach((el, i)=>{
+                    el.classList.add('animate-entry');
+                    setTimeout(()=> el.classList.add('play'), 120*i + 40);
+                });
+            }, delay);
+        }
+
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ()=>{
+            document.querySelectorAll('.settings-panel, .settings-card, .settings-tabs').forEach(playSection);
+        });
+        else document.querySelectorAll('.settings-panel, .settings-card, .settings-tabs').forEach(playSection);
+    })();
     </script>
 </body>
 </html>

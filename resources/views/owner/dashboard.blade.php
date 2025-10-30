@@ -63,6 +63,15 @@
     /* Opening animations for cards */
         .reveal { opacity: 0; transform: translateY(12px) scale(.98); }
         .reveal.in { opacity: 1; transform: translateY(0) scale(1); transition: opacity .6s ease, transform .6s cubic-bezier(.2,.7,.2,1); }
+    /* Loading + animations */
+    @keyframes shimmer { 0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; } }
+    .page-loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.85); backdrop-filter: blur(2px); display: none; align-items: center; justify-content: center; z-index: 20000; }
+    .loader { width: 48px; height: 48px; border-radius: 50%; border: 3px solid #bfdbfe; border-top-color: #3b82f6; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .skeleton { position: relative; overflow: hidden; background: #eef2f7; border-radius: 10px; }
+    .skeleton::after { content: ""; position: absolute; inset: 0; background-image: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.6) 40%, rgba(255,255,255,0) 80%); background-size: 1000px 100%; animation: shimmer 1.2s infinite; opacity: .7; }
+    .skeleton.line { height: 12px; margin: 6px 0; }
+    .loading-scrim { position: absolute; inset: 0; background: rgba(255,255,255,.7); display:flex; align-items:center; justify-content:center; z-index:10; }
         
         @media (max-width: 1024px) {
             .odash-row-forecast { grid-template-columns: 1fr; }
@@ -363,6 +372,41 @@ window.laravelData = {
 
 // Initialize dashboard when document is ready
 document.addEventListener('DOMContentLoaded', function() {
+    // Section-scoped loader helpers (create a loader inside the active .content-section)
+    function getActiveSection() {
+        return document.querySelector('.content-section.active') || document.querySelector('.content-section');
+    }
+    function ensureSectionPosition(sec) {
+        if (!sec) return;
+        const pos = window.getComputedStyle(sec).position;
+        if (!pos || pos === 'static') sec.style.position = 'relative';
+    }
+    function showSectionLoader() {
+        const sec = getActiveSection();
+        if (!sec) return;
+        ensureSectionPosition(sec);
+        if (sec.querySelector('.section-loader')) return;
+        const loader = document.createElement('div');
+        loader.className = 'section-loader';
+        loader.style.position = 'absolute';
+        loader.style.inset = '0';
+        loader.style.display = 'flex';
+        loader.style.alignItems = 'center';
+        loader.style.justifyContent = 'center';
+        loader.style.background = 'rgba(255,255,255,0.78)';
+        loader.style.backdropFilter = 'blur(2px)';
+        loader.style.zIndex = 1200;
+        loader.innerHTML = '<div class="loader" aria-label="Loading"></div>';
+        sec.appendChild(loader);
+    }
+    function hideSectionLoader() {
+        const sec = getActiveSection();
+        if (!sec) return;
+        const loader = sec.querySelector('.section-loader');
+        if (loader) loader.remove();
+    }
+
+    showSectionLoader();
     initializeDashboard();
     updateDateTime();
     setInterval(updateDateTime, 1000); // Update time every second
@@ -386,6 +430,8 @@ document.addEventListener('DOMContentLoaded', function() {
     initPopularProducts();
     initStockLevels();
     initOpeningAnimations();
+    // Hide the section loader after initial render (short delay to allow charts to initialize)
+    setTimeout(hideSectionLoader, 600);
 });
 
 function updateDateTime() {
@@ -404,6 +450,12 @@ function updateDateTime() {
 // ===== Owner Forecast and Reservation Gauge (Mock Data) =====
 function initOwnerForecastCharts() {
     const forecastCanvas = document.getElementById('odash-forecast');
+    const forecastShell = forecastCanvas ? forecastCanvas.closest('.odash-chart-shell') : null;
+    if (forecastShell) {
+        // show skeleton overlay
+        let scrim = forecastShell.querySelector('.loading-scrim');
+        if (!scrim) { scrim = document.createElement('div'); scrim.className = 'loading-scrim'; scrim.innerHTML = '<div class="loader"></div>'; forecastShell.style.position='relative'; forecastShell.appendChild(scrim); }
+    }
     const rangeSelect = document.getElementById('odash-forecast-range');
     const typeSelect = document.getElementById('odash-forecast-type');
     const legendBox = document.getElementById('odash-forecast-legend');
@@ -618,6 +670,10 @@ function initOwnerForecastCharts() {
                 forecastChart.update();
             }
             currentMode = mode;
+            if (forecastShell) {
+                const scrim = forecastShell.querySelector('.loading-scrim');
+                if (scrim) scrim.remove();
+            }
             return;
         }
 
@@ -736,6 +792,10 @@ function initOwnerForecastCharts() {
             forecastChart.update();
         }
         currentMode = mode;
+        if (forecastShell) {
+            const scrim = forecastShell.querySelector('.loading-scrim');
+            if (scrim) scrim.remove();
+        }
     }
 
     // Initialize with current select value or 'day'
@@ -971,6 +1031,8 @@ function initPopularProducts() {
     const monthSelect = document.getElementById('odash-popular-month');
     const yearSelect = document.getElementById('odash-popular-year');
     if (!container) return;
+    // initial skeleton items
+    container.innerHTML = Array.from({length:8}).map(()=> '<div class="skeleton" style="height:36px; border-radius:8px; margin:8px 0;"></div>').join('');
 
     // Populate year select with a sensible range (current year +/- 4)
     const now = new Date();
@@ -1100,6 +1162,8 @@ function initPopularProducts() {
             `;
         });
         container.innerHTML = html;
+        // animate items
+        Array.from(container.children||[]).forEach((el,i)=> { el.classList.add('reveal','in'); el.style.transitionDelay = `${i*30}ms`; });
     }
 
     // Initial render
@@ -1112,6 +1176,7 @@ function initPopularProducts() {
 // ===== Stock Levels Horizontal Bar Chart (Mock Data) =====
 function initStockLevels() {
     const stockCanvas = document.getElementById('odash-stock-chart');
+    const shell = stockCanvas ? stockCanvas.closest('.odash-chart-shell') : null;
     const categorySelect = document.getElementById('odash-stock-category');
     let stockChart;
 
@@ -1135,6 +1200,10 @@ function initStockLevels() {
     }
 
     async function updateStockChart(category) {
+        if (shell) {
+            let scrim = shell.querySelector('.loading-scrim');
+            if (!scrim) { scrim = document.createElement('div'); scrim.className = 'loading-scrim'; scrim.innerHTML = '<div class="loader"></div>'; shell.style.position='relative'; shell.appendChild(scrim); }
+        }
         const { labels, stocks, maxStock } = await fetchStockData(category);
         const backgroundColors = stocks.map((stock, i) => {
             const pct = maxStock[i] ? (stock / maxStock[i]) * 100 : 0;
@@ -1198,6 +1267,7 @@ function initStockLevels() {
             stockChart.data.datasets[0].backgroundColor = backgroundColors;
             stockChart.update();
         }
+        if (shell) { const scrim = shell.querySelector('.loading-scrim'); if (scrim) scrim.remove(); }
     }
 
     const initialCategory = categorySelect && categorySelect.value ? categorySelect.value : 'men';
