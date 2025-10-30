@@ -1021,6 +1021,83 @@
             margin: 0 8px 8px; /* Side margins smaller */
         }
 
+        /* Void pull-out panel (hidden behind cart, pull to reveal) */
+        .void-pull {
+            position: fixed;
+            right: 340px; /* will be adjusted by JS to match cart width */
+            bottom: 0;
+            z-index: 0; /* ensure above cart and overlays */
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            overflow: visible;
+        }
+
+        .void-panel {
+            transform: translateX(100%); /* hidden behind cart by default */
+            transition: transform 0.28s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            will-change: transform;
+            position: relative; /* so tab can be absolutely positioned inside */
+            overflow: visible;
+        }
+
+        .void-panel.open { transform: translateX(0); }
+
+        .void-inner {
+            background: #fff;
+            border-radius: 12px;
+            padding: 6px;
+            box-shadow: 0 12px 30px rgba(2, 6, 23, 0.43);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Tab is placed at the left edge of the panel so it moves with the panel */
+        .void-tab {
+            position: absolute;
+            left: -40px; /* sits flush to the left edge of the panel */
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 44px;
+            background: #fff;
+            color: #010749ff;
+            border-radius: 8px 0 0 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 6px 18px rgba(2, 6, 23, 0.44);
+            transition: transform 0.28s ease;
+        }
+
+        .void-tab .arrow { transition: transform 0.18s ease; font-size: 18px; }
+        /* rotate arrow when panel is open; tab is inside panel so rotate based on panel.open */
+        .void-panel.open .void-tab .arrow { transform: rotate(180deg); }
+
+        .void-button {
+            background: linear-gradient(135deg,#9b1c1c 0%, #ef4444 100%);
+            color: #fff;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 10px 28px rgba(185,28,28,0.28);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* small description next to button */
+        .void-desc { color: #374151; font-size: 0.82rem; font-weight:600; }
+
+
         .quick-amount-btn {
             flex: 1;
             padding: var(--spacing-sm);
@@ -1941,6 +2018,101 @@ function initNotifications() {
         document.querySelectorAll('.notification-wrapper.open').forEach(w => w.classList.remove('open'));
     });
 }
+
+// Void pull-out panel: create and wire UI (visual only)
+(function(){
+    function createVoidPull() {
+        const quick = document.querySelector('.quick-amounts');
+        const cart = document.querySelector('.cart-sidebar');
+        const rightOffset = cart ? cart.offsetWidth : 340;
+
+        // wrapper
+        const wrapper = document.createElement('div');
+        wrapper.className = 'void-pull';
+        wrapper.style.right = rightOffset + 'px';
+
+        // panel
+        const panel = document.createElement('div');
+        panel.className = 'void-panel';
+        panel.id = 'void-panel';
+
+        // inner content
+        const inner = document.createElement('div');
+        inner.className = 'void-inner';
+
+        const desc = document.createElement('div');
+        desc.className = 'void-desc';
+        desc.textContent = 'Hidden Actions';
+
+        const btn = document.createElement('button');
+        btn.id = 'void-btn';
+        btn.className = 'void-button';
+        btn.innerHTML = '<i class="fas fa-ban"></i><span>Void Last Transaction</span>';
+
+        inner.appendChild(desc);
+        inner.appendChild(btn);
+        panel.appendChild(inner);
+
+    // tab (visible edge to pull) - append inside panel so it moves with it
+    const tab = document.createElement('div');
+    tab.className = 'void-tab';
+    tab.id = 'void-tab';
+    tab.innerHTML = '<i class="fas fa-angle-left arrow"></i>';
+
+    panel.appendChild(tab); // tab lives inside panel
+    wrapper.appendChild(panel);
+    document.body.appendChild(wrapper);
+
+        // size panel to match quick-amounts width/height
+        function sizePanel(){
+            const rect = quick ? quick.getBoundingClientRect() : { width: 320, height: 48 };
+            panel.style.width = rect.width + 'px';
+            panel.style.height = rect.height + 'px';
+            // align vertically with quick-amounts position relative to viewport bottom
+            const bottomGap = 16; // same as CSS bottom
+            panel.style.bottom = bottomGap + 'px';
+            wrapper.style.right = (cart ? cart.offsetWidth : 340) + 'px';
+        }
+        sizePanel();
+        window.addEventListener('resize', sizePanel);
+
+        // toggle
+        tab.addEventListener('click', (e)=>{
+            e.stopPropagation();
+            panel.classList.toggle('open');
+            tab.setAttribute('aria-expanded', panel.classList.contains('open'));
+        });
+
+        // close when clicking outside
+        document.addEventListener('click', (e)=>{
+            if (!panel.classList.contains('open')) return;
+            if (!wrapper.contains(e.target)) {
+                panel.classList.remove('open');
+                tab.setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        // visual-only void action (require confirmation to avoid accidental triggers)
+        btn.addEventListener('click', ()=>{
+            const ok = confirm('This will void the last transaction (UI only). Continue?');
+            if (!ok) return;
+            // show ephemeral UI feedback
+            btn.disabled = true;
+            btn.textContent = 'Voided';
+            btn.style.opacity = '0.9';
+            setTimeout(()=>{
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-ban"></i><span>Void Last Transaction</span>';
+            }, 1800);
+            // close panel
+            panel.classList.remove('open');
+            tab.setAttribute('aria-expanded', 'false');
+        });
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', createVoidPull);
+    else createVoidPull();
+})();
 </script>
 </body>
 </html>
