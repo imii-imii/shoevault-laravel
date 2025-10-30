@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\ProductSize;
+use App\Models\ReservationProduct;
+use App\Models\ReservationProductSize;
 use App\Models\Supplier;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -21,17 +23,11 @@ class InventoryController extends Controller
         $inventoryType = $request->get('type', 'pos'); // Default to POS
         
         if ($inventoryType === 'reservation') {
-            // Get reservation products from consolidated products table
-            $products = Product::with('sizes')
-                ->reservationInventory()
-                ->active()
-                ->get();
+            // Get reservation products from database
+            $products = ReservationProduct::with('sizes')->active()->get();
         } else {
-            // Get POS products from consolidated products table
-            $products = Product::with('sizes')
-                ->posInventory()
-                ->active()
-                ->get();
+            // Get POS products from database
+            $products = Product::with('sizes')->active()->get();
         }
         
         // Get suppliers from database (or empty collection if not implemented yet)
@@ -54,60 +50,40 @@ class InventoryController extends Controller
      */
     public function suppliers()
     {
-        // Get suppliers from database only (no mock fallback)
-        $suppliers = Supplier::orderBy('name')->get();
-        return view('inventory.suppliers', compact('suppliers'));
-    }
-
-    /**
-     * Store a new supplier
-     */
-    public function storeSupplier(Request $request)
-    {
-        try {
-            $validated = $request->validate([
-                'name' => 'required|string|max:255',
-                'contact_person' => 'nullable|string|max:255',
-                'brands' => 'nullable|array',
-                'brands.*' => 'string|max:100',
-                'email' => 'nullable|email|max:255',
-                'phone' => 'nullable|string|max:50',
-                'country' => 'nullable|string|max:120',
-                'available_sizes' => 'nullable|string|max:255',
-                'total_stock' => 'nullable|integer|min:0',
-                'status' => 'nullable|in:active,inactive',
+        // Get suppliers from database or provide mock data
+        $suppliers = Supplier::all();
+        
+        // If no suppliers exist, provide mock data for UI testing
+        if ($suppliers->isEmpty()) {
+            $suppliers = collect([
+                (object)[
+                    'id' => 1,
+                    'name' => 'Nike Philippines',
+                    'contact_person' => 'John Smith',
+                    'brand' => 'Nike',
+                    'total_stock' => 100,
+                    'country' => 'Philippines',
+                    'available_sizes' => '7-12',
+                    'email' => 'supplier@nike.com.ph',
+                    'phone' => '+63 2 123 4567',
+                    'status' => 'active'
+                ],
+                (object)[
+                    'id' => 2,
+                    'name' => 'Adidas Distributor',
+                    'contact_person' => 'Jane Doe',
+                    'brand' => 'Adidas',
+                    'total_stock' => 85,
+                    'country' => 'Philippines',
+                    'available_sizes' => '6-11',
+                    'email' => 'contact@adidas-ph.com',
+                    'phone' => '+63 2 987 6543',
+                    'status' => 'active'
+                ]
             ]);
-
-            $supplier = Supplier::create([
-                'name' => $validated['name'],
-                'contact_person' => $validated['contact_person'] ?? null,
-                'brands' => $validated['brands'] ?? null,
-                'email' => $validated['email'] ?? null,
-                'phone' => $validated['phone'] ?? null,
-                'country' => $validated['country'] ?? null,
-                'available_sizes' => $validated['available_sizes'] ?? null,
-                'total_stock' => $validated['total_stock'] ?? 0,
-                'status' => $validated['status'] ?? 'active',
-                'is_active' => ($validated['status'] ?? 'active') === 'active',
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Supplier added successfully',
-                'supplier' => $supplier,
-            ], 201);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $e->errors(),
-            ], 422);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to add supplier: ' . $e->getMessage(),
-            ], 500);
         }
+
+        return view('inventory.suppliers', compact('suppliers'));
     }
 
     /**
@@ -318,15 +294,9 @@ class InventoryController extends Controller
         $inventoryType = $request->get('type', 'pos'); // Default to POS
         
         if ($inventoryType === 'reservation') {
-            $products = Product::with('sizes')
-                ->reservationInventory()
-                ->active()
-                ->get();
+            $products = ReservationProduct::with('sizes')->active()->get();
         } else {
-            $products = Product::with('sizes')
-                ->posInventory()
-                ->active()
-                ->get();
+            $products = Product::with('sizes')->active()->get();
         }
         
         // Transform products to include size and stock information
@@ -391,31 +361,40 @@ class InventoryController extends Controller
 
             $data = $request->except(['image', 'sizes', 'inventory_type']);
             
-            // Set inventory type for the product
-            $data['inventory_type'] = $inventoryType;
-            
-            // Generate unique product ID and SKU (use Product model for all products now)
-            $data['product_id'] = Product::generateUniqueProductId($request->category);
-            $data['sku'] = Product::generateUniqueSku($request->category);
+            if ($inventoryType === 'reservation') {
+                // Generate unique reservation product ID and SKU
+                $data['product_id'] = ReservationProduct::generateUniqueProductId($request->category);
+                $data['sku'] = ReservationProduct::generateUniqueSku($request->category);
+                $productModel = ReservationProduct::class;
+                $sizeModel = ReservationProductSize::class;
+                $relationKey = 'reservation_product_id';
+            } else {
+                // Generate unique POS product ID and SKU
+                $data['product_id'] = Product::generateUniqueProductId($request->category);
+                $data['sku'] = Product::generateUniqueSku($request->category);
+                $productModel = Product::class;
+                $sizeModel = ProductSize::class;
+                $relationKey = 'product_id';
+            }
             
             // Handle image upload with custom naming
             if ($request->hasFile('image')) {
                 $image = $request->file('image');
                 
                 // Create a temporary product instance to generate filename
-                $tempProduct = new Product(['product_id' => $data['product_id']]);
+                $tempProduct = new $productModel(['product_id' => $data['product_id']]);
                 $imageName = $tempProduct->generateImageFilename($image->getClientOriginalName());
                 
                 $image->move(public_path('assets/images/products'), $imageName);
                 $data['image_url'] = 'assets/images/products/' . $imageName;
             }
 
-            $product = Product::create($data);
+            $product = $productModel::create($data);
 
             // Create product sizes
             foreach ($request->sizes as $sizeData) {
-                ProductSize::create([
-                    'product_id' => $product->id, // Use the auto-increment id, not product_id string
+                $sizeModel::create([
+                    $relationKey => $product->id,
                     'size' => $sizeData['size'],
                     'stock' => $sizeData['stock'],
                     'price_adjustment' => $sizeData['price_adjustment'] ?? 0,
@@ -474,8 +453,12 @@ class InventoryController extends Controller
         try {
             $inventoryType = $request->get('type', 'pos'); // Default to POS
             
-            // Get product from consolidated products table
-            $product = Product::with('sizes')->findOrFail($id);
+            // Determine which model to use based on inventory type
+            if ($inventoryType === 'reservation') {
+                $product = ReservationProduct::with('sizes')->findOrFail($id);
+            } else {
+                $product = Product::with('sizes')->findOrFail($id);
+            }
             
             // Format the product data for frontend
             $formattedProduct = [
@@ -486,7 +469,6 @@ class InventoryController extends Controller
                 'color' => $product->color,
                 'price' => $product->price,
                 'image_url' => $product->image_url,
-                'inventory_type' => $product->inventory_type,
                 'sizes' => $product->sizes->map(function($size) {
                     return [
                         'id' => $size->id,
@@ -520,8 +502,18 @@ class InventoryController extends Controller
         try {
             $inventoryType = $request->get('inventory_type', 'pos'); // Default to POS
             
-            // Get product from consolidated products table
-            $product = Product::with('sizes')->findOrFail($id);
+            // Determine which model to use based on inventory type
+            if ($inventoryType === 'reservation') {
+                $product = ReservationProduct::with('sizes')->findOrFail($id);
+                $productModel = ReservationProduct::class;
+                $sizeModel = ReservationProductSize::class;
+                $relationKey = 'reservation_product_id';
+            } else {
+                $product = Product::with('sizes')->findOrFail($id);
+                $productModel = Product::class;
+                $sizeModel = ProductSize::class;
+                $relationKey = 'product_id';
+            }
             
             $request->validate([
                 'name' => 'required|string|max:255',
@@ -533,19 +525,20 @@ class InventoryController extends Controller
                 'sizes.*.price_adjustment' => 'nullable|numeric',
                 'price' => 'required|numeric|min:0',
                 'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-                'inventory_type' => 'required|in:pos,reservation,both'
+                'inventory_type' => 'required|in:pos,reservation'
             ]);
 
             DB::beginTransaction();
 
             $data = $request->except(['image', 'sizes', 'inventory_type']);
             
-            // Set inventory type
-            $data['inventory_type'] = $inventoryType;
-            
             // Generate new SKU if it doesn't exist or if category changed
             if (empty($product->sku) || $product->category !== $request->category) {
-                $data['sku'] = Product::generateUniqueSku($request->category);
+                if ($inventoryType === 'reservation') {
+                    $data['sku'] = ReservationProduct::generateUniqueSku($request->category);
+                } else {
+                    $data['sku'] = Product::generateUniqueSku($request->category);
+                }
             }
             
             // Handle image upload for update
@@ -566,8 +559,8 @@ class InventoryController extends Controller
             // Update sizes - delete old ones and create new ones
             $product->sizes()->delete();
             foreach ($request->sizes as $sizeData) {
-                ProductSize::create([
-                    'product_id' => $product->id, // Use the auto-increment id, not product_id string
+                $sizeModel::create([
+                    $relationKey => $product->id,
                     'size' => $sizeData['size'],
                     'stock' => $sizeData['stock'],
                     'price_adjustment' => $sizeData['price_adjustment'] ?? 0,
@@ -645,14 +638,6 @@ class InventoryController extends Controller
      */
     public function updateReservationStatus(Request $request, $id)
     {
-        // Add debugging
-        Log::info('updateReservationStatus called', [
-            'reservation_id' => $id,
-            'request_data' => $request->all(),
-            'user_id' => Auth::id(),
-            'user_role' => Auth::user() ? Auth::user()->role : 'unknown'
-        ]);
-
         try {
             $request->validate([
                 'status' => 'required|string|in:pending,completed,cancelled'
@@ -662,12 +647,6 @@ class InventoryController extends Controller
             $reservation = \App\Models\Reservation::findOrFail($id);
             $oldStatus = $reservation->status;
             $newStatus = $request->status;
-
-            Log::info('Reservation status change', [
-                'reservation_id' => $id,
-                'old_status' => $oldStatus,
-                'new_status' => $newStatus
-            ]);
 
             DB::beginTransaction();
 
@@ -687,11 +666,6 @@ class InventoryController extends Controller
 
             DB::commit();
 
-            Log::info('Reservation status updated successfully', [
-                'reservation_id' => $id,
-                'new_status' => $newStatus
-            ]);
-
             return response()->json([
                 'success' => true,
                 'message' => 'Reservation status updated successfully',
@@ -703,21 +677,13 @@ class InventoryController extends Controller
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
-            Log::error('Reservation not found', [
-                'reservation_id' => $id,
-                'error' => $e->getMessage()
-            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Reservation not found'
             ], 404);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error updating reservation status', [
-                'reservation_id' => $id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
+            Log::error('Error updating reservation status: ' . $e->getMessage());
             
             return response()->json([
                 'success' => false,
@@ -739,29 +705,17 @@ class InventoryController extends Controller
         // Status transition: pending -> completed (deduct stock)
         if ($oldStatus === 'pending' && $newStatus === 'completed') {
             foreach ($reservation->items as $item) {
-                $productId = $item['product_id'] ?? null;
-                $productSize = $item['product_size'] ?? null;
-                
-                if (!$productId || !$productSize) {
-                    Log::warning("Product ID or size not found for item: {$item['product_name']}, skipping stock deduction");
-                    continue;
+                $sizeId = $item['size_id'] ?? null;
+                if (!$sizeId) {
+                    throw new \Exception("Size ID not found for item: {$item['product_name']}");
                 }
                 
-                // Find the product size using product_id and size from the consolidated tables
-                $size = ProductSize::where('product_id', $productId)
-                                  ->where('size', $productSize)
-                                  ->first();
-                
-                if (!$size) {
-                    Log::warning("Product size not found for product ID {$productId}, size {$productSize} ({$item['product_name']}), skipping stock deduction");
-                    continue;
-                }
-                
-                if ($size->stock >= $item['quantity']) {
+                $size = ReservationProductSize::find($sizeId);
+                if ($size && $size->stock >= $item['quantity']) {
                     $size->decrement('stock', $item['quantity']);
-                    Log::info("Stock deducted: Product ID {$productId}, Size: {$productSize}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
+                    Log::info("Stock deducted: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
                 } else {
-                    throw new \Exception("Insufficient stock for {$item['product_name']} (Size: {$productSize}). Available: " . $size->stock . ", Required: {$item['quantity']}");
+                    throw new \Exception("Insufficient stock for {$item['product_name']} (Size: {$item['product_size']}). Available: " . ($size ? $size->stock : 0) . ", Required: {$item['quantity']}");
                 }
             }
         }
@@ -769,18 +723,12 @@ class InventoryController extends Controller
         // Status transition: completed -> pending (restore stock)
         elseif ($oldStatus === 'completed' && $newStatus === 'pending') {
             foreach ($reservation->items as $item) {
-                $productId = $item['product_id'] ?? null;
-                $productSize = $item['product_size'] ?? null;
-                
-                if ($productId && $productSize) {
-                    $size = ProductSize::where('product_id', $productId)
-                                      ->where('size', $productSize)
-                                      ->first();
+                $sizeId = $item['size_id'] ?? null;
+                if ($sizeId) {
+                    $size = ReservationProductSize::find($sizeId);
                     if ($size) {
                         $size->increment('stock', $item['quantity']);
-                        Log::info("Stock restored: Product ID {$productId}, Size: {$productSize}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
-                    } else {
-                        Log::warning("Product size not found for product ID {$productId}, size {$productSize} ({$item['product_name']}), skipping stock restoration");
+                        Log::info("Stock restored: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
                     }
                 }
             }
@@ -789,18 +737,12 @@ class InventoryController extends Controller
         // Status transition: completed -> cancelled (restore stock)
         elseif ($oldStatus === 'completed' && $newStatus === 'cancelled') {
             foreach ($reservation->items as $item) {
-                $productId = $item['product_id'] ?? null;
-                $productSize = $item['product_size'] ?? null;
-                
-                if ($productId && $productSize) {
-                    $size = ProductSize::where('product_id', $productId)
-                                      ->where('size', $productSize)
-                                      ->first();
+                $sizeId = $item['size_id'] ?? null;
+                if ($sizeId) {
+                    $size = ReservationProductSize::find($sizeId);
                     if ($size) {
                         $size->increment('stock', $item['quantity']);
-                        Log::info("Stock restored due to cancellation: Product ID {$productId}, Size: {$productSize}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
-                    } else {
-                        Log::warning("Product size not found for product ID {$productId}, size {$productSize} ({$item['product_name']}), skipping stock restoration");
+                        Log::info("Stock restored due to cancellation: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
                     }
                 }
             }
@@ -811,28 +753,17 @@ class InventoryController extends Controller
         // Status transition: cancelled -> completed (deduct stock like pending -> completed)
         elseif ($oldStatus === 'cancelled' && $newStatus === 'completed') {
             foreach ($reservation->items as $item) {
-                $productId = $item['product_id'] ?? null;
-                $productSize = $item['product_size'] ?? null;
-                
-                if (!$productId || !$productSize) {
-                    Log::warning("Product ID or size not found for item: {$item['product_name']}, skipping stock deduction");
-                    continue;
+                $sizeId = $item['size_id'] ?? null;
+                if (!$sizeId) {
+                    throw new \Exception("Size ID not found for item: {$item['product_name']}");
                 }
                 
-                $size = ProductSize::where('product_id', $productId)
-                                  ->where('size', $productSize)
-                                  ->first();
-                
-                if (!$size) {
-                    Log::warning("Product size not found for product ID {$productId}, size {$productSize} ({$item['product_name']}), skipping stock deduction");
-                    continue;
-                }
-                
-                if ($size->stock >= $item['quantity']) {
+                $size = ReservationProductSize::find($sizeId);
+                if ($size && $size->stock >= $item['quantity']) {
                     $size->decrement('stock', $item['quantity']);
-                    Log::info("Stock deducted from cancelled to completed: Product ID {$productId}, Size: {$productSize}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
+                    Log::info("Stock deducted from cancelled to completed: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
                 } else {
-                    throw new \Exception("Insufficient stock for {$item['product_name']} (Size: {$productSize}). Available: " . $size->stock . ", Required: {$item['quantity']}");
+                    throw new \Exception("Insufficient stock for {$item['product_name']} (Size: {$item['product_size']}). Available: " . ($size ? $size->stock : 0) . ", Required: {$item['quantity']}");
                 }
             }
         }
@@ -859,27 +790,15 @@ class InventoryController extends Controller
             $saleItems = [];
             foreach ($reservation->items as $item) {
                 $quantity = (int) ($item['quantity'] ?? 1);
-                $unitPrice = (float) ($item['unit_price'] ?? $item['product_price'] ?? 0);
+                $unitPrice = (float) ($item['unit_price'] ?? $item['price'] ?? 0);
                 $itemSubtotal = $quantity * $unitPrice;
 
-                // Find the size_id from the consolidated tables using product_id and size
-                $productId = $item['product_id'] ?? null;
-                $productSize = $item['product_size'] ?? null;
-                $sizeId = null;
-                
-                if ($productId && $productSize) {
-                    $size = ProductSize::where('product_id', $productId)
-                                      ->where('size', $productSize)
-                                      ->first();
-                    $sizeId = $size ? $size->id : null;
-                }
-
                 $saleItems[] = [
-                    'product_id' => $productId,
-                    'size_id' => $sizeId,
+                    'product_id' => $item['product_id'] ?? null,
+                    'size_id' => $item['size_id'] ?? null,
                     'product_name' => $item['product_name'] ?? 'Unknown Product',
                     'product_brand' => $item['product_brand'] ?? '',
-                    'product_size' => $productSize ?? '',
+                    'product_size' => $item['product_size'] ?? '',
                     'product_color' => $item['product_color'] ?? '',
                     'product_category' => $item['product_category'] ?? 'uncategorized',
                     'unit_price' => $unitPrice,
@@ -893,10 +812,10 @@ class InventoryController extends Controller
                 $itemCount++;
             }
 
-            // Create the transaction record with simplified structure
-            $transaction = \App\Models\Transaction::create([
-                'transaction_id' => \App\Models\Transaction::generateTransactionId(),
-                'sale_type' => 'reservation', // Distinguish from POS transactions
+            // Create the sale record with simplified structure
+            $sale = \App\Models\Sale::create([
+                'transaction_id' => \App\Models\Sale::generateTransactionId(),
+                'sale_type' => 'reservation', // Distinguish from POS sales
                 'reservation_id' => $reservation->reservation_id,
                 'cashier_id' => Auth::id(), // Current user who marked it complete
                 'subtotal' => $subtotal,
@@ -904,13 +823,14 @@ class InventoryController extends Controller
                 'total_amount' => $subtotal,
                 'amount_paid' => $subtotal, // Assume full payment for completed reservations
                 'change_given' => 0,
-                'sale_date' => now()
+                'sale_date' => now(),
+                'notes' => "Sale created from completed reservation #{$reservation->reservation_id}"
             ]);
 
-            // Create individual transaction items
+            // Create individual sale items
             foreach ($saleItems as $item) {
-                \App\Models\TransactionItem::create([
-                    'transaction_id' => $transaction->transaction_id,
+                \App\Models\SaleItem::create([
+                    'sale_id' => $sale->id,
                     'product_id' => $item['product_id'],
                     'size_id' => $item['size_id'],
                     'product_name' => $item['product_name'],
@@ -927,17 +847,18 @@ class InventoryController extends Controller
                 ]);
             }
 
-            Log::info("Transaction record created from reservation completion", [
+            Log::info("Sale record created from reservation completion", [
                 'reservation_id' => $reservation->id,
-                'transaction_id' => $transaction->transaction_id,
+                'sale_id' => $sale->id,
+                'transaction_id' => $sale->transaction_id,
                 'total_amount' => $subtotal,
                 'items_count' => $itemCount
             ]);
 
         } catch (\Exception $e) {
-            Log::error("Failed to create transaction from reservation {$reservation->id}: " . $e->getMessage());
+            Log::error("Failed to create sale from reservation {$reservation->id}: " . $e->getMessage());
             // Don't throw the exception to avoid breaking the reservation completion
-            // The reservation status update should still succeed even if transaction creation fails
+            // The reservation status update should still succeed even if sale creation fails
         }
     }
 

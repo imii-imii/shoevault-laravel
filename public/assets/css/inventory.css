@@ -1978,19 +1978,21 @@ body {
 }
 
 .modal {
-    position: fixed !important; /* ensure fixed and not overridden */
-    top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important;
-    inset: 0 !important;
-    display: none !important;
-    align-items: center !important;
-    justify-content: center !important;
-    background: linear-gradient(rgba(6,10,18,0.64), rgba(6,10,18,0.64)) !important;
-    backdrop-filter: blur(12px) saturate(120%) !important;
-    -webkit-backdrop-filter: blur(12px) saturate(120%) !important;
-    z-index: 999999 !important; /* ensure above sidebars */
-    padding: 28px !important;
-    box-sizing: border-box !important;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    z-index: 2001;
+    display: none;
+    max-width: 980px;
+    width: 96%;
+    max-height: 90vh;
+    overflow: hidden
 }
+
 
 .modal.active,
 .modal-overlay.active {
