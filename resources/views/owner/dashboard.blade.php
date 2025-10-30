@@ -47,6 +47,22 @@
         .odash-product-name { font-size:13px; color:#1e3a8a; flex:1; }
         .odash-product-sales { font-size:12px; color:#60a5fa; font-weight:600; }
         .odash-product-rank { display:inline-block; width:20px; height:20px; line-height:20px; text-align:center; background:linear-gradient(135deg, #3b82f6, #2563eb); color:#fff; border-radius:50%; font-size:10px; font-weight:700; margin-right:8px; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3); }
+    /* Compact, trendy forecast controls */
+    .odash-btn { width:28px; height:28px; border-radius:9999px; border:1px solid #e5e7eb; background:#ffffff; color:#1e3a8a; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .2s ease; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+    .odash-btn:hover { background:linear-gradient(135deg,#eef2ff,#dbeafe); color:#0f172a; border-color:#bfdbfe; box-shadow:0 2px 6px rgba(59,130,246,.15); transform: translateY(-1px); }
+    .odash-btn:disabled { opacity:.45; cursor:not-allowed; transform:none; box-shadow:none; }
+    #odash-forecast-window { padding:6px 10px; border-radius:9999px; background:#eff6ff; color:#1e3a8a; border:1px solid #dbeafe; min-width:130px; font-size:12px; }
+
+        /* Futuristic gauge styles (refined for semicircular segmented look) */
+        .f-gauge { position: relative; display:flex; align-items:center; justify-content:center; }
+        .f-gauge svg { overflow: visible; }
+        .f-gauge .g-glow { filter: drop-shadow(0 8px 18px rgba(14, 165, 233, 0.08)); }
+        .f-gauge .g-segment { transition: stroke-opacity .25s ease, transform .3s ease; }
+        .f-gauge .g-center { transition: transform .25s ease; }
+
+    /* Opening animations for cards */
+        .reveal { opacity: 0; transform: translateY(12px) scale(.98); }
+        .reveal.in { opacity: 1; transform: translateY(0) scale(1); transition: opacity .6s ease, transform .6s cubic-bezier(.2,.7,.2,1); }
         
         @media (max-width: 1024px) {
             .odash-row-forecast { grid-template-columns: 1fr; }
@@ -190,7 +206,7 @@
                     <!-- Sales Forecast (Mock) -->
                     <div class="odash-card odash-line-card">
                         <div class="odash-card-header" style="align-items:center; justify-content:space-between;">
-                            <div class="odash-title">Forecast (Mock)</div>
+                            <div class="odash-title">Forecast</div>
                             <div style="display:flex; gap:12px; align-items:center; color:#64748b; flex-wrap:wrap;">
                                 <div id="odash-forecast-legend" style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;"></div>
                                 <div style="display:flex; gap:8px; align-items:center;">
@@ -204,6 +220,11 @@
                                         <option value="monthly">Monthly</option>
                                     </select>
                                 </div>
+                                <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                                    <button id="odash-forecast-prev" class="odash-btn" title="Previous" aria-label="Previous"><i class="fas fa-chevron-left"></i></button>
+                                    <span id="odash-forecast-window" style="text-align:center; font-weight:600; color:#1e3a8a;"></span>
+                                    <button id="odash-forecast-next" class="odash-btn" title="Next" aria-label="Next"><i class="fas fa-chevron-right"></i></button>
+                                </div>
                             </div>
                         </div>
                         <div class="odash-chart-shell">
@@ -211,18 +232,18 @@
                         </div>
                     </div>
 
-                    <!-- Reservation Gauge (Mock) -->
+                    <!-- Reservation Gauge (Futuristic) -->
                     <div class="odash-card">
                         <div class="odash-card-header">
-                            <div class="odash-title">Reservations Status (Mock)</div>
+                            <div class="odash-title">Reservations Status</div>
                         </div>
                         <div class="odash-gauge-shell" style="position:relative;">
-                            <canvas id="odash-resv-gauge" style="max-width:220px; width:100%; height:auto;"></canvas>
-                            <div id="odash-gauge-center" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); text-align:center; pointer-events:none; margin-top:-20px;">
+                            <div id="odash-resv-gauge" class="f-gauge" style="width:260px; height:180px;"></div>
+                            <div id="odash-gauge-center" style="position:absolute; top:40%; left:50%; transform:translate(-50%, -50%); text-align:center; pointer-events:none; margin-top:-20px;">
                                 <div style="color:#64748b; font-size:13px; font-weight:500; margin-bottom:4px;">Total</div>
                                 <div style="color:#1e3a8a; font-size:28px; font-weight:700; line-height:1;" id="odash-resv-total">50</div>
                             </div>
-                            <div class="odash-gauge-legend" style="margin-top:16px; justify-content:center; flex-wrap:wrap;">
+                            <div class="odash-gauge-legend" style="margin-top:5px; justify-content:center; flex-wrap:wrap;">
                                 <div style="text-align:center; margin:0 8px;">
                                     <div style="display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
                                         <span class="dot" style="background:#10b981"></span><span style="font-size:12px;">Completed</span>
@@ -250,8 +271,26 @@
                 <div class="odash-row-products">
                     <!-- Popular Products List (Scrollable) -->
                     <div class="odash-card">
-                        <div class="odash-card-header">
+                        <div class="odash-card-header" style="justify-content:space-between; align-items:center;">
                             <div class="odash-title">Popular Products</div>
+                            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                                <!-- Range selector removed: use month + year only -->
+                                <select id="odash-popular-month" class="odash-select" title="Month">
+                                    <option value="1">Jan</option>
+                                    <option value="2">Feb</option>
+                                    <option value="3">Mar</option>
+                                    <option value="4">Apr</option>
+                                    <option value="5">May</option>
+                                    <option value="6">Jun</option>
+                                    <option value="7">Jul</option>
+                                    <option value="8">Aug</option>
+                                    <option value="9">Sep</option>
+                                    <option value="10">Oct</option>
+                                    <option value="11">Nov</option>
+                                    <option value="12">Dec</option>
+                                </select>
+                                <select id="odash-popular-year" class="odash-select" title="Year"></select>
+                            </div>
                         </div>
                         <div class="odash-products-list" id="odash-popular-products">
                             <!-- Populated by JS -->
@@ -317,6 +356,7 @@ window.laravelData = {
         reservationLogs: '{{ route("owner.reservation-logs") }}',
         supplyLogs: '{{ route("owner.supply-logs") }}',
         inventoryOverview: '{{ route("owner.inventory-overview") }}',
+        popularProducts: '{{ route("owner.popular-products") }}',
         settings: '{{ route("owner.settings") }}'
     }
 };
@@ -345,6 +385,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initOwnerForecastCharts();
     initPopularProducts();
     initStockLevels();
+    initOpeningAnimations();
 });
 
 function updateDateTime() {
@@ -366,54 +407,58 @@ function initOwnerForecastCharts() {
     const rangeSelect = document.getElementById('odash-forecast-range');
     const typeSelect = document.getElementById('odash-forecast-type');
     const legendBox = document.getElementById('odash-forecast-legend');
+    const prevBtn = document.getElementById('odash-forecast-prev');
+    const nextBtn = document.getElementById('odash-forecast-next');
+    const windowText = document.getElementById('odash-forecast-window');
     let forecastChart;
     let currentMode = (typeSelect && typeSelect.value) ? typeSelect.value : 'sales';
+    let offset = 0; // 0 = current window, -1 = previous, +1 = next
 
-    function getForecastData(range, mode) {
+    function getForecastData(range, mode, offset = 0) {
         if (mode === 'demand') {
             if (range === 'weekly') {
                 return {
-                    labels: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
-                    menValues:   [50, 62, 70, 58, 78, 95, 88],
-                    womenValues: [44, 48, 52, 47, 60, 75, 68],
-                    accValues:   [20, 25, 28, 24, 30, 35, 32]
+                        labels: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+                        menValues:   [50, 62, 70, 58, 78, 95, 88].map(v => Math.max(5, Math.round(v * (1 + 0.05*offset)))),
+                        womenValues: [44, 48, 52, 47, 60, 75, 68].map(v => Math.max(4, Math.round(v * (1 + 0.05*offset)))),
+                        accValues:   [20, 25, 28, 24, 30, 35, 32].map(v => Math.max(2, Math.round(v * (1 + 0.05*offset))))
                 };
             } else if (range === 'monthly') {
                 const labels = Array.from({length: 30}, (_, i) => `${i+1}`);
                 return {
                     labels,
-                    menValues:   [20,24,22,28,35,30,32,40,44,38,34,42,48,46,52,49,56,52,58,60,57,62,60,64,66,64,70,75,72,78],
-                    womenValues: [18,20,19,23,27,24,26,30,34,31,29,33,36,36,40,38,42,40,44,45,44,48,45,48,50,50,52,55,53,55],
-                    accValues:   [8,  9, 10, 11, 12, 11, 12, 14, 15, 14, 13, 14, 16, 16, 18, 17, 18, 18, 19, 20, 19, 21, 20, 21, 22, 22, 23, 24, 23, 24]
+                        menValues:   [20,24,22,28,35,30,32,40,44,38,34,42,48,46,52,49,56,52,58,60,57,62,60,64,66,64,70,75,72,78].map(v => Math.max(5, Math.round(v * (1 + 0.04*offset)))),
+                        womenValues: [18,20,19,23,27,24,26,30,34,31,29,33,36,36,40,38,42,40,44,45,44,48,45,48,50,50,52,55,53,55].map(v => Math.max(4, Math.round(v * (1 + 0.04*offset)))),
+                        accValues:   [8,  9, 10, 11, 12, 11, 12, 14, 15, 14, 13, 14, 16, 16, 18, 17, 18, 18, 19, 20, 19, 21, 20, 21, 22, 22, 23, 24, 23, 24].map(v => Math.max(1, Math.round(v * (1 + 0.04*offset))))
                 };
             }
             // default day (hourly)
             return {
                 labels: ['9 AM','10 AM','11 AM','12 PM','1 PM','2 PM','3 PM','4 PM','5 PM','6 PM','7 PM','8 PM'],
-                menValues:   [6, 9, 11, 13, 18, 14, 12, 11, 15, 20, 14, 10],
-                womenValues: [5, 7,  9, 11, 16, 12, 10,  9, 12, 16, 11,  8],
-                accValues:   [2, 3,  4,  5,  6,  5,  5,  4,  6,  7,  5,  4]
+                    menValues:   [6, 9, 11, 13, 18, 14, 12, 11, 15, 20, 14, 10].map(v => Math.max(2, Math.round(v * (1 + 0.06*offset)))),
+                    womenValues: [5, 7,  9, 11, 16, 12, 10,  9, 12, 16, 11,  8].map(v => Math.max(2, Math.round(v * (1 + 0.06*offset)))),
+                    accValues:   [2, 3,  4,  5,  6,  5,  5,  4,  6,  7,  5,  4].map(v => Math.max(1, Math.round(v * (1 + 0.06*offset))))
             };
         }
         // sales mode
         if (range === 'weekly') {
             return {
                 labels: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
-                posValues: [80, 95, 110, 90, 120, 150, 130],
-                resvValues: [40, 55, 60, 50, 70, 90, 80]
+                    posValues: [80, 95, 110, 90, 120, 150, 130].map(v => Math.max(10, Math.round(v * (1 + 0.05*offset)))),
+                    resvValues: [40, 55, 60, 50, 70, 90, 80].map(v => Math.max(8, Math.round(v * (1 + 0.05*offset))))
             };
         } else if (range === 'monthly') {
             // 30 days mock
             const labels = Array.from({length: 30}, (_, i) => `${i+1}`);
-            const posValues = [40,48,42,52,62,50,58,72,78,68,62,75,85,80,90,88,98,95,100,105,102,110,108,115,118,115,125,130,128,135];
-            const resvValues = [20,24,23,28,33,28,30,38,42,37,36,40,45,45,50,47,52,50,55,57,56,60,57,60,62,63,65,70,67,70];
+                const posValues = [40,48,42,52,62,50,58,72,78,68,62,75,85,80,90,88,98,95,100,105,102,110,108,115,118,115,125,130,128,135].map(v => Math.max(10, Math.round(v * (1 + 0.04*offset))));
+                const resvValues = [20,24,23,28,33,28,30,38,42,37,36,40,45,45,50,47,52,50,55,57,56,60,57,60,62,63,65,70,67,70].map(v => Math.max(6, Math.round(v * (1 + 0.04*offset))));
             return { labels, posValues, resvValues };
         }
         // default day (hourly)
         return {
             labels: ['9 AM','10 AM','11 AM','12 PM','1 PM','2 PM','3 PM','4 PM','5 PM','6 PM','7 PM','8 PM'],
-            posValues: [8, 12, 16, 20, 32, 23, 21, 18, 26, 36, 25, 16],
-            resvValues: [4, 6, 8, 10, 16, 12, 11, 10, 14, 19, 13, 9]
+                posValues: [8, 12, 16, 20, 32, 23, 21, 18, 26, 36, 25, 16].map(v => Math.max(3, Math.round(v * (1 + 0.06*offset)))),
+                resvValues: [4, 6, 8, 10, 16, 12, 11, 10, 14, 19, 13, 9].map(v => Math.max(2, Math.round(v * (1 + 0.06*offset))))
         };
     }
 
@@ -461,8 +506,55 @@ function initOwnerForecastCharts() {
         }
     }
 
+    function formatDateMDY(d) {
+        return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+    }
+
+    function getWindowRange(range, offset) {
+        const base = new Date();
+        let start, end;
+        if (range === 'monthly') {
+            const m = base.getMonth() + offset;
+            const y = base.getFullYear();
+            const dt = new Date(y, base.getMonth(), 1);
+            dt.setMonth(dt.getMonth() + offset);
+            start = new Date(dt.getFullYear(), dt.getMonth(), 1);
+            end = new Date(dt.getFullYear(), dt.getMonth() + 1, 0);
+            if (offset === 0) return 'This Month';
+            if (offset === 1) return 'Next Month';
+            return `${start.toLocaleString('en-US', { month: 'long', year: 'numeric' })}`;
+        } else if (range === 'weekly') {
+            const dt = new Date(base);
+            dt.setDate(dt.getDate() + offset * 7);
+            // get Sunday as start of week
+            const day = dt.getDay();
+            start = new Date(dt);
+            start.setDate(dt.getDate() - day);
+            end = new Date(start);
+            end.setDate(start.getDate() + 6);
+            if (offset === 0) return 'This Week';
+            if (offset === 1) return 'Next Week';
+            return `${formatDateMDY(start)} – ${formatDateMDY(end)}`;
+        }
+        // day
+        const d = new Date(base);
+        d.setDate(d.getDate() + offset);
+        if (offset === 0) return 'Today';
+        if (offset === 1) return 'Tomorrow';
+        return `${formatDateMDY(d)}`;
+    }
+
+    function updateWindowText(range, offset) {
+        if (!windowText) return;
+        windowText.textContent = getWindowRange(range, offset);
+    }
+
+    function updateNavButtons(range, offset) {
+        if (nextBtn) nextBtn.disabled = offset >= 1; // limit to just 1 window into the future
+    }
+
     function updateForecast(range, mode) {
-        const data = getForecastData(range, mode);
+        const data = getForecastData(range, mode, offset);
         const labels = data.labels;
         
         // Destroy chart if switching modes to change dataset structure
@@ -530,7 +622,7 @@ function initOwnerForecastCharts() {
         }
 
         // sales mode
-        const { posValues, resvValues } = data;
+    const { posValues, resvValues } = data;
         const posPeaks = getTopIndices(posValues, 2);
         const resvPeaks = getTopIndices(resvValues, 2);
         const posPointRadius = posValues.map((_, i) => posPeaks.includes(i) ? 6 : 3);
@@ -650,68 +742,200 @@ function initOwnerForecastCharts() {
     const initialRange = rangeSelect && rangeSelect.value ? rangeSelect.value : 'day';
     setLegend(currentMode);
     updateForecast(initialRange, currentMode);
+    updateWindowText(initialRange, offset);
+    updateNavButtons(initialRange, offset);
 
     // Handle range changes
     if (rangeSelect) {
-        rangeSelect.addEventListener('change', () => updateForecast(rangeSelect.value, currentMode));
+        rangeSelect.addEventListener('change', () => {
+            offset = 0; // reset window when range changes
+            updateForecast(rangeSelect.value, currentMode);
+            updateWindowText(rangeSelect.value, offset);
+            updateNavButtons(rangeSelect.value, offset);
+        });
     }
     if (typeSelect) {
         typeSelect.addEventListener('change', () => {
             // Do NOT update currentMode here. Let updateForecast decide destruction based on previous mode.
             const newMode = typeSelect.value;
             setLegend(newMode);
+            offset = 0; // reset window when type changes
             updateForecast(rangeSelect ? rangeSelect.value : 'day', newMode);
+            updateWindowText(rangeSelect ? rangeSelect.value : 'day', offset);
+            updateNavButtons(rangeSelect ? rangeSelect.value : 'day', offset);
         });
     }
 
-    // Reservation gauge (mock values)
-    const resvCanvas = document.getElementById('odash-resv-gauge');
-    if (resvCanvas) {
-        const ctx2 = resvCanvas.getContext('2d');
-        const completed = 30; // mock
-        const cancelled = 10; // mock
-        const pending = 10; // mock
-        const total = completed + cancelled + pending;
-        const completedPct = Math.round((completed / total) * 100);
-        const cancelledPct = Math.round((cancelled / total) * 100);
-        const pendingPct = Math.round((pending / total) * 100);
-        
-        // Update center text and percentages
-        document.getElementById('odash-resv-total').textContent = total;
-        document.getElementById('odash-resv-completed-pct').textContent = completedPct + '%';
-        document.getElementById('odash-resv-cancelled-pct').textContent = cancelledPct + '%';
-        document.getElementById('odash-resv-pending-pct').textContent = pendingPct + '%';
-        
-        new Chart(ctx2, {
-            type: 'doughnut',
-            data: {
-                labels: ['Completed', 'Cancelled', 'Pending'],
-                datasets: [{
-                    data: [completed, cancelled, pending],
-                    backgroundColor: ['#10b981', '#ef4444', '#f59e0b'],
-                    borderWidth: 0,
-                    borderRadius: 0
-                }]
-            },
-            options: {
-                maintainAspectRatio: false,
-                cutout: '75%',
-                rotation: -90,
-                circumference: 180,
-                plugins: { 
-                    legend: { display: false },
-                    tooltip: { 
-                        enabled: true,
-                        backgroundColor: '#1e3a8a',
-                        titleColor: '#fff',
-                        bodyColor: '#bfdbfe',
-                        borderColor: '#3b82f6',
-                        borderWidth: 1
-                    }
-                }
-            }
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            offset -= 1;
+            const r = rangeSelect ? rangeSelect.value : 'day';
+            updateForecast(r, currentMode);
+            updateWindowText(r, offset);
+            updateNavButtons(r, offset);
         });
     }
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            if (offset >= 1) return; // guard: only allow up to +1 into the future
+            offset += 1;
+            const r = rangeSelect ? rangeSelect.value : 'day';
+            updateForecast(r, currentMode);
+            updateWindowText(r, offset);
+            updateNavButtons(r, offset);
+        });
+    }
+
+    // Reservation gauge (live values) - Futuristic SVG
+    const resvContainer = document.getElementById('odash-resv-gauge');
+    if (resvContainer) {
+        const dd = (window.laravelData && window.laravelData.dashboardData) ? window.laravelData.dashboardData : {};
+        const completed = Number(dd.completedReservations || 0);
+        const cancelled = Number(dd.cancelledReservations || 0);
+        const pending = Number(dd.activeReservations || 0);
+        const total = Math.max(0, completed + cancelled + pending);
+        const pct = (n, d) => (d > 0 ? Math.round((n / d) * 100) : 0);
+        document.getElementById('odash-resv-total').textContent = total;
+        document.getElementById('odash-resv-completed-pct').textContent = pct(completed, total) + '%';
+        document.getElementById('odash-resv-cancelled-pct').textContent = pct(cancelled, total) + '%';
+        document.getElementById('odash-resv-pending-pct').textContent = pct(pending, total) + '%';
+
+        renderNeonGauge(resvContainer, { completed, cancelled, pending, total });
+    }
+}
+
+// ===== Futuristic Neon Gauge (SVG) =====
+function renderNeonGauge(container, { completed, cancelled, pending, total }) {
+    // Clear
+    container.innerHTML = '';
+    const width = Math.max(container.clientWidth || 220, 220);
+    const height = Math.max(container.clientHeight || 150, 150);
+    const vbw = 520, vbh = 300; // wider viewbox to make the semicircle feel more open
+    const cx = vbw/2, cy = vbh/2 + 10; // center
+    const r = 140; // larger radius for a bigger diameter
+    const stroke = 26; // thicker stroke for a bolder ring
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', `0 0 ${vbw} ${vbh}`);
+    svg.setAttribute('width', width);
+    svg.setAttribute('height', height);
+
+    // defs: gradients & glow
+    const defs = document.createElementNS(svg.namespaceURI, 'defs');
+    defs.innerHTML = `
+        <linearGradient id="gradCompleted" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#10b981"/>
+            <stop offset="100%" stop-color="#34d399"/>
+        </linearGradient>
+        <linearGradient id="gradCancelled" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#ef4444"/>
+            <stop offset="100%" stop-color="#f97316"/>
+        </linearGradient>
+        <linearGradient id="gradPending" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#f59e0b"/>
+            <stop offset="100%" stop-color="#fbbf24"/>
+        </linearGradient>
+        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+            <feMerge>
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+        </filter>`;
+    svg.appendChild(defs);
+
+    // We'll group the visual elements so we can rotate the whole semicircle by 90deg
+    const g = document.createElementNS(svg.namespaceURI, 'g');
+    // rotate by 90 degrees around center to shift start point
+    g.setAttribute('transform', `rotate(90 ${cx} ${cy})`);
+
+    // Background faint track (full semicircle)
+    const track = pathArc(cx, cy, r, -180, 0);
+    track.setAttribute('stroke', '#eef2f7');
+    track.setAttribute('stroke-width', String(stroke));
+    track.setAttribute('fill', 'none');
+    track.setAttribute('stroke-linecap', 'round');
+    track.setAttribute('opacity', '.95');
+    track.classList.add('g-glow');
+    g.appendChild(track);
+
+    // Segmented arcs with tiny gaps
+    const segments = [];
+    const values = [completed, cancelled, pending];
+    const colors = ['url(#gradCompleted)', 'url(#gradCancelled)', 'url(#gradPending)'];
+    const totalSafe = total > 0 ? total : 1;
+    const gapDeg = 4; // small gap between segments
+    const usableArc = 180 - gapDeg * (values.length - 1);
+    const rawSpans = values.map(v => (v / totalSafe) * usableArc);
+    let startAng = -180;
+    for (let i = 0; i < values.length; i++) {
+        const span = rawSpans[i];
+        const seg = pathArc(cx, cy, r, startAng, startAng + span);
+        seg.setAttribute('stroke', colors[i]);
+        seg.setAttribute('stroke-width', String(stroke));
+        seg.setAttribute('stroke-linecap', 'round');
+        seg.setAttribute('fill', 'none');
+        seg.setAttribute('opacity', '0.98');
+        seg.classList.add('g-segment');
+        g.appendChild(seg);
+        segments.push(seg);
+        startAng += span + gapDeg;
+    }
+
+    svg.appendChild(g);
+    container.appendChild(svg);
+
+    // Reveal animation: stroke-dash technique per segment
+    const duration = 850;
+    segments.forEach((seg, idx) => {
+        const len = seg.getTotalLength();
+        seg.style.strokeDasharray = `${len}`;
+        seg.style.strokeDashoffset = `${len}`;
+        const delay = 90 * idx;
+        const start = performance.now() + delay;
+        const tick = (now) => {
+            const t = Math.max(0, Math.min(1, (now - start) / duration));
+            const eased = 1 - Math.pow(1 - t, 3);
+            seg.style.strokeDashoffset = `${Math.round((1 - eased) * len)}`;
+            if (t < 1) requestAnimationFrame(tick);
+            else seg.style.strokeDashoffset = '0';
+        };
+        requestAnimationFrame(tick);
+    });
+}
+
+// Helpers for SVG arc
+function pathArc(cx, cy, r, startAngle, endAngle) {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', describeArc(cx, cy, r, startAngle, endAngle));
+    return path;
+}
+function describeArc(cx, cy, r, startAngle, endAngle) {
+    const start = polarToCartesian(cx, cy, r, endAngle);
+    const end = polarToCartesian(cx, cy, r, startAngle);
+    const largeArcFlag = endAngle - startAngle <= 180 ? 0 : 1;
+    return [
+        'M', start.x, start.y,
+        'A', r, r, 0, largeArcFlag, 0, end.x, end.y
+    ].join(' ');
+}
+function polarToCartesian(cx, cy, r, angleInDegrees) {
+    const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
+    return {
+        x: cx + (r * Math.cos(angleInRadians)),
+        y: cy + (r * Math.sin(angleInRadians))
+    };
+}
+
+// ===== Opening animations for dashboard cards =====
+function initOpeningAnimations() {
+    const cards = document.querySelectorAll('#inventory-dashboard .odash-card');
+    cards.forEach((card, i) => {
+        card.classList.add('reveal');
+        const delay = 80 * i; // ms
+        setTimeout(() => {
+            card.classList.add('in');
+        }, delay);
+    });
 }
 
 // Utilities
@@ -741,39 +965,148 @@ function getTopIndices(arr, k) {
 
 // ===== Popular Products List (Mock Data) =====
 function initPopularProducts() {
-    const products = [
-        { name: 'Nike Air Max 270', sales: 245 },
-        { name: 'Adidas Ultraboost 22', sales: 198 },
-        { name: 'Puma RS-X', sales: 176 },
-        { name: 'New Balance 574', sales: 142 },
-        { name: 'Converse Chuck Taylor', sales: 128 },
-        { name: 'Vans Old Skool', sales: 115 },
-        { name: 'Reebok Classic Leather', sales: 98 },
-        { name: 'Asics Gel-Kayano', sales: 87 },
-        { name: 'Skechers D\'Lites', sales: 76 },
-        { name: 'Fila Disruptor II', sales: 65 },
-        { name: 'Under Armour HOVR', sales: 54 },
-        { name: 'Brooks Ghost 14', sales: 43 }
-    ];
-
     const container = document.getElementById('odash-popular-products');
+    // rangeSelect removed; default to monthly behavior
+    const rangeSelect = null;
+    const monthSelect = document.getElementById('odash-popular-month');
+    const yearSelect = document.getElementById('odash-popular-year');
     if (!container) return;
 
-    let html = '';
-    products.forEach((product, index) => {
-        const isTop3 = index < 3;
-        const rankBadge = isTop3 ? `<span class="odash-product-rank">${index + 1}</span>` : '';
-        const itemClass = isTop3 ? 'odash-product-item top-product' : 'odash-product-item';
-        
-        html += `
-            <div class="${itemClass}">
-                <span class="odash-product-name">${rankBadge}${product.name}</span>
-                <span class="odash-product-sales">${product.sales} sold</span>
-            </div>
-        `;
-    });
-    
-    container.innerHTML = html;
+    // Populate year select with a sensible range (current year +/- 4)
+    const now = new Date();
+    const thisYear = now.getFullYear();
+    if (yearSelect && !yearSelect.options.length) {
+        // Only include the current year down to (currentYear - 4). Do not include next year.
+        for (let y = thisYear; y >= thisYear - 4; y--) {
+            const opt = document.createElement('option');
+            opt.value = String(y);
+            opt.textContent = String(y);
+            if (y === thisYear) opt.selected = true;
+            yearSelect.appendChild(opt);
+        }
+    }
+    if (monthSelect) {
+        monthSelect.value = String(now.getMonth() + 1);
+    }
+
+    const dd = (window.laravelData && window.laravelData.dashboardData) ? window.laravelData.dashboardData : {};
+    let currentRange = 'monthly';
+
+    function normalizeFromCategories(srcObj) {
+        const out = [];
+        ['men','women','accessories'].forEach(cat => {
+            const arr = srcObj?.[cat];
+            if (Array.isArray(arr)) {
+                arr.forEach(p => out.push({
+                    name: p.name || p.product_name || 'Unknown',
+                    sales: Number(p.sold ?? p.total_sold ?? p.sales ?? 0)
+                }));
+            }
+        });
+        return out.sort((a,b)=> b.sales - a.sales);
+    }
+
+    function adjustByRange(list, range) {
+        const factor = range === 'yearly' ? 12 : (range === 'quarterly' ? 3 : 1);
+        return list.map(it => ({ ...it, sales: Math.max(0, Math.round(it.sales * factor)) }));
+    }
+
+    async function fetchPopularFromApi(range, month, year) {
+        try {
+            const base = window.laravelData?.routes?.popularProducts;
+            if (!base) return null;
+            const url = new URL(base, window.location.origin);
+            if (range) url.searchParams.set('range', range);
+            if (month) url.searchParams.set('month', String(month));
+            if (year) url.searchParams.set('year', String(year));
+            url.searchParams.set('limit', '24');
+            const res = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
+            const data = await res.json();
+            if (!res.ok || data.success === false) throw new Error(data.message || 'Failed');
+            const items = Array.isArray(data.items) ? data.items : [];
+            return items.map(i => ({ name: i.name || i.product_name || 'Unknown', sales: Number(i.sold ?? i.sales ?? 0) }))
+                        .sort((a,b)=> b.sales - a.sales);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    async function getPopularList(range, month, year) {
+        // Prefer API if available
+        const apiList = await fetchPopularFromApi(range, month, year);
+        if (apiList && apiList.length) return apiList;
+
+        // Try explicit keyed objects first: popularProducts[range]
+        if (dd.popularProducts && typeof dd.popularProducts === 'object' && dd.popularProducts[range]) {
+            const src = dd.popularProducts[range];
+            if (Array.isArray(src)) {
+                return src.map(p => ({ name: p.name || p.product_name || 'Unknown', sales: Number(p.sold ?? p.total_sold ?? p.sales ?? 0) }))
+                          .sort((a,b)=> b.sales - a.sales);
+            }
+            if (typeof src === 'object') {
+                return normalizeFromCategories(src);
+            }
+        }
+        // Try alternative flat keys
+        const altKey = range === 'monthly' ? 'popularProductsMonthly' : (range === 'quarterly' ? 'popularProductsQuarterly' : 'popularProductsYearly');
+        if (dd[altKey]) {
+            const src = dd[altKey];
+            if (Array.isArray(src)) {
+                return src.map(p => ({ name: p.name || p.product_name || 'Unknown', sales: Number(p.sold ?? p.total_sold ?? p.sales ?? 0) }))
+                          .sort((a,b)=> b.sales - a.sales);
+            }
+            if (typeof src === 'object') {
+                return normalizeFromCategories(src);
+            }
+        }
+        // Baseline categories or mock
+        let base = [];
+        if (dd.popularProducts && typeof dd.popularProducts === 'object') {
+            base = normalizeFromCategories(dd.popularProducts);
+        }
+        if (!base.length) {
+            base = [
+                { name: 'Nike Air Max 270', sales: 245 },
+                { name: 'Adidas Ultraboost 22', sales: 198 },
+                { name: 'Puma RS-X', sales: 176 },
+                { name: 'New Balance 574', sales: 142 },
+                { name: 'Converse Chuck Taylor', sales: 128 },
+                { name: 'Vans Old Skool', sales: 115 },
+                { name: 'Reebok Classic Leather', sales: 98 },
+                { name: 'Asics Gel-Kayano', sales: 87 },
+                { name: 'Skechers D\'Lites', sales: 76 },
+                { name: 'Fila Disruptor II', sales: 65 },
+                { name: 'Under Armour HOVR', sales: 54 },
+                { name: 'Brooks Ghost 14', sales: 43 }
+            ];
+        }
+        return adjustByRange(base, range);
+    }
+
+    async function render(range) {
+        const month = monthSelect ? Number(monthSelect.value) : undefined;
+        const year = yearSelect ? Number(yearSelect.value) : undefined;
+        const list = await getPopularList(range, month, year);
+        let html = '';
+        list.slice(0, 12).forEach((product, index) => {
+            const isTop3 = index < 3;
+            const rankBadge = isTop3 ? `<span class="odash-product-rank">${index + 1}</span>` : '';
+            const itemClass = isTop3 ? 'odash-product-item top-product' : 'odash-product-item';
+            html += `
+                <div class="${itemClass}">
+                    <span class="odash-product-name">${rankBadge}${product.name}</span>
+                    <span class="odash-product-sales">${product.sales} sold</span>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    }
+
+    // Initial render
+    render(currentRange);
+    // Re-render on changes
+    monthSelect?.addEventListener('change', () => render(currentRange));
+    yearSelect?.addEventListener('change', () => render(currentRange));
 }
 
 // ===== Stock Levels Horizontal Bar Chart (Mock Data) =====
@@ -782,37 +1115,32 @@ function initStockLevels() {
     const categorySelect = document.getElementById('odash-stock-category');
     let stockChart;
 
-    function getStockData(category) {
-        if (category === 'women') {
-            return {
-                labels: ['Nike Air Force 1', 'Adidas Stan Smith', 'Puma Cali', 'New Balance 327', 'Converse Platform'],
-                stocks: [145, 98, 76, 54, 42],
-                maxStock: [200, 150, 100, 80, 60]
-            };
-        } else if (category === 'accessories') {
-            return {
-                labels: ['Shoe Laces', 'Insoles', 'Shoe Cleaner', 'Shoe Trees', 'Socks'],
-                stocks: [320, 245, 178, 95, 156],
-                maxStock: [400, 300, 200, 120, 200]
-            };
+    async function fetchStockData(category) {
+        try {
+            const url = new URL(window.laravelData?.routes?.inventoryOverview, window.location.origin);
+            url.searchParams.set('source', 'pos');
+            if (category) url.searchParams.set('category', category);
+            const res = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
+            const data = await res.json();
+            if (!res.ok || data.success === false) throw new Error(data.message || 'Failed');
+            const items = Array.isArray(data.items) ? data.items : [];
+            const labels = items.map(i => i.name || i.product_name || 'Item');
+            const stocks = items.map(i => Number(i.total_stock || 0));
+            const maxVal = stocks.length ? Math.max(...stocks) || 1 : 1;
+            const maxStock = stocks.map(() => maxVal);
+            return { labels, stocks, maxStock };
+        } catch (e) {
+            return { labels: [], stocks: [], maxStock: [] };
         }
-        // default: men
-        return {
-            labels: ['Nike Air Max 270', 'Adidas Ultraboost', 'Puma RS-X', 'New Balance 574', 'Vans Old Skool', 'Reebok Classic'],
-            stocks: [85, 112, 68, 142, 95, 78],
-            maxStock: [150, 150, 100, 180, 120, 100]
-        };
     }
 
-    function updateStockChart(category) {
-        const { labels, stocks, maxStock } = getStockData(category);
-        
-        // Calculate percentages for color coding
+    async function updateStockChart(category) {
+        const { labels, stocks, maxStock } = await fetchStockData(category);
         const backgroundColors = stocks.map((stock, i) => {
-            const pct = (stock / maxStock[i]) * 100;
-            if (pct < 30) return '#ef4444'; // Low stock - red
-            if (pct < 60) return '#f59e0b'; // Medium stock - amber
-            return '#3b82f6'; // Good stock - blue
+            const pct = maxStock[i] ? (stock / maxStock[i]) * 100 : 0;
+            if (pct < 30) return '#ef4444';
+            if (pct < 60) return '#f59e0b';
+            return '#3b82f6';
         });
 
         if (!stockChart) {
@@ -844,9 +1172,9 @@ function initStockLevels() {
                             callbacks: {
                                 afterLabel: function(context) {
                                     const index = context.dataIndex;
-                                    const max = maxStock[index];
+                                    const max = maxStock[index] || 1;
                                     const pct = Math.round((context.parsed.x / max) * 100);
-                                    return `Max: ${max} (${pct}% stocked)`;
+                                    return `Max (set): ${max} (${pct}% stocked)`;
                                 }
                             }
                         }
@@ -865,7 +1193,6 @@ function initStockLevels() {
                 }
             });
         } else {
-            // Update existing chart
             stockChart.data.labels = labels;
             stockChart.data.datasets[0].data = stocks;
             stockChart.data.datasets[0].backgroundColor = backgroundColors;
@@ -873,11 +1200,8 @@ function initStockLevels() {
         }
     }
 
-    // Initialize with default category
     const initialCategory = categorySelect && categorySelect.value ? categorySelect.value : 'men';
     updateStockChart(initialCategory);
-
-    // Handle category changes
     if (categorySelect) {
         categorySelect.addEventListener('change', () => updateStockChart(categorySelect.value));
     }

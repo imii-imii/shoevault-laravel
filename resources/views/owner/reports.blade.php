@@ -59,7 +59,25 @@
         .status-badge { display:inline-block; padding: 3px 6px; font-size: 10px; border-radius: 10px; color: #0f172a; background: #e2f6e9; }
         .status-badge.status-completed { background:#dcfce7; color:#166534; }
         .status-badge.status-pending { background:#fff7ed; color:#9a3412; }
-        .status-badge.status-active { background:#e0f2fe; color:#075985; }
+    .status-badge.status-active { background:#e0f2fe; color:#075985; }
+    .status-badge.status-inactive { background:#fee2e2; color:#991b1b; }
+    /* Export buttons */
+    .export-group { display:inline-flex; gap:8px; align-items:center; margin-left:10px; }
+    .export-btn {
+        -webkit-appearance: none; appearance: none; cursor: pointer;
+        height: 32px; padding: 6px 10px; border-radius: 999px; border: 1px solid #e5e7eb;
+        background:
+            linear-gradient(#fff,#fff) padding-box,
+            linear-gradient(135deg,#e0e7ff,#f0f9ff) border-box;
+        color: #1e293b; font-size: 12px; font-weight: 800;
+        display: inline-flex; align-items: center; gap: 6px;
+        box-shadow: 0 4px 10px -6px rgba(2,6,23,.12);
+        transition: box-shadow .15s ease, border-color .15s ease, background .15s ease, transform .05s ease;
+    }
+    .export-btn:hover { border-color: #c7d2fe; box-shadow: 0 6px 16px -10px rgba(37,99,235,.35); }
+    .export-btn:active { transform: translateY(1px); }
+    .hide-sm { display:inline; }
+    @media (max-width: 720px) { .hide-sm { display:none; } }
     /* Sticky section header and filters */
     .content-grid { position: relative; }
     .content-section .section-header { position: sticky; top: 0; z-index: 30; background: #fff; padding-top: 6px; padding-bottom: 6px; }
@@ -76,6 +94,30 @@
     .resv-badge.completed { background:#dcfce7; color:#166534; }
     .resv-badge.cancelled { background:#fee2e2; color:#991b1b; }
     @media (max-width: 1100px) { .resv-grid { grid-template-columns: repeat(2, 1fr); } }
+    /* Loading + animations */
+    @keyframes shimmer { 0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; } }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .section-loader { position: absolute; inset: 0; background: rgba(255,255,255,0.85); backdrop-filter: blur(2px); display: none; align-items: center; justify-content: center; z-index: 20000; }
+    .loader { width: 48px; height: 48px; border-radius: 50%; border: 3px solid #bfdbfe; border-top-color: #3b82f6; animation: spin 0.8s linear infinite; }
+    .content-section { position: relative; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .skeleton { position: relative; overflow: hidden; background: #eef2f7; border-radius: 8px; }
+    .skeleton::after { content: ""; position: absolute; inset: 0; background-image: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.6) 40%, rgba(255,255,255,0) 80%); background-size: 1000px 100%; animation: shimmer 1.2s infinite; opacity: .7; }
+    .skeleton.line { height: 12px; margin: 6px 0; }
+    .skel-badge { width: 64px; height: 22px; border-radius: 999px; }
+    .loading-scrim { position: absolute; inset: 0; background: rgba(255,255,255,.7); display: flex; align-items: center; justify-content: center; z-index: 10; }
+    .animate-in { animation: fadeInUp .35s ease both; }
+    .animate-stagger > * { animation: fadeInUp .4s ease both; }
+    .animate-stagger > *:nth-child(1) { animation-delay: .02s; }
+    .animate-stagger > *:nth-child(2) { animation-delay: .06s; }
+    .animate-stagger > *:nth-child(3) { animation-delay: .10s; }
+    .animate-stagger > *:nth-child(4) { animation-delay: .14s; }
+    .animate-stagger > *:nth-child(5) { animation-delay: .18s; }
+    .animate-stagger > *:nth-child(6) { animation-delay: .22s; }
+    .animate-stagger > *:nth-child(7) { animation-delay: .26s; }
+    .animate-stagger > *:nth-child(8) { animation-delay: .30s; }
+    @media (prefers-reduced-motion: reduce) { .animate-in, .animate-stagger > * { animation: none !important; } }
     </style>
     <script>
         window.initialOwnerSection = 'reports-sales-history';
@@ -92,6 +134,7 @@
     </script>
 </head>
 <body>
+<!-- section-scoped loaders are created dynamically inside the active section -->
 <nav class="sidebar">
     <div class="logo">
         <img src="{{ asset('images/logo.png') }}" alt="ShoeVault Batangas" class="logo-img">
@@ -176,6 +219,10 @@
                     <option value="amount-desc">Amount (High-Low)</option>
                     <option value="amount-asc">Amount (Low-High)</option>
                 </select>
+                <div class="export-group" aria-label="Export" style="margin-left:auto;">
+                    <button type="button" class="export-btn" data-format="csv" title="Export CSV"><i class="fas fa-download"></i><span class="hide-sm">CSV</span></button>
+                    <button type="button" class="export-btn" data-format="xls" title="Export Excel"><i class="fas fa-file-excel"></i><span class="hide-sm">Excel</span></button>
+                </div>
             </div>
             <div class="table-container">
                 <table id="sales-history-table" class="data-table">
@@ -185,6 +232,7 @@
                             <th>Sale Type</th>
                             <th>Processed By</th>
                             <th>Products</th>
+                            <th>Subtotal</th>
                             <th>Discount</th>
                             <th>Total</th>
                             <th>Amount Paid</th>
@@ -217,6 +265,10 @@
                     <button type="button" class="switch-tab" data-status="completed">Completed</button>
                     <button type="button" class="switch-tab" data-status="cancelled">Cancelled</button>
                 </div>
+                <div class="export-group" aria-label="Export">
+                    <button type="button" class="export-btn" data-format="csv" title="Export CSV"><i class="fas fa-download"></i><span class="hide-sm">CSV</span></button>
+                    <button type="button" class="export-btn" data-format="xls" title="Export Excel"><i class="fas fa-file-excel"></i><span class="hide-sm">Excel</span></button>
+                </div>
             </div>
             <!-- Card list -->
             <div id="reservation-card-list" class="resv-card-list"></div>
@@ -243,6 +295,10 @@
                     <option value="id-desc">Log ID (Descending)</option>
                     <option value="id-asc">Log ID (Ascending)</option>
                 </select>
+                <div class="export-group" aria-label="Export" style="margin-left:auto;">
+                    <button type="button" class="export-btn" data-format="csv" title="Export CSV"><i class="fas fa-download"></i><span class="hide-sm">CSV</span></button>
+                    <button type="button" class="export-btn" data-format="xls" title="Export Excel"><i class="fas fa-file-excel"></i><span class="hide-sm">Excel</span></button>
+                </div>
             </div>
             <div class="table-container">
                 <table id="supply-logs-table" class="data-table">
@@ -298,6 +354,10 @@
                     <option value="stock-desc">Stock (High-Low)</option>
                     <option value="stock-asc">Stock (Low-High)</option>
                 </select>
+                <div class="export-group" aria-label="Export" style="margin-left:auto;">
+                    <button type="button" class="export-btn" data-format="csv" title="Export CSV"><i class="fas fa-download"></i><span class="hide-sm">CSV</span></button>
+                    <button type="button" class="export-btn" data-format="xls" title="Export Excel"><i class="fas fa-file-excel"></i><span class="hide-sm">Excel</span></button>
+                </div>
             </div>
             <style>
                 /* Inventory Overview horizontal cards */
@@ -363,6 +423,17 @@
 <script src="{{ asset('js/owner.js') }}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+// Section-scoped loader helpers
+        function getActiveSection(){
+            const sections = Array.from(document.querySelectorAll('.content-section'));
+            const shown = sections.find(s => s.style.display !== 'none');
+            if (shown) return shown;
+            return document.querySelector('.content-section.active') || sections[0];
+        }
+        function ensureSectionPosition(sec){ if (!sec) return; const pos = getComputedStyle(sec).position; if (pos === 'static') sec.style.position = 'relative'; }
+        function showSectionLoader(){ const sec = getActiveSection(); if (!sec) return; ensureSectionPosition(sec); let loader = sec.querySelector('.section-loader'); if (!loader){ loader = document.createElement('div'); loader.className = 'section-loader'; loader.innerHTML = '<div class="loader" aria-label="Loading"></div>'; sec.appendChild(loader); } loader.style.display = 'flex'; }
+        function hideSectionLoader(){ const sec = getActiveSection(); if (!sec) { document.querySelectorAll('.section-loader').forEach(l=>l.remove()); return; } const loader = sec.querySelector('.section-loader'); if (loader) loader.remove(); }
+        showSectionLoader();
         function updateDateTime() {
             const now = new Date();
             document.getElementById('current-time').textContent = now.toLocaleTimeString();
@@ -387,7 +458,43 @@
             });
         })();
 
-        // Reservation Logs: fetch and render completed/cancelled
+    // Helper: skeletons/animations
+        function injectSkeletonList(el, count = 6) {
+            if (!el) return;
+            el.classList.add('animate-stagger');
+            el.innerHTML = Array.from({length: count}).map(()=> `
+                <div class="resv-card">
+                    <div class="resv-grid">
+                        <div class="resv-field"><div class="skeleton line" style="width:120px"></div><div class="skeleton line" style="width:180px"></div></div>
+                        <div class="resv-field"><div class="skeleton line" style="width:100px"></div><div class="skeleton line" style="width:140px"></div></div>
+                        <div class="resv-field"><div class="skeleton line" style="width:90px"></div><div class="skeleton line" style="width:110px"></div></div>
+                        <div class="resv-field" style="align-items:flex-end"><div class="skeleton skel-badge"></div></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        function injectTableSkeleton(container) {
+            if (!container) return;
+            container.style.position = 'relative';
+            if (!container.querySelector('.loading-scrim')) {
+                const overlay = document.createElement('div');
+                overlay.className = 'loading-scrim';
+                overlay.innerHTML = '<div class="loader"></div>';
+                container.appendChild(overlay);
+            }
+        }
+        function removeTableSkeleton(container) {
+            const overlay = container?.querySelector('.loading-scrim');
+            if (overlay) overlay.remove();
+        }
+        function animateChildren(selector) {
+            const root = document.querySelector(selector);
+            if (!root) return;
+            const kids = Array.from(root.children || []);
+            kids.forEach((el, i) => { el.classList.add('animate-in'); el.style.animationDelay = `${i*40}ms`; });
+        }
+
+    // Reservation Logs: fetch and render completed/cancelled
         const resvListEl = document.getElementById('reservation-card-list');
         const statusSwitch = document.getElementById('reservation-status-switch');
 
@@ -459,6 +566,7 @@
                     </div>
                 </div>
             `).join('');
+            animateChildren('#reservation-card-list');
         }
 
         async function fetchReservationLogs(opts = {}){
@@ -468,6 +576,7 @@
             if (search) url.searchParams.set('search', search);
             if (sort) url.searchParams.set('sort', sort);
             try {
+                injectSkeletonList(resvListEl, 6);
                 const res = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
                 const data = await res.json();
                 if (!data || data.success === false) throw new Error('Failed to load');
@@ -495,18 +604,255 @@
             btn.addEventListener('click', () => fetchReservationLogs({ status: 'all' }));
         });
 
-        // Inventory Overview: hook source filter and initial load
-        const sourceSel = document.getElementById('inventory-source-filter');
-        if (sourceSel) {
-            sourceSel.addEventListener('change', function(){
-                if (typeof loadInventoryOverview === 'function') loadInventoryOverview(this.value);
+        // Sales History filters wiring
+        (function wireSalesFilters(){
+            const searchEl = document.getElementById('sales-search');
+            const periodEl = document.getElementById('sales-period-filter');
+            const sortEl = document.getElementById('sales-sort-filter');
+            const mapPeriod = (v)=> v==='today' ? 'daily' : (v==='week' ? 'weekly' : (v==='month' ? 'monthly' : 'weekly'));
+            // Initial fetch
+            if (typeof loadSalesHistory === 'function') {
+                const cont = document.querySelector('#reports-sales-history .table-container');
+                injectTableSkeleton(cont);
+                const orig = loadSalesHistory;
+                window.loadSalesHistory = async function(...args){
+                    injectTableSkeleton(cont);
+                    try {
+                        const r = orig.apply(this, args);
+                        if (r && typeof r.then === 'function') await r; else await new Promise(res=> setTimeout(res, 200));
+                    } finally {
+                        removeTableSkeleton(cont);
+                        animateChildren('#reports-sales-history tbody');
+                    }
+                };
+                loadSalesHistory(mapPeriod(periodEl?.value || ''));
+            }
+            const apply = ()=> {
+                if (typeof applySalesFilters === 'function') applySalesFilters({
+                    search: searchEl?.value || '',
+                    sort: sortEl?.value || 'date-desc',
+                    periodUi: (periodEl?.value || '')
+                });
+            };
+            let t;
+            searchEl?.addEventListener('input', ()=> { clearTimeout(t); t = setTimeout(apply, 200); });
+            periodEl?.addEventListener('change', ()=> {
+                if (typeof loadSalesHistory === 'function') loadSalesHistory(mapPeriod(periodEl.value));
+                // apply after small delay to use latest cache
+                setTimeout(apply, 150);
             });
-            // Initial load for POS inventory
-            if (typeof loadInventoryOverview === 'function') loadInventoryOverview(sourceSel.value);
+            sortEl?.addEventListener('change', apply);
+        })();
+
+        // Supply Logs filters wiring
+        (function wireSupplyFilters(){
+            const searchEl = document.getElementById('supply-search');
+            const sortEl = document.getElementById('supply-sort-filter');
+            const tableCont = document.querySelector('#reports-supply-logs .table-container');
+            const apply = ()=> { if (typeof applySupplyFilters === 'function') {
+                injectTableSkeleton(tableCont);
+                const r = applySupplyFilters({ search: searchEl?.value || '', sort: sortEl?.value || 'date-desc' });
+                if (r && typeof r.then === 'function') r.finally(()=> { removeTableSkeleton(tableCont); animateChildren('#reports-supply-logs tbody'); });
+                else setTimeout(()=> { removeTableSkeleton(tableCont); animateChildren('#reports-supply-logs tbody'); }, 250);
+            }};
+            // Initial fetch
+            if (typeof loadSupplyLogs === 'function') {
+                injectTableSkeleton(tableCont);
+                const orig = loadSupplyLogs;
+                window.loadSupplyLogs = async function(...args){
+                    injectTableSkeleton(tableCont);
+                    try { const r = orig.apply(this, args); if (r && typeof r.then === 'function') await r; else await new Promise(res=> setTimeout(res, 200)); }
+                    finally { removeTableSkeleton(tableCont); animateChildren('#reports-supply-logs tbody'); }
+                };
+                loadSupplyLogs();
+            }
+            let t;
+            searchEl?.addEventListener('input', ()=> { clearTimeout(t); t = setTimeout(apply, 200); });
+            sortEl?.addEventListener('change', apply);
+        })();
+
+        // Inventory Overview: hook filters and initial load
+        (function wireInventoryFilters(){
+            const sourceSel = document.getElementById('inventory-source-filter');
+            const catSel = document.getElementById('inventory-category-filter');
+            const searchEl = document.getElementById('inventory-search');
+            const sortSel = document.getElementById('inventory-sort-filter');
+            const list = document.getElementById('inventory-overview-list');
+            const showInvSkeleton = ()=> { if (list) { list.classList.add('animate-stagger'); list.innerHTML = Array.from({length: 10}).map(()=> `<div class=\"inv-card\" style=\"border:1px solid #eef2f7; border-radius:12px; padding:16px;\">\n                <div class=\"skeleton line\" style=\"width:45%; height:14px;\"></div>\n                <div class=\"skeleton line\" style=\"width:70%; height:10px; margin-top:8px;\"></div>\n            </div>`).join(''); }};
+            const apply = ()=> {
+                if (typeof loadInventoryOverview === 'function') {
+                    loadInventoryOverview(sourceSel?.value || 'pos', {
+                        category: catSel?.value || '',
+                        search: searchEl?.value || '',
+                        sort: sortSel?.value || ''
+                    });
+                }
+            };
+            // Observe for content and animate
+            if (list) {
+                const mo = new MutationObserver(()=> {
+                    const items = Array.from(list.children || []);
+                    items.forEach((el, i)=> { el.classList.add('animate-in'); el.style.animationDelay = `${i*30}ms`; });
+                });
+                mo.observe(list, { childList: true });
+            }
+            sourceSel?.addEventListener('change', apply);
+            catSel?.addEventListener('change', apply);
+            sortSel?.addEventListener('change', apply);
+            let ti;
+            searchEl?.addEventListener('input', ()=> { clearTimeout(ti); ti = setTimeout(apply, 250); });
+            // Initial load for POS inventory with current filters
+            showInvSkeleton();
+            apply();
+        })();
+
+    // Initial fetch (completed + cancelled) so content is ready even before switching tabs
+    injectSkeletonList(resvListEl, 6);
+    fetchReservationLogs({ status: 'all' }).finally(()=> setTimeout(hideSectionLoader, 300));
+
+        // ===== Export utilities =====
+        function filenameWithDate(base, ext){
+            const d = new Date();
+            const pad = (n)=> String(n).padStart(2,'0');
+            const stamp = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}`;
+            return `${base}_${stamp}.${ext}`;
         }
 
-        // Initial fetch (completed + cancelled) so content is ready even before switching tabs
-        fetchReservationLogs({ status: 'all' });
+        function download(content, mime, filename){
+            const blob = new Blob([content], { type: mime + ';charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+            setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 100);
+        }
+
+        function toCSV(headers, rows){
+            const esc = (v)=> {
+                const s = (v==null? '': String(v));
+                if (/[",\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+                return s;
+            };
+            const lines = [];
+            if (headers && headers.length) lines.push(headers.map(esc).join(','));
+            rows.forEach(r => lines.push(r.map(esc).join(',')));
+            return lines.join('\n');
+        }
+
+        function toExcelHTML(headers, rows){
+            const thead = headers && headers.length ? `<thead><tr>${headers.map(h=>`<th>${String(h).replace(/[<>]/g,'')}</th>`).join('')}</tr></thead>` : '';
+            const tbody = `<tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${String(c??'').replace(/[<>]/g,'')}</td>`).join('')}</tr>`).join('')}</tbody>`;
+            return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><table>${thead}${tbody}</table></body></html>`;
+        }
+
+        function tableToArrays(table){
+            const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
+            const rows = Array.from(table.querySelectorAll('tbody tr')).map(tr => Array.from(tr.children).map(td => td.textContent.trim()));
+            return { headers, rows };
+        }
+
+        function exportSales(format){
+            const table = document.getElementById('sales-history-table');
+            if (!table) return alert('No sales table to export.');
+            const { headers, rows } = tableToArrays(table);
+            if (format === 'xls') download(toExcelHTML(headers, rows), 'application/vnd.ms-excel', filenameWithDate('sales_history', 'xls'));
+            else download(toCSV(headers, rows), 'text/csv', filenameWithDate('sales_history', 'csv'));
+        }
+
+        function exportReservations(format){
+            const cards = document.querySelectorAll('#reports-reservation-logs .resv-card');
+            if (!cards.length) return alert('No reservations to export.');
+            const headers = ['Reservation ID','Reservation Date','Customer Name','Pickup Date','Email','Phone','Status'];
+            const rows = [];
+            cards.forEach(card => {
+                const labels = Array.from(card.querySelectorAll('.resv-label'));
+                const values = Array.from(card.querySelectorAll('.resv-value'));
+                const map = {};
+                labels.forEach((lbl, i) => { map[lbl.textContent.trim()] = (values[i]?.textContent || '').trim(); });
+                const status = (card.getAttribute('data-status') || map['Status'] || '').toString();
+                rows.push([
+                    map['Reservation ID'] || '',
+                    map['Reservation Date'] || '',
+                    map['Customer Name'] || '',
+                    map['Pickup Date'] || '',
+                    map['Email'] || '',
+                    map['Phone'] || '',
+                    status ? (status.charAt(0).toUpperCase()+status.slice(1)) : ''
+                ]);
+            });
+            if (format === 'xls') download(toExcelHTML(headers, rows), 'application/vnd.ms-excel', filenameWithDate('reservation_logs', 'xls'));
+            else download(toCSV(headers, rows), 'text/csv', filenameWithDate('reservation_logs', 'csv'));
+        }
+
+        function exportSupply(format){
+            const table = document.getElementById('supply-logs-table');
+            if (!table) return alert('No supply table to export.');
+            const { headers, rows } = tableToArrays(table);
+            if (format === 'xls') download(toExcelHTML(headers, rows), 'application/vnd.ms-excel', filenameWithDate('supply_logs', 'xls'));
+            else download(toCSV(headers, rows), 'text/csv', filenameWithDate('supply_logs', 'csv'));
+        }
+
+        async function exportInventory(format){
+            // Prefer API export based on current filters for accuracy
+            const sourceSel = document.getElementById('inventory-source-filter');
+            const catSel = document.getElementById('inventory-category-filter');
+            const searchEl = document.getElementById('inventory-search');
+            const source = sourceSel?.value || 'pos';
+            const category = catSel?.value || '';
+            const search = searchEl?.value || '';
+            const url = new URL(window.laravelData?.routes?.inventoryOverview, window.location.origin);
+            url.searchParams.set('source', source);
+            if (category) url.searchParams.set('category', category);
+            if (search) url.searchParams.set('search', search);
+            try{
+                const res = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
+                const data = await res.json();
+                const items = Array.isArray(data.items) ? data.items : [];
+                const headers = ['Product','Brand','Category','Color','Price','Total Stock','Sizes'];
+                const rows = items.map(i => [i.name||'', i.brand||'', i.category||'', i.color||'', i.price||'', i.total_stock||0, i.sizes||'']);
+                if (format === 'xls') download(toExcelHTML(headers, rows), 'application/vnd.ms-excel', filenameWithDate('inventory_overview', 'xls'));
+                else download(toCSV(headers, rows), 'text/csv', filenameWithDate('inventory_overview', 'csv'));
+            }catch(e){
+                // Fallback: try to scrape current cards
+                const cards = document.querySelectorAll('#reports-inventory-overview .inv-card');
+                if (!cards.length) return alert('No inventory to export.');
+                const headers = ['Product','Brand','Details','Price','Stock'];
+                const rows = Array.from(cards).map(c => [
+                    (c.querySelector('.inv-name')?.textContent||'').trim(),
+                    (c.querySelector('.inv-brand')?.textContent||'').trim(),
+                    (c.querySelector('.inv-info')?.textContent||'').trim().replace(/\s+/g,' '),
+                    (c.querySelector('.inv-price')?.textContent||'').trim(),
+                    (c.querySelector('.inv-stock')?.textContent||'').trim(),
+                ]);
+                if (format === 'xls') download(toExcelHTML(headers, rows), 'application/vnd.ms-excel', filenameWithDate('inventory_overview', 'xls'));
+                else download(toCSV(headers, rows), 'text/csv', filenameWithDate('inventory_overview', 'csv'));
+            }
+        }
+
+        function activeSectionId(){
+            const sections = Array.from(document.querySelectorAll('.content-section'));
+            // Prefer displayed section
+            const shown = sections.find(s => s.style.display !== 'none');
+            if (shown) return shown.id;
+            const active = sections.find(s => s.classList.contains('active'));
+            return active ? active.id : '';
+        }
+
+        function exportActive(format){
+            const id = activeSectionId();
+            if (id === 'reports-sales-history') return exportSales(format);
+            if (id === 'reports-reservation-logs') return exportReservations(format);
+            if (id === 'reports-supply-logs') return exportSupply(format);
+            if (id === 'reports-inventory-overview') return exportInventory(format);
+            alert('No report section selected to export.');
+        }
+
+        // Wire buttons (all sections share the same handlers)
+        document.querySelectorAll('.export-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const fmt = btn.getAttribute('data-format') || 'csv';
+                exportActive(fmt);
+            });
+        });
     });
 </script>
 
