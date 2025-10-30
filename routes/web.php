@@ -198,6 +198,11 @@ Route::middleware(['auth', 'role:manager,admin'])->prefix('inventory')->name('in
     })->name('enhanced');
     Route::get('/suppliers', [InventoryController::class, 'suppliers'])->name('suppliers');
     Route::post('/suppliers', [InventoryController::class, 'storeSupplier'])->name('suppliers.store');
+    // Supplier CRUD and Supply Logs
+    Route::put('/suppliers/{supplier}', [InventoryController::class, 'updateSupplier'])->name('suppliers.update');
+    Route::delete('/suppliers/{supplier}', [InventoryController::class, 'deleteSupplier'])->name('suppliers.destroy');
+    Route::get('/suppliers/{supplier}/logs', [InventoryController::class, 'getSupplierLogs'])->name('suppliers.logs.index');
+    Route::post('/suppliers/{supplier}/logs', [InventoryController::class, 'addSupplierLog'])->name('suppliers.logs.store');
     Route::get('/reservation-reports', [InventoryController::class, 'reservationReports'])->name('reservation-reports');
     Route::get('/settings', [InventoryController::class, 'settings'])->name('settings');
     Route::post('/profile/update', [InventoryController::class, 'updateProfile'])->name('profile.update');

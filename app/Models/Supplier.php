@@ -12,9 +12,30 @@ class Supplier extends Model
     protected $fillable = [
         'name',
         'contact_person',
+        'email',
+        'phone',
+        'address',
+        'notes',
+        'is_active',
+        'brands',
+        'total_stock',
         'country',
-        'email'
+        'available_sizes',
+        'status',
     ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+        'brands' => 'array',
+    ];
+
+    /**
+     * Scope for active suppliers
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
 
     /**
      * Get products from this supplier
@@ -22,5 +43,10 @@ class Supplier extends Model
     public function products()
     {
         return $this->hasMany(Product::class);
+    }
+
+    public function supplyLogs()
+    {
+        return $this->hasMany(SupplyLog::class);
     }
 }
