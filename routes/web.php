@@ -6,19 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\OwnerController;
-use App\Http\Controllers\OwnerUsersController;
 use App\Http\Controllers\ReservationController;
-use App\Http\Controllers\Auth\SocialAuthController;
-
-// Debug route for inventory types
-Route::get('/debug/inventory', function() {
-    return [
-        'total_products' => \App\Models\Product::count(),
-        'pos_products' => \App\Models\Product::posInventory()->count(),
-        'reservation_products' => \App\Models\Product::reservationInventory()->count(),
-        'products_with_types' => \App\Models\Product::select('id', 'name', 'inventory_type')->get()
-    ];
-});
 
 // Authentication routes
 Route::get('/', [ReservationController::class, 'index'])->name('reservation.home');
@@ -37,15 +25,6 @@ Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::get('/logout', [AuthController::class, 'logout'])->name('logout.get'); // Alternative logout route
-
-// Customer-facing authentication (UI only)
-Route::get('/customer/login', function() {
-    return view('auth.customer');
-})->name('customer.login');
-
-// Google OAuth placeholders (configure Socialite to enable)
-Route::get('/auth/google', [SocialAuthController::class, 'redirect'])->name('auth.google');
-Route::get('/auth/google/callback', [SocialAuthController::class, 'callback'])->name('auth.google.callback');
 
 // POS routes (for cashiers and admin)
 Route::middleware(['auth', 'role:cashier,admin'])->prefix('pos')->name('pos.')->group(function () {
@@ -197,7 +176,6 @@ Route::middleware(['auth', 'role:manager,admin'])->prefix('inventory')->name('in
         return view('inventory.dashboard', compact('products', 'suppliers', 'reservations', 'reservationStats'));
     })->name('enhanced');
     Route::get('/suppliers', [InventoryController::class, 'suppliers'])->name('suppliers');
-    Route::post('/suppliers', [InventoryController::class, 'storeSupplier'])->name('suppliers.store');
     Route::get('/reservation-reports', [InventoryController::class, 'reservationReports'])->name('reservation-reports');
     Route::get('/settings', [InventoryController::class, 'settings'])->name('settings');
     Route::post('/profile/update', [InventoryController::class, 'updateProfile'])->name('profile.update');
@@ -224,16 +202,10 @@ Route::middleware(['auth', 'role:owner,admin'])->prefix('owner')->name('owner.')
     Route::get('/reservation-logs', [OwnerController::class, 'reservationLogs'])->name('reservation-logs');
     Route::get('/supply-logs', [OwnerController::class, 'supplyLogs'])->name('supply-logs');
     Route::get('/inventory-overview', [OwnerController::class, 'inventoryOverview'])->name('inventory-overview');
-    Route::get('/popular-products', [OwnerController::class, 'popularProducts'])->name('popular-products');
     Route::get('/settings', [OwnerController::class, 'settings'])->name('settings');
     Route::post('/profile/update', [OwnerController::class, 'updateProfile'])->name('profile.update');
     Route::delete('/profile/picture', [OwnerController::class, 'removeProfilePicture'])->name('profile.picture.remove');
     Route::post('/password/update', [OwnerController::class, 'updatePassword'])->name('password.update');
-
-    // User management APIs
-    Route::get('/users', [OwnerUsersController::class, 'index'])->name('users.index');
-    Route::post('/users', [OwnerUsersController::class, 'store'])->name('users.store');
-    Route::post('/users/toggle', [OwnerUsersController::class, 'toggle'])->name('users.toggle');
 });
 
 // Analytics routes (for owners and admin) - Future implementation  
