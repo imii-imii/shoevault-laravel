@@ -11,9 +11,20 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Route middleware aliases
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
         ]);
+
+        // Apply active-user enforcement to all web requests
+        if (method_exists($middleware, 'web')) {
+            $middleware->web([
+                \App\Http\Middleware\EnsureUserIsActive::class,
+            ]);
+        } else {
+            // Fallback for older signatures: append globally
+            $middleware->append(\App\Http\Middleware\EnsureUserIsActive::class);
+        }
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
