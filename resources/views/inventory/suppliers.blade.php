@@ -10,35 +10,13 @@
 .logout-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.9rem 1rem;background:linear-gradient(to top right,#112c70 0%,#2a6aff 100%);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:9999px;font-size:.86rem;font-weight:700;cursor:pointer;transition:all .2s ease;text-decoration:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 6px 20px rgba(42,106,255,.35)}
 .logout-btn:hover{background:linear-gradient(135deg,#ef4444,#b91c1c);filter:brightness(1.05);box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 10px 24px rgba(185,28,28,.45)}
 .logout-btn i{font-size:1rem}
-./* Scoped modal styles to avoid global .modal conflicts */
-#add-supplier-modal{
-    position: fixed !important; /* ensure fixed and not overridden */
-    top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important;
-    inset: 0 !important;
-    display: none !important;
-    align-items: center !important;
-    justify-content: center !important;
-    background: linear-gradient(rgba(6,10,18,0.64), rgba(6,10,18,0.64)) !important;
-    backdrop-filter: blur(12px) saturate(120%) !important;
-    -webkit-backdrop-filter: blur(12px) saturate(120%) !important;
-    z-index: 999999 !important; /* ensure above sidebars */
-    padding: 28px !important;
-    box-sizing: border-box !important;
-}
+/* Scoped modal styles to avoid global .modal conflicts */
 
 
 #add-supplier-modal.show{ display:flex !important; }
-#add-supplier-modal .modal-content{
-    width: min(880px, 96vw) !important;
-    max-height: calc(100vh - 120px) !important;
-    overflow:auto !important;
-    background: linear-gradient(180deg, rgba(255,255,255,0.995), rgba(250,250,255,0.99)) !important;
-    border-radius:14px !important;
-    box-shadow: 0 34px 80px rgba(3,10,40,0.32), inset 0 1px 0 rgba(255,255,255,0.6) !important;
-    padding: 22px 24px 18px 24px !important;
-    border: 1px solid rgba(10,16,40,0.06) !important;
-    position: relative !important;
-}
+#add-supplier-modal .modal-content{max-width:100%; display:flex; flex-direction:column; justify-content:flex-start;}
+
+#add-supplier-modal{background: none; border: none; box-shadow: none;}
 .modal-header{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
 .modal-header h3{ margin:0; font-size:1.05rem; font-weight:800; }
 .close-btn{ background:transparent; border:none; font-size:1.4rem; line-height:1; padding:6px 8px; cursor:pointer; color: #374151; border-radius:8px; transition: background .12s, transform .08s; }
@@ -46,6 +24,59 @@
 .modal-form .form-group { margin-bottom:10px; }
 .modal-form .form-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:8px; }
 .brand-chip { margin-right:8px; }
+/* Supplier cards */
+.cards-container{ display:grid; gap:12px; }
+.supplier-card{ background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 4px 10px rgba(0,0,0,.04); padding:14px; }
+.supplier-card .card-main{ display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.supplier-card .info{ display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+.supplier-card .info .name{ font-weight:800; font-size:1rem; color:#111827; }
+.supplier-card .meta{ display:flex; gap:14px; color:#374151; font-size:.9rem; flex-wrap:wrap; }
+.supplier-card .actions{ display:flex; gap:8px; }
+.supplier-card .logs-panel{ margin-top:12px; display:none; border:1px solid rgba(15,23,42,0.06); border-radius:14px; background:linear-gradient(180deg, rgba(255,255,255,0.8), rgba(250,250,255,0.75)); backdrop-filter: blur(10px) saturate(110%); -webkit-backdrop-filter: blur(10px) saturate(110%); box-shadow: 0 16px 40px rgba(2,8,23,0.08), inset 0 1px 0 rgba(255,255,255,0.5); overflow:hidden; }
+.supplier-card .logs-header{ display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:linear-gradient(135deg, rgba(59,130,246,.12), rgba(59,130,246,.06)); border-bottom:1px solid rgba(15,23,42,0.06); }
+.supplier-card .logs-title{ font-weight:800; font-size:.95rem; color:#0f172a; display:flex; align-items:center; gap:8px; }
+.supplier-card .logs-body{ padding:12px; display:grid; gap:12px; }
+.supplier-card .log-form{ display:grid; grid-template-columns:1.1fr .8fr .7fr 1fr auto; gap:10px; align-items:end; background:rgba(255,255,255,.6); border:1px solid rgba(15,23,42,0.06); border-radius:12px; padding:10px; box-shadow: inset 0 1px 0 rgba(255,255,255,.6); }
+.supplier-card .log-form label{ font-size:.8rem; color:#475569; font-weight:600; }
+.supplier-card .log-form input{ border:1px solid #e5e7eb; border-radius:10px; padding:8px 10px; }
+.supplier-card .logs-list{ display:grid; gap:10px; }
+.log-item{ display:flex; align-items:center; justify-content:space-between; padding:12px; border:1px solid rgba(15,23,42,0.08); border-radius:12px; background:linear-gradient(180deg,#ffffff,#f8fafc); box-shadow:0 6px 18px rgba(2,8,23,0.06); transition: transform .12s ease, box-shadow .12s ease; }
+.log-item:hover{ transform: translateY(-1px); box-shadow:0 10px 24px rgba(2,8,23,0.08); }
+.log-item .left{ display:flex; gap:10px; align-items:center; }
+.badge{ display:inline-block; padding:6px 10px; border-radius:9999px; font-size:.75rem; font-weight:800; letter-spacing:.2px; box-shadow: inset 0 1px 0 rgba(255,255,255,.9); }
+.badge.brand{ background:linear-gradient(135deg,#e0e7ff,#c7d2fe); color:#1e3a8a; }
+.badge.size{ background:linear-gradient(135deg,#cffafe,#a5f3fc); color:#0e7490; }
+.badge.qty{ background:linear-gradient(135deg,#d9f99d,#bbf7d0); color:#3f6212; }
+.toggle-btn{ background:linear-gradient(135deg,#eef2ff,#e0e7ff); color:#1e3a8a; border:1px solid rgba(30,58,138,.15); border-radius:10px; padding:8px 12px; cursor:pointer; transition: transform .08s ease, filter .12s ease; box-shadow: 0 6px 16px rgba(30,58,138,.12); }
+.toggle-btn:hover{ filter: brightness(1.03); transform: translateY(-1px); }
+
+/* Edit Supplier Modal styles (separate from Add) */
+#edit-supplier-modal{background: none; border: none; box-shadow: none}
+#edit-supplier-modal.show{ display:flex !important; }
+#edit-supplier-modal .modal-content{max-width:100%; min-height:560px; display:flex; flex-direction:column; justify-content:flex-start; align-items:stretch;}
+@keyframes slideFadeIn { from { opacity:0; transform: translateY(-6px); } to { opacity:1; transform: translateY(0);} }
+.supplier-card .logs-panel.open .logs-body{ animation: slideFadeIn .18s ease both; }
+.supplier-card .logs-panel.open .logs-header{ animation: slideFadeIn .18s ease both; }
+/* Modal zoom animations (open = zoom-in, close = zoom-out)
+    Added so supplier modals (which use the `.show` class) have the same
+    smooth zoom behavior as other inventory modals. */
+@keyframes modalZoomIn { from { opacity: 0; transform: translateY(-8px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes modalZoomOut { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(-8px) scale(.96); } }
+.modal.show .modal-content { animation: modalZoomIn 260ms cubic-bezier(.2,.9,.3,1) both; }
+.modal .modal-content.zoom-out { animation: modalZoomOut 220ms cubic-bezier(.4,.0,.2,1) both; }
+/* Card container loading + entry animation */
+.cards-container { position: relative; }
+.cards-container .loading-overlay{ position:absolute; inset:0; display:grid; place-items:center; gap:8px; background:linear-gradient(180deg, rgba(255,255,255,0.92), rgba(248,250,252,0.88)); backdrop-filter: blur(6px) saturate(110%); -webkit-backdrop-filter: blur(6px) saturate(110%); border-radius:12px; z-index:30; }
+.cards-container .loading-overlay i{ font-size:18px; color:#6b7280 }
+.cards-container.animate-entry > .supplier-card { animation: slideFadeIn 420ms ease both; }
+.cards-container.animate-entry > .supplier-card:nth-child(1){ animation-delay: 40ms }
+.cards-container.animate-entry > .supplier-card:nth-child(2){ animation-delay: 80ms }
+.cards-container.animate-entry > .supplier-card:nth-child(3){ animation-delay: 120ms }
+.cards-container.animate-entry > .supplier-card:nth-child(4){ animation-delay: 160ms }
+.cards-container.animate-entry > .supplier-card:nth-child(5){ animation-delay: 200ms }
+.cards-container.animate-entry > .supplier-card:nth-child(6){ animation-delay: 240ms }
+.cards-container.animate-entry > .supplier-card:nth-child(7){ animation-delay: 280ms }
+.cards-container.animate-entry > .supplier-card:nth-child(8){ animation-delay: 320ms }
 </style>
 @endpush
 
@@ -142,82 +173,74 @@
         <section id="supplier" class="content-section active">
             <div class="section-header">
                 <h2 style="display:flex;align-items:center;gap:12px;"><i class="fas fa-people-carry-box"></i>Supplier Management</h2>
-                <button class="btn btn-primary" onclick="(window.supplierForm && supplierForm.openForAdd) ? supplierForm.openForAdd() : openAddSupplierModal()">
+                <button class="btn btn-primary" onclick="openAddSupplierModal()">
                     <i class="fas fa-plus"></i> Add Supplier
                 </button>
             </div>
             <div class="filters">
                 <input type="text" id="search-supplier" placeholder="Search suppliers..." class="search-input">
             </div>
-            <div class="table-container">
-                <table id="supplier-table" class="data-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Supplier Name</th>
-                            <th>Contact</th>
-                            <th>Brand(s)</th>
-                            <th>Stock</th>
-                            <th>Country</th>
-                            <th>Sizes</th>
-                            <th>Email</th>
-                            <!-- Phone column removed -->
-                            <th>Status</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="supplier-tbody">
-                        @foreach($suppliers ?? [] as $supplier)
-                        @php
-                            $brandText = 'N/A';
-                            $brandsJson = '[]';
-                            if (isset($supplier->brands) && is_array($supplier->brands)) {
-                                $brandText = implode(', ', array_filter($supplier->brands));
-                                $brandsJson = json_encode(array_values(array_filter($supplier->brands)));
-                            } elseif (!empty($supplier->brand)) {
-                                $brandText = $supplier->brand;
-                                $brandsJson = json_encode([$supplier->brand]);
-                            }
-                        @endphp
-                        <tr data-id="{{ $supplier->id }}"
-                            data-name="{{ $supplier->name }}"
-                            data-contact_person="{{ $supplier->contact_person }}"
-                            data-brands='{{ $brandsJson }}'
-                            data-total_stock="{{ $supplier->total_stock ?? 0 }}"
-                            data-country="{{ $supplier->country ?? 'N/A' }}"
-                            data-available_sizes="{{ $supplier->available_sizes ?? 'N/A' }}"
-                            data-email="{{ $supplier->email }}"
-                            data-status="{{ $supplier->status ?? 'active' }}"
-                        >
-                            <td>{{ $supplier->id }}</td>
-                            <td>{{ $supplier->name }}</td>
-                            <td>{{ $supplier->contact_person }}</td>
-                            <td>{{ $brandText }}</td>
-                            <td>{{ $supplier->total_stock ?? 0 }}</td>
-                            <td>{{ $supplier->country ?? 'N/A' }}</td>
-                            <td>{{ $supplier->available_sizes ?? 'N/A' }}</td>
-                            <td>{{ $supplier->email }}</td>
-                            <td>
-                                <span class="status-badge {{ $supplier->status ?? 'active' }}">
-                                    {{ ucfirst($supplier->status ?? 'active') }}
-                                </span>
-                            </td>
-                            <td>
-                                <button class="btn btn-sm btn-primary" onclick="editSupplier({{ $supplier->id }})">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button class="btn btn-sm btn-danger" onclick="deleteSupplier({{ $supplier->id }})">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </td>
-                        </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+            <div class="cards-container" id="supplier-cards">
+                @foreach($suppliers ?? [] as $supplier)
+                <div class="supplier-card" data-id="{{ $supplier->id }}"
+                    data-name="{{ $supplier->name }}"
+                    data-contact_person="{{ $supplier->contact_person }}"
+                    data-country="{{ $supplier->country ?? 'N/A' }}"
+                    data-email="{{ $supplier->email }}"
+                    data-status="{{ $supplier->status ?? 'active' }}">
+                    <div class="card-main">
+                        <div class="info">
+                            <div class="name">#{{ $supplier->id }} • {{ $supplier->name }}</div>
+                            <div class="meta"><span><i class="fas fa-user"></i> {{ $supplier->contact_person }}</span></div>
+                            <div class="meta"><span><i class="fas fa-earth-asia"></i> {{ $supplier->country ?? 'N/A' }}</span></div>
+                            <div class="meta"><span><i class="fas fa-envelope"></i> {{ $supplier->email }}</span></div>
+                            <div><span class="status-badge {{ $supplier->status ?? 'active' }}">{{ ucfirst($supplier->status ?? 'active') }}</span></div>
+                        </div>
+                        <div class="actions">
+                            <button class="btn btn-sm btn-primary" onclick="editSupplier({{ $supplier->id }})" title="Edit"><i class="fas fa-edit"></i></button>
+                            <button class="toggle-btn" onclick="toggleSupplyLogs({{ $supplier->id }})" id="toggle-logs-{{ $supplier->id }}"><i class="fas fa-clipboard-list"></i> Logs</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteSupplier({{ $supplier->id }})" title="Delete"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <div class="logs-panel" id="logs-{{ $supplier->id }}" data-loaded="false">
+                        <div class="logs-header">
+                            <div class="logs-title"><i class="fas fa-clipboard-list"></i> Supply Logs</div>
+                            <div class="logs-cta" style="font-size:.8rem;color:#475569;">Add a new log below</div>
+                        </div>
+                        <div class="logs-body">
+                            <form class="log-form" data-supplier-id="{{ $supplier->id }}">
+                                <div>
+                                    <label>Brand</label>
+                                    <input type="text" name="brand" required>
+                                </div>
+                                <div>
+                                    <label>Size</label>
+                                    <input type="text" name="size" placeholder="e.g., 8 or 42">
+                                </div>
+                                <div>
+                                    <label>Quantity</label>
+                                    <input type="number" name="quantity" min="1" required>
+                                </div>
+                                <div>
+                                    <label>Received At</label>
+                                    <input type="datetime-local" name="received_at">
+                                </div>
+                                <div>
+                                    <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> Add</button>
+                                </div>
+                            </form>
+                            <div class="logs-list"><div class="logs-empty" style="color:#6b7280;">Logs are hidden. Click "Logs" to load.</div></div>
+                        </div>
+                    </div>
+                </div>
+                @endforeach
             </div>
         </section>
     </div>
 </main>
+
+<!-- Modal overlay for supplier modals -->
+<div id="modal-overlay" class="modal-overlay active" style="display: block;"></div>
 
 <!-- Add Supplier Modal -->
 <div id="add-supplier-modal" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
@@ -227,7 +250,6 @@
             <button class="close-btn" onclick="closeModal('add-supplier-modal')">&times;</button>
         </div>
         <form id="add-supplier-form" class="modal-form">
-            <input type="hidden" id="supplier-id" value="" />
             <div class="form-group">
                 <label for="supplier-name">Supplier Name</label>
                 <input type="text" id="supplier-name" required>
@@ -237,23 +259,8 @@
                 <input type="text" id="supplier-contact" required>
             </div>
             <div class="form-group">
-                <label>Brands</label>
-                <div id="brand-chip-input" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px;border:1px solid #e5e7eb;border-radius:8px;min-height:42px;cursor:text;">
-                    <input type="text" id="brand-entry" placeholder="Type a brand and press Enter" style="border:none;outline:none;flex:1;min-width:160px;" />
-                </div>
-                <small style="color:#6b7280;">Add multiple brands. Press Enter or comma to add a brand.</small>
-            </div>
-            <div class="form-group">
-                <label for="supplier-stock">Stock</label>
-                <input type="number" id="supplier-stock" min="0" placeholder="e.g., 100" required>
-            </div>
-            <div class="form-group">
                 <label for="supplier-country">Country</label>
                 <input type="text" id="supplier-country" placeholder="e.g., Philippines" required>
-            </div>
-            <div class="form-group">
-                <label for="supplier-sizes">Sizes</label>
-                <input type="text" id="supplier-sizes" placeholder="e.g., 7, 8, 9">
             </div>
             <div class="form-group">
                 <label for="supplier-email">Email</label>
@@ -267,6 +274,41 @@
         </form>
     </div>
 </div>
+
+<!-- Edit Supplier Modal (separate) -->
+<div id="edit-supplier-modal" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Edit Supplier</h3>
+            <button class="close-btn" onclick="closeModal('edit-supplier-modal')">&times;</button>
+        </div>
+        <form id="edit-supplier-form" class="modal-form">
+            <input type="hidden" id="edit-supplier-id" value="" />
+            <div class="form-group">
+                <label for="edit-supplier-name">Supplier Name</label>
+                <input type="text" id="edit-supplier-name" required>
+            </div>
+            <div class="form-group">
+                <label for="edit-supplier-contact">Contact Person</label>
+                <input type="text" id="edit-supplier-contact" required>
+            </div>
+            <div class="form-group">
+                <label for="edit-supplier-country">Country</label>
+                <input type="text" id="edit-supplier-country" placeholder="e.g., Philippines" required>
+            </div>
+            <div class="form-group">
+                <label for="edit-supplier-email">Email</label>
+                <input type="email" id="edit-supplier-email" required>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('edit-supplier-modal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+    
+</div>
+
 @endsection
 
 @push('scripts')
@@ -299,9 +341,32 @@ function openAddSupplierModal() {
     const modal = document.getElementById('add-supplier-modal');
     if (!modal) return;
     if (modal.parentElement !== document.body) document.body.appendChild(modal);
+    // reset form before opening
+    const form = document.getElementById('add-supplier-form');
+    if (form) form.reset();
     modal.classList.add('show');
     modal.setAttribute('aria-hidden', 'false');
+    // show overlay
+    const overlay = document.getElementById('modal-overlay');
+    if (overlay) { overlay.style.display = 'block'; overlay.classList.add('active'); }
+    document.body.style.overflow = 'hidden';
     // autofocus first form element
+    setTimeout(()=>{
+        const first = modal.querySelector('input, select, textarea, button');
+        if (first) first.focus();
+    }, 40);
+}
+
+function openEditSupplierModal() {
+    const modal = document.getElementById('edit-supplier-modal');
+    if (!modal) return;
+    if (modal.parentElement !== document.body) document.body.appendChild(modal);
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden', 'false');
+    // show overlay
+    const overlay = document.getElementById('modal-overlay');
+    if (overlay) { overlay.style.display = 'block'; overlay.classList.add('active'); }
+    document.body.style.overflow = 'hidden';
     setTimeout(()=>{
         const first = modal.querySelector('input, select, textarea, button');
         if (first) first.focus();
@@ -311,14 +376,30 @@ function openAddSupplierModal() {
 function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (!modal) return;
-    modal.classList.remove('show');
-    modal.setAttribute('aria-hidden', 'true');
+    // play zoom-out on modal content (if present) then hide
+    const content = modal.querySelector('.modal-content');
+    const duration = 200; // ms - should match CSS animation timing
+    if (content) {
+        content.classList.add('zoom-out');
+        setTimeout(() => {
+            content.classList.remove('zoom-out');
+            modal.classList.remove('show');
+            modal.setAttribute('aria-hidden', 'true');
+            modal.style.display = 'none';
+        }, duration);
+    } else {
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+        modal.style.display = 'none';
+    }
+
+    // hide overlay after animation
+    const overlay = document.getElementById('modal-overlay');
+    if (overlay) { setTimeout(() => { overlay.style.display = 'none'; overlay.classList.remove('active'); }, duration); }
+    document.body.style.overflow = 'auto';
 }
 
-function editSupplier(supplierId) {
-    console.log('Edit supplier:', supplierId);
-    // Implement edit supplier functionality
-}
+// editSupplier implemented below (opens the dedicated edit modal)
 
 function deleteSupplier(supplierId) {
     if (confirm('Are you sure you want to delete this supplier?')) {
@@ -330,15 +411,41 @@ function deleteSupplier(supplierId) {
 // Close modal when clicking outside (overlay)
 window.addEventListener('click', function(e) {
     if (e.target && e.target.matches && e.target.matches('.modal')) {
-        e.target.classList.remove('show');
-        e.target.setAttribute('aria-hidden', 'true');
+        // use closeModal to ensure zoom-out animation plays
+        if (e.target.id) closeModal(e.target.id);
+        else {
+            e.target.classList.remove('show');
+            e.target.setAttribute('aria-hidden', 'true');
+            e.target.style.display = 'none';
+        }
     }
 });
 
 // Ensure the modal is attached to document.body early so it can't be clipped by transformed/overflowing ancestors
 document.addEventListener('DOMContentLoaded', function(){
-    const modal = document.getElementById('add-supplier-modal');
-    if (modal && modal.parentElement !== document.body) document.body.appendChild(modal);
+    const addModal = document.getElementById('add-supplier-modal');
+    if (addModal && addModal.parentElement !== document.body) document.body.appendChild(addModal);
+    const editModal = document.getElementById('edit-supplier-modal');
+    if (editModal && editModal.parentElement !== document.body) document.body.appendChild(editModal);
+    const overlay = document.getElementById('modal-overlay');
+    if (overlay) { overlay.style.display = 'none'; overlay.classList.remove('active'); }
+    // show brief loading overlay for supplier cards and animate entry
+    const cards = document.querySelector('.cards-container');
+    if (cards) {
+        let lo = cards.querySelector('.loading-overlay');
+        if (!lo) {
+            lo = document.createElement('div');
+            lo.className = 'loading-overlay';
+            lo.innerHTML = '<i class="fas fa-spinner fa-spin"></i><div style="color:#475569;font-weight:700;">Loading suppliers…</div>';
+            cards.appendChild(lo);
+        }
+        lo.style.display = 'grid';
+        // after a short delay, play entry animation and remove overlay
+        setTimeout(() => {
+            cards.classList.add('animate-entry');
+            lo.style.display = 'none';
+        }, 320);
+    }
 });
 
 // Notification bell toggle
@@ -357,57 +464,18 @@ if (bell) {
     badge.style.display = 'inline-block';
 }
 
-// --- Add / Edit Supplier module: wire form to API and brand chips input ---
+// --- Add Supplier module (create only) ---
 const baseSuppliersUrl = "{{ url('inventory/suppliers') }}";
 
-const supplierForm = (function(){
+const addSupplierForm = (function(){
     const form = document.getElementById('add-supplier-form');
-    const tbody = document.getElementById('supplier-tbody');
-    const chipBox = document.getElementById('brand-chip-input');
-    const entry = document.getElementById('brand-entry');
-    const hiddenId = document.getElementById('supplier-id');
-    const modal = document.getElementById('add-supplier-modal');
-    const header = modal.querySelector('.modal-header h3');
-    const submitBtn = form.querySelector('button[type="submit"]');
-
-    let brands = [];
-    let editingId = null;
-
-    function renderChips(){
-        if (!chipBox) return;
-        // Remove existing chips
-        Array.from(chipBox.querySelectorAll('.brand-chip')).forEach(el => el.remove());
-        brands.forEach((b, idx) => {
-            const chip = document.createElement('span');
-            chip.className = 'brand-chip';
-            chip.style.cssText = 'display:inline-flex;align-items:center;gap:6px;background:#eef2ff;color:#1e3a8a;border-radius:999px;padding:6px 10px;font-weight:700;font-size:.85rem;';
-            chip.innerHTML = `${b}<button type="button" aria-label="Remove ${b}" style="background:none;border:none;color:#1e3a8a;font-weight:800;cursor:pointer;line-height:1">&times;</button>`;
-            chip.querySelector('button')?.addEventListener('click', ()=>{ brands.splice(idx,1); renderChips(); });
-            // Insert before the entry input
-            if (entry && entry.parentElement) entry.parentElement.insertBefore(chip, entry);
-        });
-    }
-
-    chipBox?.addEventListener('click', ()=> entry?.focus());
-    entry?.addEventListener('keydown', (e)=>{
-        if (e.key === 'Enter' || e.key === ',') {
-            e.preventDefault();
-            const val = entry.value.trim();
-            if (val && !brands.includes(val)) { brands.push(val); renderChips(); }
-            entry.value = '';
-        } else if (e.key === 'Backspace' && !entry.value) {
-            brands.pop();
-            renderChips();
-        }
-    });
+    const cards = document.getElementById('supplier-cards');
 
     async function submitHandler(e){
         e.preventDefault();
         const name = document.getElementById('supplier-name')?.value.trim();
         const contact = document.getElementById('supplier-contact')?.value.trim();
-        const totalStock = Number(document.getElementById('supplier-stock')?.value || 0);
         const country = document.getElementById('supplier-country')?.value.trim();
-        const sizes = document.getElementById('supplier-sizes')?.value.trim();
         const email = document.getElementById('supplier-email')?.value.trim();
         // phone field removed
         if (!name) { alert('Supplier name is required'); return; }
@@ -416,186 +484,162 @@ const supplierForm = (function(){
         const payload = {
             name,
             contact_person: contact || null,
-            brands: brands.slice(0),
-            total_stock: isNaN(totalStock) ? 0 : totalStock,
             country: country || null,
-            available_sizes: sizes || null,
             email: email || null,
             status: 'active'
         };
 
         try {
             const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-            let res, data;
-            if (editingId) {
-                // Update
-                res = await fetch(`${baseSuppliersUrl}/${editingId}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': token
-                    },
-                    body: JSON.stringify(payload)
-                });
-                data = await res.json();
-                if (!res.ok || data.success === false) {
-                    alert(data.message || 'Failed to update supplier');
-                    return;
-                }
-                const s = data.supplier || data;
-                // Update table row (find by data-id)
-                const row = document.querySelector(`#supplier-tbody tr[data-id='${editingId}']`);
-                if (row) {
-                    const brandText = Array.isArray(s.brands) ? s.brands.join(', ') : (s.brand || 'N/A');
-                    row.dataset.name = s.name || '';
-                    row.dataset.contact_person = s.contact_person || '';
-                    row.dataset.brands = JSON.stringify(s.brands || (s.brand ? [s.brand] : []));
-                    row.dataset.total_stock = s.total_stock || 0;
-                    row.dataset.country = s.country || 'N/A';
-                    row.dataset.available_sizes = s.available_sizes || 'N/A';
-                    row.dataset.email = s.email || '';
-                    row.dataset.status = s.status || 'active';
-                    row.innerHTML = `
-                        <td>${s.id}</td>
-                        <td>${s.name || ''}</td>
-                        <td>${s.contact_person || ''}</td>
-                        <td>${brandText}</td>
-                        <td>${Number(s.total_stock||0)}</td>
-                        <td>${s.country || 'N/A'}</td>
-                        <td>${s.available_sizes || 'N/A'}</td>
-                        <td>${s.email || ''}</td>
-                        <!-- phone column removed -->
-                        <td><span class="status-badge ${s.status||'active'}">${(s.status||'active').charAt(0).toUpperCase() + (s.status||'active').slice(1)}</span></td>
-                        <td>
-                            <button class="btn btn-sm btn-primary" onclick="editSupplier(${s.id})"><i class="fas fa-edit"></i></button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteSupplier(${s.id})"><i class="fas fa-trash"></i></button>
-                        </td>
-                    `;
-                }
-            } else {
-                // Create
-                res = await fetch("{{ route('inventory.suppliers.store') }}", {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': token
-                    },
-                    body: JSON.stringify(payload)
-                });
-                data = await res.json();
-                if (!res.ok || data.success === false) {
-                    const msg = data.message || 'Failed to add supplier';
-                    alert(msg);
-                    return;
-                }
-                const s = data.supplier || data;
-                const brandText = Array.isArray(s.brands) ? s.brands.join(', ') : (s.brand || 'N/A');
-                const tr = document.createElement('tr');
-                tr.setAttribute('data-id', s.id);
-                tr.setAttribute('data-name', s.name || '');
-                tr.setAttribute('data-contact_person', s.contact_person || '');
-                tr.setAttribute('data-brands', JSON.stringify(s.brands || (s.brand ? [s.brand] : [])));
-                tr.setAttribute('data-total_stock', s.total_stock || 0);
-                tr.setAttribute('data-country', s.country || 'N/A');
-                tr.setAttribute('data-available_sizes', s.available_sizes || 'N/A');
-                tr.setAttribute('data-email', s.email || '');
-                tr.setAttribute('data-status', s.status || 'active');
-                tr.innerHTML = `
-                    <td>${s.id}</td>
-                    <td>${s.name || ''}</td>
-                    <td>${s.contact_person || ''}</td>
-                    <td>${brandText}</td>
-                    <td>${Number(s.total_stock||0)}</td>
-                    <td>${s.country || 'N/A'}</td>
-                    <td>${s.available_sizes || 'N/A'}</td>
-                    <td>${s.email || ''}</td>
-                    <!-- phone column removed -->
-                    <td><span class="status-badge ${s.status||'active'}">${(s.status||'active').charAt(0).toUpperCase() + (s.status||'active').slice(1)}</span></td>
-                    <td>
-                        <button class="btn btn-sm btn-primary" onclick="editSupplier(${s.id})"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteSupplier(${s.id})"><i class="fas fa-trash"></i></button>
-                    </td>
-                `;
-                tbody?.prepend(tr);
+            // Create
+            const res = await fetch("{{ route('inventory.suppliers.store') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': token
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok || data.success === false) {
+                const msg = data.message || 'Failed to add supplier';
+                alert(msg);
+                return;
             }
+            const s = data.supplier || data;
+            const card = document.createElement('div');
+            card.className = 'supplier-card';
+            card.setAttribute('data-id', s.id);
+            card.setAttribute('data-name', s.name || '');
+            card.setAttribute('data-contact_person', s.contact_person || '');
+            card.setAttribute('data-country', s.country || 'N/A');
+            card.setAttribute('data-email', s.email || '');
+            card.setAttribute('data-status', s.status || 'active');
+            card.innerHTML = `
+                <div class="card-main">
+                    <div class="info">
+                        <div class="name">#${s.id} • ${s.name || ''}</div>
+                        <div class="meta"><span><i class="fas fa-user"></i> ${s.contact_person || ''}</span></div>
+                        <div class="meta"><span><i class="fas fa-earth-asia"></i> ${s.country || 'N/A'}</span></div>
+                        <div class="meta"><span><i class="fas fa-envelope"></i> ${s.email || ''}</span></div>
+                        <div><span class="status-badge ${s.status||'active'}">${(s.status||'active').charAt(0).toUpperCase() + (s.status||'active').slice(1)}</span></div>
+                    </div>
+                    <div class="actions">
+                        <button class="btn btn-sm btn-primary" onclick="editSupplier(${s.id})" title="Edit"><i class="fas fa-edit"></i></button>
+                        <button class="toggle-btn" onclick="toggleSupplyLogs(${s.id})" id="toggle-logs-${s.id}"><i class="fas fa-clipboard-list"></i> Logs</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteSupplier(${s.id})" title="Delete"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+                <div class="logs-panel" id="logs-${s.id}" data-loaded="false">
+                    <div class="logs-header">
+                        <div class="logs-title"><i class="fas fa-clipboard-list"></i> Supply Logs</div>
+                        <div class="logs-cta" style="font-size:.8rem;color:#475569;">Add a new log below</div>
+                    </div>
+                    <div class="logs-body">
+                        <form class="log-form" data-supplier-id="${s.id}">
+                            <div>
+                                <label>Brand</label>
+                                <input type="text" name="brand" required>
+                            </div>
+                            <div>
+                                <label>Size</label>
+                                <input type="text" name="size" placeholder="e.g., 8 or 42">
+                            </div>
+                            <div>
+                                <label>Quantity</label>
+                                <input type="number" name="quantity" min="1" required>
+                            </div>
+                            <div>
+                                <label>Received At</label>
+                                <input type="datetime-local" name="received_at">
+                            </div>
+                            <div>
+                                <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> Add</button>
+                            </div>
+                        </form>
+                        <div class="logs-list"><div class="logs-empty" style=\"color:#6b7280;\">Logs are hidden. Click \"Logs\" to load.</div></div>
+                    </div>
+                </div>
+            `;
+            cards?.prepend(card);
 
             // Reset and close
-            brands.splice(0, brands.length); renderChips(); entry.value = '';
             form.reset();
-            editingId = null;
-            hiddenId.value = '';
             closeModal('add-supplier-modal');
         } catch (err) {
             console.error(err);
-            alert('Unable to add/update supplier right now.');
+            alert('Unable to add supplier right now.');
         }
-    }
-
-    function openForAdd(){
-        editingId = null;
-        hiddenId.value = '';
-        header.textContent = 'Add New Supplier';
-        submitBtn.textContent = 'Add Supplier';
-        form.reset();
-        brands.splice(0, brands.length); renderChips();
-        openAddSupplierModal();
-    }
-
-    function openForEdit(supplier){
-        editingId = supplier.id;
-        hiddenId.value = supplier.id;
-        header.textContent = 'Edit Supplier';
-        submitBtn.textContent = 'Save Changes';
-        // populate fields
-        document.getElementById('supplier-name').value = supplier.name || '';
-        document.getElementById('supplier-contact').value = supplier.contact_person || '';
-        document.getElementById('supplier-stock').value = supplier.total_stock || '';
-        document.getElementById('supplier-country').value = supplier.country || '';
-        document.getElementById('supplier-sizes').value = supplier.available_sizes || '';
-    document.getElementById('supplier-email').value = supplier.email || '';
-        brands = Array.isArray(supplier.brands) ? supplier.brands.slice(0) : (supplier.brands ? (Array.isArray(supplier.brands) ? supplier.brands.slice(0) : []) : []);
-        // fallback: if supplier.brands isn't present but supplier.brandsJSON exists, try parsing
-        if (!brands.length && supplier.brandsJSON) {
-            try { brands = JSON.parse(supplier.brandsJSON) || []; } catch(e){}
-        }
-        renderChips();
-        openAddSupplierModal();
-        setTimeout(()=>{ const first = modal.querySelector('input, select, textarea, button'); if (first) first.focus(); }, 60);
     }
 
     function init(){
         form?.addEventListener('submit', submitHandler);
-        // Expose small helpers if needed
-        return {
-            openForAdd,
-            openForEdit
-        };
+        return {};
     }
 
     // initialize and return API
-    const api = init();
-    return api;
+    return init();
 })();
 
-// Called when clicking Edit button on a row
+// --- Edit Supplier module (update only) ---
+const editSupplierForm = (function(){
+    const form = document.getElementById('edit-supplier-form');
+    async function submitHandler(e){
+        e.preventDefault();
+        const id = document.getElementById('edit-supplier-id').value;
+        const name = document.getElementById('edit-supplier-name')?.value.trim();
+        const contact = document.getElementById('edit-supplier-contact')?.value.trim();
+        const country = document.getElementById('edit-supplier-country')?.value.trim();
+        const email = document.getElementById('edit-supplier-email')?.value.trim();
+        if (!id) { alert('Missing supplier ID.'); return; }
+        if (!name) { alert('Supplier name is required'); return; }
+        if (!email) { alert('Email is required'); return; }
+        const payload = { name, contact_person: contact || null, country: country || null, email: email || null };
+        try{
+            const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            const res = await fetch(`${baseSuppliersUrl}/${id}`, {
+                method: 'PUT', headers: { 'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN': token },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok || data.success === false){ alert(data.message || 'Failed to update supplier'); return; }
+            const s = data.supplier || data;
+            const card = document.querySelector(`.supplier-card[data-id='${id}']`);
+            if (card){
+                card.dataset.name = s.name || '';
+                card.dataset.contact_person = s.contact_person || '';
+                card.dataset.country = s.country || 'N/A';
+                card.dataset.email = s.email || '';
+                card.dataset.status = s.status || 'active';
+                const info = card.querySelector('.info');
+                if (info){
+                    info.innerHTML = `
+                        <div class="name">#${s.id} • ${s.name || ''}</div>
+                        <div class="meta"><span><i class="fas fa-user"></i> ${s.contact_person || ''}</span></div>
+                        <div class="meta"><span><i class="fas fa-earth-asia"></i> ${s.country || 'N/A'}</span></div>
+                        <div class="meta"><span><i class="fas fa-envelope"></i> ${s.email || ''}</span></div>
+                        <div><span class="status-badge ${s.status||'active'}">${(s.status||'active').charAt(0).toUpperCase() + (s.status||'active').slice(1)}</span></div>
+                    `;
+                }
+            }
+            closeModal('edit-supplier-modal');
+        }catch(err){ console.error(err); alert('Unable to update supplier right now.'); }
+    }
+    function init(){ form?.addEventListener('submit', submitHandler); return {}; }
+    return init();
+})();
+
+// Called when clicking Edit button on a card
 function editSupplier(supplierId){
-    const row = document.querySelector(`#supplier-tbody tr[data-id='${supplierId}']`);
+    const row = document.querySelector(`.supplier-card[data-id='${supplierId}']`);
     if (!row) return;
-    const supplier = {
-        id: row.dataset.id,
-        name: row.dataset.name,
-        contact_person: row.dataset.contact_person,
-        brands: (()=>{ try { return JSON.parse(row.dataset.brands || '[]'); } catch(e){ return []; } })(),
-        brandsJSON: row.dataset.brands,
-        total_stock: row.dataset.total_stock,
-        country: row.dataset.country,
-        available_sizes: row.dataset.available_sizes,
-    email: row.dataset.email,
-        status: row.dataset.status
-    };
-    supplierForm.openForEdit(supplier);
+    document.getElementById('edit-supplier-id').value = row.dataset.id || '';
+    document.getElementById('edit-supplier-name').value = row.dataset.name || '';
+    document.getElementById('edit-supplier-contact').value = row.dataset.contact_person || '';
+    document.getElementById('edit-supplier-country').value = row.dataset.country || '';
+    document.getElementById('edit-supplier-email').value = row.dataset.email || '';
+    openEditSupplierModal();
 }
 
 // Delete supplier
@@ -615,12 +659,84 @@ async function deleteSupplier(supplierId){
             alert(data.message || 'Failed to delete supplier');
             return;
         }
-        const row = document.querySelector(`#supplier-tbody tr[data-id='${supplierId}']`);
-        if (row) row.remove();
+    const card = document.querySelector(`.supplier-card[data-id='${supplierId}']`);
+    if (card) card.remove();
     } catch (err) {
         console.error(err);
         alert('Unable to delete supplier right now.');
     }
 }
+
+// --- Supply Logs UI: inline toggled panel ---
+async function toggleSupplyLogs(supplierId){
+    const panel = document.getElementById(`logs-${supplierId}`);
+    if (!panel) return;
+    const list = panel.querySelector('.logs-list');
+    const toggleBtn = document.getElementById(`toggle-logs-${supplierId}`);
+    const isOpen = panel.style.display === 'block';
+    if (isOpen){ panel.style.display = 'none'; panel.classList.remove('open'); if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-clipboard-list"></i> Logs'; return; }
+    panel.style.display = 'block'; panel.classList.add('open'); if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-eye-slash"></i> Hide Logs';
+    if (panel.dataset.loaded === 'true') return;
+    list.innerHTML = '<div style="color:#6b7280;"><i class="fas fa-spinner fa-spin"></i> Loading logs…</div>';
+    try{
+        const res = await fetch(`${baseSuppliersUrl}/${supplierId}/logs`, { headers: { 'Accept': 'application/json' } });
+        const data = await res.json();
+        const logs = (data && data.logs) || [];
+        if (!logs.length){
+            list.innerHTML = '<div class="logs-empty" style="color:#475569;background:rgba(241,245,249,.7);border:1px dashed #cbd5e1;padding:14px;border-radius:12px;text-align:center;">No logs yet. Add the first one above.</div>';
+        } else {
+            list.innerHTML = logs.map(l => logItemHtml(l)).join('');
+        }
+        panel.dataset.loaded = 'true';
+    } catch(e){
+        console.error(e);
+        list.innerHTML = '<div style="color:#b91c1c;">Failed to load logs.</div>';
+    }
+}
+
+function logItemHtml(l){
+    const dt = l.received_at ? new Date(l.received_at).toLocaleString() : '';
+    return `<div class="log-item">
+        <div class="left">
+            <span class="badge brand">${(l.brand || '').toString().trim()}</span>
+            ${l.size ? `<span class="badge size">Size ${l.size}</span>` : ''}
+            <span class="badge qty">Qty ${l.quantity || 0}</span>
+        </div>
+        <div style="color:#6b7280; font-size:.85rem;">${dt}</div>
+    </div>`;
+}
+
+// Delegate submit for all inline log forms
+document.addEventListener('submit', async function(ev){
+    const form = ev.target.closest('.log-form');
+    if (!form) return;
+    ev.preventDefault();
+    const supplierId = form.getAttribute('data-supplier-id');
+    const brand = (form.querySelector('[name="brand"]')?.value || '').trim();
+    const size = (form.querySelector('[name="size"]')?.value || '').trim();
+    const qty = parseInt(form.querySelector('[name="quantity"]').value || '0', 10);
+    const received = form.querySelector('[name="received_at"]').value;
+    if (!brand || !qty || qty < 1){ alert('Brand and a positive quantity are required'); return; }
+    try{
+        const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        const res = await fetch(`${baseSuppliersUrl}/${supplierId}/logs`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept':'application/json', 'X-CSRF-TOKEN': token },
+            body: JSON.stringify({ brand, size: size || null, quantity: qty, received_at: received || null })
+        });
+        const data = await res.json();
+        if (!res.ok || data.success === false){ alert(data.message || 'Failed to add log'); return; }
+        const list = document.querySelector(`#logs-${supplierId} .logs-list`);
+        const panel = document.getElementById(`logs-${supplierId}`);
+        if (list){
+            // remove empty placeholder if present
+            const empty = list.querySelector('.logs-empty');
+            if (empty) empty.remove();
+            list.insertAdjacentHTML('afterbegin', logItemHtml(data.log));
+        }
+        if (panel) panel.dataset.loaded = 'true';
+        form.reset();
+        form.querySelector('[name="brand"]').focus();
+    } catch(e){ console.error(e); alert('Unable to add log right now.'); }
+});
 </script>
 @endpush
