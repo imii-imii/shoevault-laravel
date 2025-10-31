@@ -105,18 +105,7 @@ class OwnerController extends Controller
         }
 
         // Fetch records (limit for performance; adjust if needed)
-        $reservations = $query->limit(200)->get([
-            'id',
-            'reservation_id',
-            'customer_name',
-            'customer_email',
-            'customer_phone',
-            'pickup_date',
-            'pickup_time',
-            'status',
-            'total_amount',
-            'created_at',
-        ]);
+        $reservations = $query->with('customer')->limit(200)->get();
 
         // Counts for tabs
         $counts = [

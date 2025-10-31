@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>ShoeVault Reservation Portal</title>
   <link rel="stylesheet" href="{{ asset('css/reservation-portal.css') }}">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Roboto+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
-    <script src="{{ asset('js/reservation-portal-laravel.js') }}"></script>
   <style>
     .no-products-message {
       grid-column: 1 / -1;
@@ -58,9 +58,31 @@
       <button class="res-portal-cart-btn" title="View Cart">
         <i class="fas fa-shopping-cart"></i>
       </button>
-      <a href="{{ route('customer.login') }}" class="res-portal-profile-btn" title="Sign in / Create account" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:999px;border:1px solid rgba(0,0,0,.06);background:#ffffff;box-shadow:0 6px 16px rgba(0,0,0,.08);color:#0f172a;transition:filter .15s ease, transform .05s ease;">
-        <i class="fas fa-user"></i>
-      </a>
+      <div class="user-status-container">
+        <!-- When not logged in -->
+        <a href="{{ route('customer.login') }}" class="res-portal-profile-btn login-btn" title="Sign in / Create account" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:999px;border:1px solid rgba(0,0,0,.06);background:#ffffff;box-shadow:0 6px 16px rgba(0,0,0,.08);color:#0f172a;transition:filter .15s ease, transform .05s ease;">
+          <i class="fas fa-user"></i>
+        </a>
+        <!-- When logged in (hidden by default) -->
+        <div class="user-dropdown" style="display:none;position:relative;">
+          <button class="user-dropdown-btn" style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:20px;border:1px solid rgba(0,0,0,.06);background:#ffffff;box-shadow:0 6px 16px rgba(0,0,0,.08);color:#0f172a;font-size:0.85rem;cursor:pointer;transition:all 0.15s ease;" onmouseover="this.style.boxShadow='0 8px 20px rgba(0,0,0,.12)'; this.style.transform='translateY(-1px)'" onmouseout="this.style.boxShadow='0 6px 16px rgba(0,0,0,.08)'; this.style.transform='translateY(0)'">>
+            <div class="user-avatar" style="width:20px;height:20px;border-radius:50%;background:#e0e7ff;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:600;color:#3730a3;">
+              <span class="user-initials">U</span>
+            </div>
+            <span class="user-name">User</span>
+            <i class="fas fa-chevron-down" style="font-size:0.7rem;"></i>
+          </button>
+          <div class="user-dropdown-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;min-width:200px;background:#ffffff;border:1px solid rgba(0,0,0,.08);border-radius:12px;box-shadow:0 12px 28px rgba(0,0,0,.15);z-index:1000;">
+            <div class="user-dropdown-item" style="padding:12px 16px;border-bottom:1px solid rgba(0,0,0,.06);">
+              <div class="user-email" style="font-size:0.85rem;color:#6b7280;"></div>
+            </div>
+            <button class="user-dropdown-item logout-btn" style="width:100%;text-align:left;padding:12px 16px;border:none;background:none;color:#dc2626;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background-color 0.15s ease;" onmouseover="this.style.backgroundColor='#fef2f2'" onmouseout="this.style.backgroundColor='transparent'">
+              <i class="fas fa-sign-out-alt"></i>
+              <span>Logout</span>
+            </button>
+          </div>
+        </div>
+      </div>
       <div class="cart-dropdown" id="cartDropdown">
         <div class="cart-dropdown-header">
           <div class="cart-header-title">
@@ -248,6 +270,11 @@
   </div>
 
   <!-- Floating Shoe Conversion Button moved inside main container (see below) -->
+
+  <!-- Customer Data for JavaScript -->
+  <script>
+    window.customerData = @json($customer);
+  </script>
 
   <!-- Products Data for JavaScript -->
   <script src="{{ asset('js/reservation-portal-laravel.js') }}"></script>

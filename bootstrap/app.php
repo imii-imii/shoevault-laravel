@@ -14,6 +14,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // Route middleware aliases
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
+            'customer.auth' => \App\Http\Middleware\CustomerAuth::class,
+        ]);
+
+        // Exclude customer authentication routes from CSRF verification
+        $middleware->validateCsrfTokens(except: [
+            'customer/*',
         ]);
 
         // Apply active-user enforcement to all web requests

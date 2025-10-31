@@ -153,7 +153,7 @@
             <div style="margin: 20px; display: grid; gap: 16px;" id="reservations-container">
                 @forelse($reservations ?? [] as $reservation)
                 <!-- Reservation Card (4x2 grid) -->
-                <div class="reservation-card" data-res-id="{{ $reservation->id }}" data-res-number="{{ $reservation->reservation_id }}" data-res-date="{{ $reservation->created_at ? $reservation->created_at->format('M d, Y h:i A') : 'N/A' }}" data-res-ts="{{ $reservation->created_at ? $reservation->created_at->timestamp : '' }}" data-customer-name="{{ $reservation->customer_name }}" data-customer-email="{{ $reservation->customer_email }}" data-customer-phone="{{ $reservation->customer_phone }}" data-pickup-date="{{ $reservation->pickup_date ? $reservation->pickup_date->format('M d, Y') : 'TBD' }}" data-pickup-time="{{ $reservation->pickup_time ?? 'TBD' }}" data-status="{{ $reservation->status }}" style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <div class="reservation-card" data-res-id="{{ $reservation->reservation_id }}" data-res-number="{{ $reservation->reservation_id }}" data-res-date="{{ $reservation->created_at ? $reservation->created_at->format('M d, Y h:i A') : 'N/A' }}" data-res-ts="{{ $reservation->created_at ? $reservation->created_at->timestamp : '' }}" data-customer-name="{{ $reservation->customer_name }}" data-customer-email="{{ $reservation->customer_email }}" data-customer-phone="{{ $reservation->customer_phone }}" data-pickup-date="{{ $reservation->pickup_date ? $reservation->pickup_date->format('M d, Y') : 'TBD' }}" data-pickup-time="{{ $reservation->pickup_time ?? 'TBD' }}" data-status="{{ $reservation->status }}" style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                     <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; align-items: start;">
                         <!-- Col 1 -->
                         <div>
@@ -190,7 +190,7 @@
                                 {{ ucfirst($reservation->status) }}
                             </span>
                             <div style="margin-top: 12px; display:flex; justify-content:flex-end;">
-                                <button class="view-reservation-btn" data-id="{{ $reservation->id }}" style="min-width: 110px; padding: 8px 16px; border-radius: 8px; background-color: #2563EB; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 600;">View</button>
+                                <button class="view-reservation-btn" data-id="{{ $reservation->reservation_id }}" style="min-width: 110px; padding: 8px 16px; border-radius: 8px; background-color: #2563EB; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 600;">View</button>
                             </div>
                         </div>
                     </div>
@@ -316,13 +316,23 @@ function updateReservationStatus(reservationId, status, options = { reload: true
     const allowed = ['pending','completed','cancelled'];
     if (!allowed.includes(status)) { alert('Invalid status'); return Promise.reject(new Error('Invalid status')); }
     if (!confirm(`Are you sure you want to change the status to ${status}?`)) return Promise.reject(new Error('User cancelled'));
+    
+    // Prepare request body with status and optional payment data
+    const requestBody = { status };
+    if (options.amount_paid !== undefined) {
+        requestBody.amount_paid = options.amount_paid;
+    }
+    if (options.change_given !== undefined) {
+        requestBody.change_given = options.change_given;
+    }
+    
     return fetch(`{{ route('inventory.reservations.update-status', ['id' => 'RES_ID']) }}`.replace('RES_ID', reservationId), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'X-CSRF-TOKEN': '{{ csrf_token() }}'
         },
-        body: JSON.stringify({ status })
+        body: JSON.stringify(requestBody)
     })
     .then(r => r.json())
     .then(data => {
@@ -565,15 +575,29 @@ if (txPay) txPay.addEventListener('click', async function(){
     const paid = parseFloat(paidRaw || '0');
     if (!(paid >= txContext.total)) return;
 
-    // Optional: mark reservation completed first
-    try { await updateReservationStatus(txContext.reservationId, 'completed', { reload: false }); } catch (e) {}
+    const total = txContext.total;
+    const change = Math.max(0, paid - total);
+
+    // Mark reservation completed with payment data
+    try { 
+        await updateReservationStatus(txContext.reservationId, 'completed', { 
+            reload: false, 
+            amount_paid: paid, 
+            change_given: change 
+        }); 
+    } catch (e) {
+        console.error('Failed to update reservation status:', e);
+        alert('Failed to complete reservation. Please try again.');
+        return;
+    }
 
     // Build a simple receipt content similar to POS
     const receiptWin = window.open('', '_blank', 'width=480,height=640');
     const now = new Date();
     const stamp = now.toLocaleString();
-    const total = txContext.total;
-    const change = Math.max(0, paid - total);
+    // Use the variables already declared above
+    // const total = txContext.total;
+    // const change = Math.max(0, paid - total);
 
     // For items, reuse last fetched data in DOM
     const itemRows = Array.from(txBody.querySelectorAll('[style*="justify-content:space-between"][style*="padding:10px"]'))

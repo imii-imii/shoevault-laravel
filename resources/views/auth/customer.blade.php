@@ -70,8 +70,6 @@
   }
   .btn-primary:hover{box-shadow:0 12px 28px -14px rgba(35,67,206,.28)}
   .btn-ghost{background:#f8fafc;color:#0f172a}
-  .btn-google{background:#ffffff;color:#0f172a;border-color:#e5e7eb}
-  .btn-google:hover{box-shadow:0 10px 24px -12px rgba(2,6,23,.08)}
 
     .right{position:relative;display:flex;align-items:center;justify-content:center;background:var(--accent-gradient);color:#ffffff}
     .hero{padding:28px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px}
@@ -153,18 +151,10 @@
                 <input class="input" type="password" id="login-password" placeholder="••••••••" required />
               </div>
               <div class="actions">
-                <a href="#" style="color:var(--muted);text-decoration:none">Forgot password?</a>
+                <a href="#" onclick="showForgotPasswordStep(); return false;" style="color:var(--muted);text-decoration:none">Forgot password?</a>
                 <button class="btn btn-primary" type="submit">Login</button>
               </div>
             </form>
-            <div style="display:flex;align-items:center;gap:12px;margin:12px 0">
-              <div style="height:1px;background:var(--card-border);flex:1"></div>
-              <div style="color:var(--muted);font-weight:700;font-size:.85rem">or</div>
-              <div style="height:1px;background:var(--card-border);flex:1"></div>
-            </div>
-            <a href="{{ route('auth.google') }}" class="btn btn-google" style="width:100%;justify-content:center">
-              <i class="fab fa-google"></i> Continue with Google
-            </a>
           </div>
 
           <!-- Signup Panel -->
@@ -206,11 +196,6 @@
                 <button class="btn btn-primary" type="submit">Create Account</button>
               </div>
             </form>
-            <div style="margin-top:10px">
-              <a href="{{ route('auth.google') }}" class="btn btn-google" style="width:100%;justify-content:center">
-                <i class="fab fa-google"></i> Sign up with Google
-              </a>
-            </div>
           </div>
         </div>
       </div>
@@ -234,6 +219,13 @@
       const panelSignup = document.getElementById('panel-signup');
       const goLogin = document.getElementById('go-login');
 
+      // Get forms
+      const loginForm = panelLogin.querySelector('form');
+      const signupForm = panelSignup.querySelector('form');
+
+      // CSRF token
+      const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
       function activate(tab){
         const loginActive = tab === 'login';
         tabLogin.classList.toggle('active', loginActive);
@@ -246,9 +238,546 @@
         panelSignup.classList.toggle('hidden', loginActive);
       }
 
+      function showMessage(message, type = 'info') {
+        // Create or update message div
+        let messageDiv = document.querySelector('.auth-message');
+        if (!messageDiv) {
+          messageDiv = document.createElement('div');
+          messageDiv.className = 'auth-message';
+          messageDiv.style.cssText = `
+            padding: 12px 16px;
+            margin: 16px 0;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+          `;
+          document.querySelector('.forms').prepend(messageDiv);
+        }
+
+        messageDiv.textContent = message;
+        messageDiv.style.backgroundColor = type === 'error' ? '#fee2e2' : '#dbeafe';
+        messageDiv.style.color = type === 'error' ? '#dc2626' : '#1e40af';
+        messageDiv.style.borderColor = type === 'error' ? '#fca5a5' : '#93c5fd';
+      }
+
+      async function handleLogin(e) {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        
+        if (!email || !password) {
+          showMessage('Please enter your email and password.', 'error');
+          return;
+        }
+
+        const submitBtn = loginForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.textContent = 'Logging in...';
+        submitBtn.disabled = true;
+
+        try {
+          const response = await fetch('{{ route("customer.login.post") }}', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify({ email, password }),
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            showMessage('Login successful! Redirecting...');
+            // Redirect back to the page they came from or portal
+            const returnUrl = new URLSearchParams(window.location.search).get('return') || '{{ route("reservation.portal") }}';
+            setTimeout(() => {
+              window.location.href = returnUrl;
+            }, 1000);
+          } else {
+            // Check if email verification is needed
+            if (data.needs_email_verification) {
+              showMessage(data.message);
+              showEmailVerificationStep(data.email);
+            }
+            // Check if password reset is needed
+            else if (data.needs_password_reset) {
+              showMessage(data.message);
+              showPasswordResetStep(email);
+            } else {
+              showMessage(data.message, 'error');
+            }
+          }
+        } catch (error) {
+          showMessage('Something went wrong. Please try again.', 'error');
+          console.error('Login error:', error);
+        } finally {
+          submitBtn.textContent = originalText;
+          submitBtn.disabled = false;
+        }
+      }
+
+      function showForgotPasswordStep() {
+        // Replace login form with forgot password form
+        panelLogin.innerHTML = `
+          <form onsubmit="handleForgotPassword(event)">
+            <div class="field">
+              <label class="label" for="forgot-email">Email</label>
+              <input class="input" type="email" id="forgot-email" placeholder="Enter your email address" required />
+            </div>
+            <div style="margin:12px 0;padding:12px;background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;font-size:0.85rem;color:#1e40af;">
+              We'll send you a verification code to reset your password.
+            </div>
+            <div class="actions">
+              <button type="button" onclick="location.reload()" class="btn btn-ghost">Back</button>
+              <button class="btn btn-primary" type="submit">Send Reset Code</button>
+            </div>
+          </form>
+        `;
+      }
+
+      window.handleForgotPassword = async function(e) {
+        e.preventDefault();
+        const email = document.getElementById('forgot-email').value;
+
+        if (!email) {
+          showMessage('Please enter your email address.', 'error');
+          return;
+        }
+
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.textContent = 'Sending...';
+        submitBtn.disabled = true;
+
+        try {
+          const response = await fetch('{{ route("customer.send-password-reset-code") }}', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify({ email }),
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            showMessage(data.message);
+            showPasswordUpdateStep(email);
+          } else {
+            showMessage(data.message, 'error');
+          }
+        } catch (error) {
+          showMessage('Something went wrong. Please try again.', 'error');
+          console.error('Forgot password error:', error);
+        } finally {
+          submitBtn.textContent = originalText;
+          submitBtn.disabled = false;
+        }
+      }
+
+      function showPasswordResetStep(email) {
+        // Replace login form with password reset form
+        panelLogin.innerHTML = `
+          <form onsubmit="handlePasswordReset(event)">
+            <div class="field">
+              <label class="label">Email</label>
+              <input class="input" type="email" value="${email}" readonly />
+            </div>
+            <div style="margin:12px 0;padding:12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;font-size:0.85rem;color:#dc2626;">
+              Your account needs a password update. We'll send you a verification code to reset your password.
+            </div>
+            <div class="actions">
+              <button type="button" onclick="location.reload()" class="btn btn-ghost">Back</button>
+              <button class="btn btn-primary" type="submit">Send Reset Code</button>
+            </div>
+          </form>
+        `;
+      }
+
+      window.handlePasswordReset = async function(e) {
+        e.preventDefault();
+        const email = document.querySelector('input[type="email"]').value;
+
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.textContent = 'Sending...';
+        submitBtn.disabled = true;
+
+        try {
+          const response = await fetch('{{ route("customer.send-password-reset-code") }}', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify({ email }),
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            showMessage(data.message);
+            showPasswordUpdateStep(email);
+          } else {
+            showMessage(data.message, 'error');
+          }
+        } catch (error) {
+          showMessage('Something went wrong. Please try again.', 'error');
+          console.error('Password reset error:', error);
+        } finally {
+          submitBtn.textContent = originalText;
+          submitBtn.disabled = false;
+        }
+      }
+
+      function showPasswordUpdateStep(email) {
+        // Replace form with password update form
+        panelLogin.innerHTML = `
+          <form onsubmit="handlePasswordUpdate(event)">
+            <div class="field">
+              <label class="label">Email</label>
+              <input class="input" type="email" value="${email}" readonly />
+            </div>
+            <div class="field">
+              <label class="label" for="reset-verification-code">Verification Code</label>
+              <input class="input" type="text" id="reset-verification-code" placeholder="Enter 6-digit code" maxlength="6" required />
+            </div>
+            <div class="field">
+              <label class="label" for="new-password">New Password</label>
+              <input class="input" type="password" id="new-password" placeholder="Create a new password" required />
+            </div>
+            <div class="field">
+              <label class="label" for="confirm-new-password">Confirm Password</label>
+              <input class="input" type="password" id="confirm-new-password" placeholder="Confirm your password" required />
+            </div>
+            <div class="actions">
+              <button type="button" onclick="location.reload()" class="btn btn-ghost">Back</button>
+              <button class="btn btn-primary" type="submit">Update Password</button>
+            </div>
+          </form>
+        `;
+      }
+
+      window.handlePasswordUpdate = async function(e) {
+        e.preventDefault();
+        const email = document.querySelector('input[type="email"]').value;
+        const code = document.getElementById('reset-verification-code').value;
+        const password = document.getElementById('new-password').value;
+        const passwordConfirmation = document.getElementById('confirm-new-password').value;
+
+        if (!code || code.length !== 6) {
+          showMessage('Please enter a valid 6-digit verification code.', 'error');
+          return;
+        }
+
+        if (password !== passwordConfirmation) {
+          showMessage('Passwords do not match.', 'error');
+          return;
+        }
+
+        if (password.length < 6) {
+          showMessage('Password must be at least 6 characters long.', 'error');
+          return;
+        }
+
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.textContent = 'Updating...';
+        submitBtn.disabled = true;
+
+        try {
+          const response = await fetch('{{ route("customer.update-password") }}', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify({ 
+              email, 
+              verification_code: code, 
+              password, 
+              password_confirmation: passwordConfirmation 
+            }),
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            showMessage(data.message);
+            // Go back to login form
+            setTimeout(() => location.reload(), 2000);
+          } else {
+            showMessage(data.message, 'error');
+          }
+        } catch (error) {
+          showMessage('Something went wrong. Please try again.', 'error');
+          console.error('Password update error:', error);
+        } finally {
+          submitBtn.textContent = originalText;
+          submitBtn.disabled = false;
+        }
+      }
+
+      function showEmailVerificationStep(email) {
+        // Clear any existing message
+        const existingMessage = document.querySelector('.auth-message');
+        if (existingMessage) {
+          existingMessage.remove();
+        }
+        
+        const verificationForm = `
+          <form id="email-verification-form">
+            <div class="field">
+              <label class="label">Email</label>
+              <input class="input" type="email" name="email" id="verification-email" value="${email}" readonly />
+            </div>
+            <div class="field">
+              <label class="label" for="verification-code">Verification Code</label>
+              <input class="input" type="text" id="verification-code" name="code" placeholder="Enter 6-digit code" maxlength="7" required />
+            </div>
+            <div style="margin:12px 0;padding:12px;background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;font-size:0.85rem;color:#1e40af;">
+              Please check your email for the verification code we just sent.
+            </div>
+            <div class="actions">
+              <button type="button" onclick="location.reload()" class="btn btn-ghost">Back</button>
+              <button type="button" id="resend-verification-btn" class="btn btn-ghost" onclick="handleResendVerification('${email}')" disabled style="color: #dc2626;">
+                Resend Code (<span id="resend-countdown">200</span>s)
+              </button>
+              <button class="btn btn-primary" type="submit">Verify Email</button>
+            </div>
+          </form>
+        `;
+        
+        // Always use the signup panel for verification
+        activate('signup');
+        panelSignup.innerHTML = verificationForm;
+        
+        // Attach the email verification handler to the new form
+        const newForm = document.getElementById('email-verification-form');
+        if (newForm) {
+          newForm.addEventListener('submit', handleEmailVerification);
+        }
+        
+        // Start the countdown timer
+        startResendCountdown();
+      }
+
+      function startResendCountdown() {
+        let countdown = 200;
+        const countdownElement = document.getElementById('resend-countdown');
+        const resendButton = document.getElementById('resend-verification-btn');
+        
+        // Set initial disabled state with red text
+        if (resendButton) {
+          resendButton.disabled = true;
+          resendButton.style.color = '#dc2626';
+          resendButton.style.cursor = 'not-allowed';
+        }
+        
+        const timer = setInterval(() => {
+          countdown--;
+          
+          if (countdownElement) {
+            countdownElement.textContent = countdown;
+          }
+          
+          if (countdown <= 0) {
+            clearInterval(timer);
+            if (resendButton) {
+              resendButton.disabled = false;
+              resendButton.innerHTML = 'Resend Code';
+              resendButton.style.color = '';
+              resendButton.style.cursor = 'pointer';
+            }
+          }
+        }, 1000);
+        
+        // Store timer reference to clear if needed
+        window.resendTimer = timer;
+      }
+
+      window.handleResendVerification = async function(email) {
+        const resendButton = document.getElementById('resend-verification-btn');
+        const originalText = resendButton.textContent;
+        
+        resendButton.textContent = 'Sending...';
+        resendButton.disabled = true;
+        
+        try {
+          const response = await fetch('{{ route("customer.resend-verification-code") }}', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify({ email }),
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            showMessage(data.message);
+            // Clear existing timer if any
+            if (window.resendTimer) {
+              clearInterval(window.resendTimer);
+            }
+            // Reset button display and restart countdown
+            resendButton.innerHTML = 'Resend Code (<span id="resend-countdown">200</span>s)';
+            startResendCountdown();
+          } else {
+            showMessage(data.message, 'error');
+            resendButton.textContent = originalText;
+            resendButton.disabled = false;
+          }
+        } catch (error) {
+          showMessage('Failed to resend code. Please try again.', 'error');
+          resendButton.textContent = originalText;
+          resendButton.disabled = false;
+        }
+      }
+
+      async function handleEmailVerification(e) {
+        e.preventDefault();
+        const email = document.getElementById('verification-email').value;
+        const codeInput = document.getElementById('verification-code');
+        const code = codeInput.value.trim(); // Trim whitespace
+
+        if (!email) {
+          showMessage('Email is required.', 'error');
+          return;
+        }
+
+        if (!code) {
+          showMessage('Please enter the verification code.', 'error');
+          codeInput.focus();
+          return;
+        }
+
+        // More flexible validation - allow numeric codes
+        if (!/^\d+$/.test(code) || code.length < 5 || code.length > 7) {
+          showMessage('Verification code must be 5-7 digits.', 'error');
+          codeInput.focus();
+          codeInput.select();
+          return;
+        }
+
+        console.log('Sending verification request:', { email, code }); // Debug log
+
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.textContent = 'Verifying...';
+        submitBtn.disabled = true;
+
+        try {
+          const response = await fetch('{{ route("customer.verify-code") }}', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify({ email, code }),
+          });
+
+          console.log('Response status:', response.status); // Debug
+          
+          const data = await response.json();
+          console.log('Response data:', data); // Debug
+
+          if (response.ok && data.success) {
+            showMessage('Email verified successfully! You can now login with your email and password.');
+            // Switch to login tab
+            activate('login');
+          } else {
+            // Show the specific error message from the server
+            const errorMessage = data.message || `Server error (${response.status})`;
+            showMessage(errorMessage, 'error');
+            
+            // If it's a validation error, show field errors
+            if (data.errors) {
+              console.log('Validation errors:', data.errors);
+              Object.keys(data.errors).forEach(field => {
+                console.log(`${field}:`, data.errors[field]);
+              });
+            }
+          }
+        } catch (error) {
+          showMessage('Network error. Please check your connection and try again.', 'error');
+          console.error('Email verification error:', error);
+        } finally {
+          submitBtn.textContent = originalText;
+          submitBtn.disabled = false;
+        }
+      }
+
+      async function handleSignup(e) {
+        e.preventDefault();
+        const firstName = document.getElementById('su-first').value;
+        const lastName = document.getElementById('su-last').value;
+        const username = document.getElementById('su-username').value;
+        const email = document.getElementById('su-email').value;
+        const password = document.getElementById('su-pass').value;
+        const confirmPassword = document.getElementById('su-confirm').value;
+
+        // Basic validation
+        if (!firstName || !lastName || !username || !email || !password) {
+          showMessage('Please fill in all required fields.', 'error');
+          return;
+        }
+
+        if (password !== confirmPassword) {
+          showMessage('Passwords do not match.', 'error');
+          return;
+        }
+
+        const submitBtn = signupForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.textContent = 'Creating Account...';
+        submitBtn.disabled = true;
+
+        try {
+          const response = await fetch('{{ route("customer.register") }}', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+              first_name: firstName,
+              last_name: lastName,
+              username,
+              email,
+              password,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            showMessage(data.message);
+            // Show verification step for email verification
+            showEmailVerificationStep(email);
+          } else {
+            showMessage(data.message, 'error');
+          }
+        } catch (error) {
+          showMessage('Something went wrong. Please try again.', 'error');
+          console.error('Signup error:', error);
+        } finally {
+          submitBtn.textContent = originalText;
+          submitBtn.disabled = false;
+        }
+      }
+
+      // Event listeners
       tabLogin.addEventListener('click', ()=> activate('login'));
       tabSignup.addEventListener('click', ()=> activate('signup'));
       goLogin?.addEventListener('click', ()=> activate('login'));
+
+      // Form event listeners
+      loginForm.addEventListener('submit', handleLogin);
+      signupForm.addEventListener('submit', handleSignup);
     })();
   </script>
 </body>

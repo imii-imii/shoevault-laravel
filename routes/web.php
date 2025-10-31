@@ -1,23 +1,42 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CustomerAuthController;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\OwnerController;
 use App\Http\Controllers\OwnerUsersController;
 use App\Http\Controllers\ReservationController;
-use App\Http\Controllers\Auth\SocialAuthController;
+
+// Authentication routes
 
 // Debug route for inventory types
 Route::get('/debug/inventory', function() {
     return [
         'total_products' => \App\Models\Product::count(),
         'pos_products' => \App\Models\Product::posInventory()->count(),
-        'reservation_products' => \App\Models\Product::reservationInventory()->count(),
         'products_with_types' => \App\Models\Product::select('id', 'name', 'inventory_type')->get()
     ];
+});
+
+// Debug route for customer authentication
+Route::get('/debug/customers', function() {
+    $customers = \App\Models\Customer::with('user')->get();
+    return $customers->map(function($customer) {
+        return [
+            'customer_id' => $customer->customer_id,
+            'email' => $customer->email,
+            'user_id' => $customer->user_id,
+            'has_user' => !is_null($customer->user),
+            'username' => $customer->user->username ?? 'N/A',
+            'user_password_length' => $customer->user ? strlen($customer->user->password) : 0,
+            'email_verified' => $customer->hasVerifiedEmail(),
+        ];
+    });
 });
 
 // Authentication routes
@@ -30,22 +49,29 @@ Route::get('/size-converter', [ReservationController::class, 'sizeConverter'])->
 Route::get('/api/products/filter', [ReservationController::class, 'getFilteredProducts'])->name('api.products.filter');
 Route::get('/api/products/{id}/details', [ReservationController::class, 'getProductDetails'])->name('api.products.details');
 
-// Reservation submission endpoint
-Route::post('/api/reservations', [ReservationController::class, 'store'])->name('api.reservations.store');
+// Check for pending reservations before allowing cart checkout
+Route::post('/api/check-pending-reservations', [ReservationController::class, 'checkPendingReservations'])->middleware('customer.auth')->name('api.check.pending.reservations');
+
+// Reservation submission endpoint - protected by customer auth
+Route::post('/api/reservations', [ReservationController::class, 'store'])->middleware('customer.auth')->name('api.reservations.store');
 
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::get('/logout', [AuthController::class, 'logout'])->name('logout.get'); // Alternative logout route
 
-// Customer-facing authentication (UI only)
-Route::get('/customer/login', function() {
-    return view('auth.customer');
-})->name('customer.login');
-
-// Google OAuth placeholders (configure Socialite to enable)
-Route::get('/auth/google', [SocialAuthController::class, 'redirect'])->name('auth.google');
-Route::get('/auth/google/callback', [SocialAuthController::class, 'callback'])->name('auth.google.callback');
+// Customer authentication routes
+Route::prefix('customer')->name('customer.')->group(function () {
+    Route::get('/login', [CustomerAuthController::class, 'showLogin'])->name('login');
+    Route::post('/login', [CustomerAuthController::class, 'login'])->name('login.post');
+    Route::post('/register', [CustomerAuthController::class, 'register'])->name('register');
+    Route::post('/verify-code', [CustomerAuthController::class, 'verifyCode'])->name('verify-code');
+    Route::post('/resend-verification-code', [CustomerAuthController::class, 'resendVerificationCode'])->name('resend-verification-code');
+    Route::post('/logout', [CustomerAuthController::class, 'logout'])->middleware('customer.auth')->name('logout');
+    Route::get('/user', [CustomerAuthController::class, 'user'])->name('user'); // Remove middleware to allow status checking
+    Route::post('/update-password', [CustomerAuthController::class, 'updatePassword'])->name('update-password'); // For existing customers
+    Route::post('/send-password-reset-code', [CustomerAuthController::class, 'sendPasswordResetCode'])->name('send-password-reset-code');
+});
 
 // POS routes (for cashiers and admin)
 Route::middleware(['auth', 'role:cashier,admin'])->prefix('pos')->name('pos.')->group(function () {
@@ -60,6 +86,7 @@ Route::middleware(['auth', 'role:cashier,admin'])->prefix('pos')->name('pos.')->
 
     // POS reservation management endpoints (reuse same database)
     Route::post('/reservations/{id}/status', [InventoryController::class, 'updateReservationStatus'])->name('reservations.update-status');
+    // Reservation details API for POS (modal)
     Route::get('/api/reservations/{id}', [InventoryController::class, 'getReservationDetails'])->name('api.reservations.show');
 });
 

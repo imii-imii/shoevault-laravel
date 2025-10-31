@@ -5,8 +5,6 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\ProductSize;
-use App\Models\ReservationProduct;
-use App\Models\ReservationProductSize;
 use App\Models\Supplier;
 use App\Models\SupplyLog;
 use Illuminate\Support\Facades\Log;
@@ -21,14 +19,20 @@ class InventoryController extends Controller
      */
     public function dashboard(Request $request)
     {
+        Log::info('Inventory dashboard accessed', [
+            'user_id' => Auth::check() ? Auth::user()->user_id : 'not authenticated',
+            'user_role' => Auth::check() ? Auth::user()->role : 'not authenticated',
+            'inventory_type' => $request->get('type', 'pos')
+        ]);
+
         $inventoryType = $request->get('type', 'pos'); // Default to POS
         
         if ($inventoryType === 'reservation') {
             // Get reservation products from database
-            $products = ReservationProduct::with('sizes')->active()->get();
+            $products = Product::with('sizes')->reservationInventory()->active()->get();
         } else {
             // Get POS products from database
-            $products = Product::with('sizes')->active()->get();
+            $products = Product::with('sizes')->posInventory()->active()->get();
         }
         
         // Get suppliers from database (or empty collection if not implemented yet)
@@ -224,7 +228,7 @@ class InventoryController extends Controller
     public function reservationReports()
     {
         // Get real reservations from database
-        $reservations = \App\Models\Reservation::orderBy('created_at', 'desc')->get();
+        $reservations = \App\Models\Reservation::with('customer')->orderBy('created_at', 'desc')->get();
         
         // If no reservations exist, show empty state with proper message
         if ($reservations->isEmpty()) {
@@ -426,9 +430,9 @@ class InventoryController extends Controller
         $inventoryType = $request->get('type', 'pos'); // Default to POS
         
         if ($inventoryType === 'reservation') {
-            $products = ReservationProduct::with('sizes')->active()->get();
+            $products = Product::with('sizes')->reservationInventory()->active()->get();
         } else {
-            $products = Product::with('sizes')->active()->get();
+            $products = Product::with('sizes')->posInventory()->active()->get();
         }
         
         // Transform products to include size and stock information
@@ -495,15 +499,17 @@ class InventoryController extends Controller
             
             if ($inventoryType === 'reservation') {
                 // Generate unique reservation product ID and SKU
-                $data['product_id'] = ReservationProduct::generateUniqueProductId($request->category);
-                $data['sku'] = ReservationProduct::generateUniqueSku($request->category);
-                $productModel = ReservationProduct::class;
-                $sizeModel = ReservationProductSize::class;
-                $relationKey = 'reservation_product_id';
+                $data['product_id'] = Product::generateUniqueProductId($request->category);
+                $data['sku'] = Product::generateUniqueSku($request->category);
+                $data['inventory_type'] = 'reservation';
+                $productModel = Product::class;
+                $sizeModel = ProductSize::class;
+                $relationKey = 'product_id';
             } else {
                 // Generate unique POS product ID and SKU
                 $data['product_id'] = Product::generateUniqueProductId($request->category);
                 $data['sku'] = Product::generateUniqueSku($request->category);
+                $data['inventory_type'] = 'pos';
                 $productModel = Product::class;
                 $sizeModel = ProductSize::class;
                 $relationKey = 'product_id';
@@ -587,9 +593,9 @@ class InventoryController extends Controller
             
             // Determine which model to use based on inventory type
             if ($inventoryType === 'reservation') {
-                $product = ReservationProduct::with('sizes')->findOrFail($id);
+                $product = Product::with('sizes')->reservationInventory()->findOrFail($id);
             } else {
-                $product = Product::with('sizes')->findOrFail($id);
+                $product = Product::with('sizes')->posInventory()->findOrFail($id);
             }
             
             // Format the product data for frontend
@@ -637,12 +643,12 @@ class InventoryController extends Controller
             
             // Determine which model to use based on inventory type
             if ($inventoryType === 'reservation') {
-                $product = ReservationProduct::with('sizes')->findOrFail($id);
-                $productModel = ReservationProduct::class;
-                $sizeModel = ReservationProductSize::class;
-                $relationKey = 'reservation_product_id';
+                $product = Product::with('sizes')->reservationInventory()->findOrFail($id);
+                $productModel = Product::class;
+                $sizeModel = ProductSize::class;
+                $relationKey = 'product_id';
             } else {
-                $product = Product::with('sizes')->findOrFail($id);
+                $product = Product::with('sizes')->posInventory()->findOrFail($id);
                 $productModel = Product::class;
                 $sizeModel = ProductSize::class;
                 $relationKey = 'product_id';
@@ -670,11 +676,7 @@ class InventoryController extends Controller
             
             // Generate new SKU if it doesn't exist or if category changed
             if (empty($product->sku) || $product->category !== $request->category) {
-                if ($inventoryType === 'reservation') {
-                    $data['sku'] = ReservationProduct::generateUniqueSku($request->category);
-                } else {
-                    $data['sku'] = Product::generateUniqueSku($request->category);
-                }
+                $data['sku'] = Product::generateUniqueSku($request->category);
             }
             
             // Handle image upload for update
@@ -731,9 +733,9 @@ class InventoryController extends Controller
             $inventoryType = $request->get('type', $request->get('inventory_type', 'pos'));
 
             if ($inventoryType === 'reservation') {
-                $product = \App\Models\ReservationProduct::findOrFail($id);
+                $product = Product::reservationInventory()->findOrFail($id);
             } else {
-                $product = Product::findOrFail($id);
+                $product = Product::posInventory()->findOrFail($id);
             }
             
             // Delete associated image if exists
@@ -779,16 +781,46 @@ class InventoryController extends Controller
             'reservation_id' => $id,
             'request_data' => $request->all(),
             'user_id' => Auth::id(),
-            'user_role' => Auth::user() ? Auth::user()->role : 'unknown'
+            'user_role' => Auth::user() ? Auth::user()->role : 'unknown',
+            'is_authenticated' => Auth::check()
         ]);
+
+        // Ensure user is authenticated before proceeding
+        if (!Auth::check() || !Auth::id()) {
+            Log::error('Unauthenticated user attempted to update reservation status', [
+                'reservation_id' => $id,
+                'auth_check' => Auth::check(),
+                'auth_id' => Auth::id()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'You must be logged in to perform this action'
+            ], 401);
+        }
+
+        // Check if user has the right role (cashier, manager, or admin)
+        $user = Auth::user();
+        if (!in_array($user->role, ['cashier', 'manager', 'admin'])) {
+            Log::error('User with insufficient privileges attempted to update reservation status', [
+                'reservation_id' => $id,
+                'user_id' => $user->user_id,
+                'user_role' => $user->role
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have permission to perform this action'
+            ], 403);
+        }
 
         try {
             $request->validate([
-                'status' => 'required|string|in:pending,completed,cancelled'
+                'status' => 'required|string|in:pending,completed,cancelled',
+                'amount_paid' => 'nullable|numeric|min:0', // Add validation for amount_paid
+                'change_given' => 'nullable|numeric|min:0' // Add validation for change_given
             ]);
 
             // Find the reservation
-            $reservation = \App\Models\Reservation::findOrFail($id);
+            $reservation = \App\Models\Reservation::with('customer')->findOrFail($id);
             $oldStatus = $reservation->status;
             $newStatus = $request->status;
 
@@ -807,7 +839,12 @@ class InventoryController extends Controller
 
             // Create sale record when reservation is completed
             if ($oldStatus !== 'completed' && $newStatus === 'completed') {
-                $this->createSaleFromReservation($reservation);
+                $this->createSaleFromReservation($reservation, $request);
+            }
+
+            // Delete sale record when reservation is reverted from completed
+            if ($oldStatus === 'completed' && ($newStatus === 'pending' || $newStatus === 'cancelled')) {
+                $this->deleteSaleFromReservation($reservation);
             }
 
             // Update the reservation status
@@ -869,7 +906,7 @@ class InventoryController extends Controller
                     throw new \Exception("Size ID not found for item: {$item['product_name']}");
                 }
                 
-                $size = ReservationProductSize::find($sizeId);
+                $size = ProductSize::find($sizeId);
                 if ($size && $size->stock >= $item['quantity']) {
                     $size->decrement('stock', $item['quantity']);
                     Log::info("Stock deducted: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
@@ -884,7 +921,7 @@ class InventoryController extends Controller
             foreach ($reservation->items as $item) {
                 $sizeId = $item['size_id'] ?? null;
                 if ($sizeId) {
-                    $size = ReservationProductSize::find($sizeId);
+                    $size = ProductSize::find($sizeId);
                     if ($size) {
                         $size->increment('stock', $item['quantity']);
                         Log::info("Stock restored: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
@@ -898,7 +935,7 @@ class InventoryController extends Controller
             foreach ($reservation->items as $item) {
                 $sizeId = $item['size_id'] ?? null;
                 if ($sizeId) {
-                    $size = ReservationProductSize::find($sizeId);
+                    $size = ProductSize::find($sizeId);
                     if ($size) {
                         $size->increment('stock', $item['quantity']);
                         Log::info("Stock restored due to cancellation: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
@@ -917,7 +954,7 @@ class InventoryController extends Controller
                     throw new \Exception("Size ID not found for item: {$item['product_name']}");
                 }
                 
-                $size = ReservationProductSize::find($sizeId);
+                $size = ProductSize::find($sizeId);
                 if ($size && $size->stock >= $item['quantity']) {
                     $size->decrement('stock', $item['quantity']);
                     Log::info("Stock deducted from cancelled to completed: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
@@ -929,11 +966,16 @@ class InventoryController extends Controller
     }
 
     /**
-     * Create a sale record from a completed reservation
+     * Create a transaction record from a completed reservation
      */
-    private function createSaleFromReservation($reservation)
+    private function createSaleFromReservation($reservation, $request = null)
     {
         try {
+            // Ensure user is authenticated
+            if (!Auth::check() || !Auth::id()) {
+                throw new \Exception('User must be authenticated to complete a reservation transaction');
+            }
+
             // Validate that reservation has items
             if (!$reservation->items || !is_array($reservation->items) || empty($reservation->items)) {
                 Log::warning("Cannot create sale from reservation {$reservation->id}: No items found");
@@ -949,29 +991,43 @@ class InventoryController extends Controller
             $saleItems = [];
             foreach ($reservation->items as $item) {
                 $quantity = (int) ($item['quantity'] ?? 1);
-                $unitPrice = (float) ($item['unit_price'] ?? $item['price'] ?? 0);
+                $unitPrice = (float) ($item['unit_price'] ?? $item['price'] ?? $item['product_price'] ?? 0); // Added product_price
                 $itemSubtotal = $quantity * $unitPrice;
+
+                // Log the item details for debugging
+                Log::info("Processing reservation item", [
+                    'item_data' => $item,
+                    'calculated_quantity' => $quantity,
+                    'calculated_unit_price' => $unitPrice,
+                    'calculated_subtotal' => $itemSubtotal
+                ]);
 
                 // Find the size_id from the consolidated tables using product_id and size
                 $productId = $item['product_id'] ?? null;
                 $productSize = $item['product_size'] ?? null;
                 $sizeId = null;
+                $product = null;
+                
+                // Get the actual product to fetch correct category
+                if ($productId) {
+                    $product = Product::find($productId);
+                }
                 
                 if ($productId && $productSize) {
                     $size = ProductSize::where('product_id', $productId)
                                       ->where('size', $productSize)
                                       ->first();
-                    $sizeId = $size ? $size->id : null;
+                    $sizeId = $size ? $size->product_size_id : null; // Fixed: use product_size_id instead of id
                 }
 
                 $saleItems[] = [
                     'product_id' => $item['product_id'] ?? null,
-                    'size_id' => $item['size_id'] ?? null,
-                    'product_name' => $item['product_name'] ?? 'Unknown Product',
-                    'product_brand' => $item['product_brand'] ?? '',
+                    'size_id' => $item['size_id'] ?? $sizeId, // Use the mapped size_id or the looked-up one
+                    'product_name' => $item['product_name'] ?? ($product ? $product->name : 'Unknown Product'),
+                    'product_brand' => $item['product_brand'] ?? ($product ? $product->brand : ''),
                     'product_size' => $item['product_size'] ?? '',
-                    'product_color' => $item['product_color'] ?? '',
-                    'product_category' => $item['product_category'] ?? 'uncategorized',
+                    'product_color' => $item['product_color'] ?? ($product ? $product->color : ''),
+                    'product_category' => $product ? $product->category : ($item['product_category'] ?? 'uncategorized'),
                     'unit_price' => $unitPrice,
                     'quantity' => $quantity,
                     'subtotal' => $itemSubtotal,
@@ -983,45 +1039,58 @@ class InventoryController extends Controller
                 $itemCount++;
             }
 
-            // Create the sale record with simplified structure
-            $sale = \App\Models\Sale::create([
-                'transaction_id' => \App\Models\Sale::generateTransactionId(),
+            // Get payment information from request or use defaults
+            $amountPaid = $request ? (float) ($request->amount_paid ?? $subtotal) : $subtotal;
+            $changeGiven = $request ? (float) ($request->change_given ?? max(0, $amountPaid - $subtotal)) : 0;
+            
+            // Get the current authenticated user
+            $currentUserId = Auth::id();
+            
+            // Log payment details for debugging
+            Log::info("Payment calculation and user info", [
+                'subtotal' => $subtotal,
+                'amount_paid_input' => $request ? $request->amount_paid : null,
+                'calculated_amount_paid' => $amountPaid,
+                'calculated_change_given' => $changeGiven,
+                'current_user_id' => $currentUserId,
+                'authenticated_user_name' => Auth::user() ? Auth::user()->name : null,
+                'authenticated_user_role' => Auth::user() ? Auth::user()->role : null
+            ]);
+
+            // Create the transaction record with correct model
+            $transaction = \App\Models\Transaction::create([
+                'transaction_id' => \App\Models\Transaction::generateTransactionId(), // Use same auto-generated format as POS
                 'sale_type' => 'reservation', // Distinguish from POS sales
                 'reservation_id' => $reservation->reservation_id,
-                'cashier_id' => Auth::id(), // Current user who marked it complete
+                'user_id' => $currentUserId, // Current authenticated user who marked it complete
                 'subtotal' => $subtotal,
                 'discount_amount' => 0, // No discount for reservation completions
                 'total_amount' => $subtotal,
-                'amount_paid' => $subtotal, // Assume full payment for completed reservations
-                'change_given' => 0,
-                'sale_date' => now(),
-                'notes' => "Sale created from completed reservation #{$reservation->reservation_id}"
+                'amount_paid' => $amountPaid, // Use the actual amount paid from request
+                'change_given' => $changeGiven, // Calculate change properly
+                'sale_date' => now()
             ]);
 
-            // Create individual sale items
+            // Create individual transaction items
             foreach ($saleItems as $item) {
-                \App\Models\SaleItem::create([
-                    'sale_id' => $sale->id,
-                    'product_id' => $item['product_id'],
-                    'size_id' => $item['size_id'],
+                \App\Models\TransactionItem::create([
+                    'transaction_id' => $transaction->transaction_id,
+                    'product_size_id' => $item['size_id'], // Updated to match new structure
                     'product_name' => $item['product_name'],
                     'product_brand' => $item['product_brand'],
-                    'product_size' => $item['product_size'],
                     'product_color' => $item['product_color'],
                     'product_category' => $item['product_category'],
-                    'sku' => $item['sku'] ?? null,
-                    'unit_price' => $item['unit_price'],
-                    'cost_price' => $item['cost_price'] ?? 0,
                     'quantity' => $item['quantity'],
-                    'size' => $item['product_size'], // Populate the size field with the same value as product_size
-                    'subtotal' => $item['subtotal']
+                    'size' => $item['product_size'], // Size information
+                    'unit_price' => $item['unit_price'],
+                    'cost_price' => $item['cost_price'] ?? 0
+                    // Removed fields that are no longer in the new structure
                 ]);
             }
 
-            Log::info("Sale record created from reservation completion", [
-                'reservation_id' => $reservation->id,
-                'sale_id' => $sale->id,
-                'transaction_id' => $sale->transaction_id,
+            Log::info("Transaction record created from reservation completion", [
+                'reservation_id' => $reservation->reservation_id,
+                'transaction_id' => $transaction->transaction_id,
                 'total_amount' => $subtotal,
                 'items_count' => $itemCount
             ]);
@@ -1034,40 +1103,133 @@ class InventoryController extends Controller
     }
 
     /**
+     * Delete sale record when a reservation is reverted from completed status
+     */
+    private function deleteSaleFromReservation($reservation)
+    {
+        try {
+            // Find and delete the transaction record associated with this reservation
+            $transaction = \App\Models\Transaction::where('reservation_id', $reservation->reservation_id)
+                                                 ->where('sale_type', 'reservation')
+                                                 ->first();
+            
+            if ($transaction) {
+                Log::info("Deleting transaction record for reverted reservation", [
+                    'reservation_id' => $reservation->reservation_id,
+                    'transaction_id' => $transaction->transaction_id,
+                    'original_total' => $transaction->total_amount
+                ]);
+
+                // Delete associated transaction items first (foreign key constraint)
+                \App\Models\TransactionItem::where('transaction_id', $transaction->transaction_id)->delete();
+                
+                // Delete the main transaction record
+                $transaction->delete();
+                
+                Log::info("Successfully deleted transaction record and items for reverted reservation", [
+                    'reservation_id' => $reservation->reservation_id,
+                    'transaction_id' => $transaction->transaction_id
+                ]);
+            } else {
+                Log::warning("No transaction record found for reservation {$reservation->reservation_id} when attempting to delete");
+            }
+
+        } catch (\Exception $e) {
+            Log::error("Failed to delete sale record for reservation {$reservation->id}: " . $e->getMessage());
+            // Don't throw the exception to avoid breaking the reservation status update
+        }
+    }
+
+    /**
      * Get a reservation with items for modal details
      */
     public function getReservationDetails(Request $request, $id)
     {
         try {
-            $reservation = \App\Models\Reservation::findOrFail($id);
+            Log::info('Getting reservation details', [
+                'id_parameter' => $id,
+                'request_path' => $request->path(),
+                'user_id' => Auth::check() ? Auth::user()->user_id : 'not authenticated'
+            ]);
+
+            $reservation = \App\Models\Reservation::with('customer')->findOrFail($id);
+
+            Log::info('Reservation found', [
+                'reservation_id' => $reservation->reservation_id,
+                'customer_id' => $reservation->customer_id,
+                'status' => $reservation->status,
+                'customer_loaded' => $reservation->customer ? true : false,
+                'customer_data' => $reservation->customer ? [
+                    'customer_id' => $reservation->customer->customer_id,
+                    'fullname' => $reservation->customer->fullname,
+                    'email' => $reservation->customer->email,
+                    'phone_number' => $reservation->customer->phone_number,
+                ] : null
+            ]);
 
             // Get items from JSON field
             $items = [];
             if ($reservation->items && is_array($reservation->items)) {
                 $items = collect($reservation->items)->map(function($item) {
+                    // Get the actual product to fetch correct details
+                    $product = null;
+                    if (isset($item['product_id'])) {
+                        $product = Product::find($item['product_id']);
+                    }
+                    
                     return [
-                        'name' => $item['product_name'] ?? 'Product',
-                        'brand' => $item['product_brand'] ?? null,
-                        'color' => $item['product_color'] ?? null,
+                        'name' => $item['product_name'] ?? ($product ? $product->name : 'Product'),
+                        'brand' => $item['product_brand'] ?? ($product ? $product->brand : null),
+                        'color' => $item['product_color'] ?? ($product ? $product->color : null),
                         'size' => $item['product_size'] ?? null,
                         'quantity' => $item['quantity'] ?? 1,
-                        'price' => (float)($item['product_price'] ?? 0)
+                        'price' => (float)($item['product_price'] ?? ($product ? $product->price : 0)),
+                        'category' => $product ? $product->category : ($item['product_category'] ?? null)
                     ];
                 })->toArray();
+            } else if ($reservation->items && is_string($reservation->items)) {
+                // Handle case where items is a JSON string
+                $decodedItems = json_decode($reservation->items, true);
+                if ($decodedItems && is_array($decodedItems)) {
+                    $items = collect($decodedItems)->map(function($item) {
+                        // Get the actual product to fetch correct details
+                        $product = null;
+                        if (isset($item['product_id'])) {
+                            $product = Product::find($item['product_id']);
+                        }
+                        
+                        return [
+                            'name' => $item['product_name'] ?? ($product ? $product->name : 'Product'),
+                            'brand' => $item['product_brand'] ?? ($product ? $product->brand : null),
+                            'color' => $item['product_color'] ?? ($product ? $product->color : null),
+                            'size' => $item['product_size'] ?? null,
+                            'quantity' => $item['quantity'] ?? 1,
+                            'price' => (float)($item['product_price'] ?? ($product ? $product->price : 0)),
+                            'category' => $product ? $product->category : ($item['product_category'] ?? null)
+                        ];
+                    })->toArray();
+                }
             }
+
+            Log::info('Processed items for API response', [
+                'raw_items_type' => gettype($reservation->items),
+                'raw_items_value' => $reservation->items,
+                'processed_items_count' => count($items),
+                'processed_items' => $items
+            ]);
 
             $total = $reservation->total_amount ?? collect($items)->sum(function($i){
                 return ($i['price'] ?? 0) * ($i['quantity'] ?? 1);
             });
 
-            return response()->json([
+            $response = [
                 'success' => true,
                 'reservation' => [
                     'id' => $reservation->id,
                     'reservation_id' => $reservation->reservation_id,
-                    'customer_name' => $reservation->customer_name,
-                    'customer_email' => $reservation->customer_email,
-                    'customer_phone' => $reservation->customer_phone,
+                    'customer_name' => $reservation->customer->fullname ?? 'N/A',
+                    'customer_email' => $reservation->customer->email ?? 'N/A',
+                    'customer_phone' => $reservation->customer->phone_number ?? 'N/A',
                     'pickup_date' => optional($reservation->pickup_date)->format('M d, Y'),
                     'pickup_time' => $reservation->pickup_time,
                     'status' => $reservation->status,
@@ -1075,7 +1237,14 @@ class InventoryController extends Controller
                     'total_amount' => (float)$total
                 ],
                 'items' => $items
+            ];
+
+            Log::info('API Response being sent', [
+                'response' => $response,
+                'items_count' => count($items)
             ]);
+
+            return response()->json($response);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
                 'success' => false,

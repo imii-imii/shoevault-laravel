@@ -457,9 +457,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }, { once: false });
 
     // Simulated checkout placeholder (Laravel compatibility idea)
-        checkoutBtn.addEventListener('click', () => {
-            // Persist cart is already in localStorage; redirect to reservation form
-            window.location.href = '/form';
+        checkoutBtn.addEventListener('click', async () => {
+            await handleCheckoutClick();
         });
 
     // Mobile cart modal elements
@@ -470,8 +469,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const cartModalCheckout = document.querySelector('.cart-modal-checkout');
     // Redirect reserve button in mobile cart modal as well
     if(cartModalCheckout){
-        cartModalCheckout.addEventListener('click', () => {
-            window.location.href = '/form';
+        cartModalCheckout.addEventListener('click', async () => {
+            await handleCheckoutClick();
         });
     }
 
@@ -554,6 +553,66 @@ document.addEventListener('DOMContentLoaded', function() {
                     btn.addEventListener('click', ()=>{ const key=btn.getAttribute('data-remove'); cart = cart.filter(i=>i.key!==key); saveCart(); renderCart(); });
                 });
             }
+        }
+    }
+
+    // Handle checkout button click - check for pending reservations first
+    async function handleCheckoutClick() {
+        // Check if user is logged in
+        if (!window.customerData || !window.customerData.email) {
+            alert('Please log in to make a reservation.');
+            window.location.href = '/customer/login';
+            return;
+        }
+
+        try {
+            // Show loading state
+            const originalText = checkoutBtn ? checkoutBtn.textContent : cartModalCheckout.textContent;
+            if (checkoutBtn) checkoutBtn.textContent = 'Checking...';
+            if (cartModalCheckout) cartModalCheckout.textContent = 'Checking...';
+            
+            // Check for pending reservations
+            const response = await fetch('/api/check-pending-reservations', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                }
+            });
+
+            const data = await response.json();
+
+            // Restore button text
+            if (checkoutBtn) checkoutBtn.textContent = originalText;
+            if (cartModalCheckout) cartModalCheckout.textContent = originalText;
+
+            if (response.status === 401) {
+                // Not authenticated
+                alert('Please log in to make a reservation.');
+                window.location.href = '/customer/login';
+                return;
+            }
+
+            if (data.success && !data.hasPending) {
+                // No pending reservations, proceed to form
+                window.location.href = '/form';
+            } else if (data.hasPending) {
+                // Has pending reservations, show error
+                const pendingIds = data.pendingReservations?.join(', ') || 'Unknown';
+                alert(`You already have pending reservation(s): ${pendingIds}\n\nPlease wait for your current reservation(s) to be completed or cancelled before making a new one.`);
+            } else {
+                // Error occurred
+                alert(data.message || 'An error occurred while checking for pending reservations. Please try again.');
+            }
+
+        } catch (error) {
+            console.error('Error checking pending reservations:', error);
+            
+            // Restore button text
+            if (checkoutBtn) checkoutBtn.textContent = 'Reserve';
+            if (cartModalCheckout) cartModalCheckout.textContent = 'Reserve';
+            
+            alert('Network error. Please check your connection and try again.');
         }
     }
 

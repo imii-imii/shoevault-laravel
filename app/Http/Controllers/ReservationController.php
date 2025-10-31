@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 use App\Models\Product;
 use App\Models\ProductSize;
+use App\Models\Reservation;
 
 class ReservationController extends Controller
 {
@@ -46,7 +48,10 @@ class ReservationController extends Controller
             ->sort()
             ->values();
 
-        return view('reservation.portal', compact('products', 'categories', 'selectedCategory'));
+        // Get current authenticated customer
+        $customer = Auth::guard('customer')->user();
+
+        return view('reservation.portal', compact('products', 'categories', 'selectedCategory', 'customer'));
     }
 
     /**
@@ -54,7 +59,10 @@ class ReservationController extends Controller
      */
     public function form()
     {
-        return view('reservation.form');
+        // Get current authenticated customer
+        $customer = Auth::guard('customer')->user();
+        
+        return view('reservation.form', compact('customer'));
     }
 
     /**
@@ -131,6 +139,55 @@ class ReservationController extends Controller
                 ];
             })
         ]);
+    }
+
+    /**
+     * Check if customer has pending reservations
+     */
+    public function checkPendingReservations(Request $request)
+    {
+        try {
+            // Get the currently authenticated customer
+            $customer = Auth::guard('customer')->user();
+            
+            if (!$customer) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication required. Please log in to continue.'
+                ], 401);
+            }
+
+            $customerEmail = $customer->email;
+            
+            if (Reservation::customerHasPendingReservations($customerEmail)) {
+                $pendingReservations = Reservation::getCustomerPendingReservations($customerEmail);
+                $reservationIds = $pendingReservations->pluck('reservation_id')->toArray();
+                
+                return response()->json([
+                    'success' => false,
+                    'hasPending' => true,
+                    'message' => 'You already have pending reservation(s). Please wait for your current reservation(s) to be completed or cancelled before making a new one.',
+                    'pendingReservations' => $reservationIds
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'hasPending' => false,
+                'message' => 'No pending reservations found. You can proceed with your reservation.'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error checking pending reservations:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while checking for pending reservations. Please try again.'
+            ], 500);
+        }
     }
 
     /**
@@ -217,13 +274,27 @@ class ReservationController extends Controller
                 ];
             }
 
-            // Create single reservation with JSON items
+            // Get the current authenticated customer
+            $customer = Auth::guard('customer')->user();
+            if (!$customer) {
+                throw new \Exception('Customer authentication required');
+            }
+
+            // Update customer phone number if provided (in case it's changed)
+            if (!empty($validated['customer']['phone']) && $customer->phone_number !== $validated['customer']['phone']) {
+                $customer->phone_number = $validated['customer']['phone'];
+                $customer->save();
+                Log::info('Updated customer phone number', [
+                    'customer_id' => $customer->customer_id,
+                    'new_phone' => $validated['customer']['phone']
+                ]);
+            }
+
+            // Create single reservation with JSON items and customer_id foreign key
             $reservation = \App\Models\Reservation::create([
                 'reservation_id' => $reservationId,
+                'customer_id' => $customer->customer_id, // Use primary key field directly
                 'items' => $itemsData,
-                'customer_name' => $validated['customer']['fullName'],
-                'customer_email' => $validated['customer']['email'],
-                'customer_phone' => $validated['customer']['phone'],
                 'total_amount' => $validated['total'],
                 'pickup_date' => $validated['customer']['pickupDate'],
                 'pickup_time' => $validated['customer']['pickupTime'],

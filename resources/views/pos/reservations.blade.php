@@ -981,13 +981,23 @@
             const allowed = ['pending','completed','cancelled'];
             if (!allowed.includes(status)) { alert('Invalid status'); return Promise.reject(new Error('Invalid status')); }
             if (status !== 'completed' && !confirm(`Are you sure you want to change the status to ${status}?`)) return Promise.resolve({ cancelled: true });
+            
+            // Prepare the request body
+            const requestBody = { status };
+            
+            // Add payment information if provided for completed status
+            if (status === 'completed' && options.amount_paid !== undefined) {
+                requestBody.amount_paid = options.amount_paid;
+                requestBody.change_given = options.change_given || 0;
+            }
+            
             return fetch(`{{ route('pos.reservations.update-status', ['id' => 'RES_ID']) }}`.replace('RES_ID', reservationId), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': '{{ csrf_token() }}'
                 },
-                body: JSON.stringify({ status })
+                body: JSON.stringify(requestBody)
             })
             .then(r => r.json())
             .then(data => {
@@ -1070,7 +1080,7 @@
         }
 
         function openReservationModalFromCard(card) {
-            const id = card.dataset.resId;
+            const id = card.dataset.resNumber; // Use resNumber (reservation_id) instead of resId (internal id)
             const number = card.dataset.resNumber;
             const resDate = card.dataset.resDate;
             const name = card.dataset.customerName || 'N/A';
@@ -1119,15 +1129,33 @@
                 </div>
             `;
 
-            fetch(`{{ route('pos.api.reservations.show', ['id' => 'RES_ID']) }}`.replace('RES_ID', id))
-                .then(r => r.ok ? r.json() : Promise.reject())
+            const apiUrl = `{{ route('pos.api.reservations.show', ['id' => 'RES_ID']) }}`.replace('RES_ID', id);
+            
+            fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                credentials: 'same-origin'
+            })
+                .then(r => {
+                    if (!r.ok) {
+                        return Promise.reject(new Error(`HTTP ${r.status}: ${r.statusText}`));
+                    }
+                    return r.json();
+                })
                 .then(data => {
                     const list = document.getElementById('reservation-products');
+                    if (!list) {
+                        return;
+                    }
                     if (!data || !Array.isArray(data.items) || data.items.length === 0) {
                         list.innerHTML = '<div style="color:#6B7280;font-size:0.9rem;">No products recorded for this reservation.</div>';
                         return;
                     }
-                    list.innerHTML = data.items.map(item => `
+                    const itemsHtml = data.items.map(item => `
                         <div style=\"display:flex;justify-content:space-between;gap:12px;border:1px solid #cfd4ff;;border-radius:8px;padding:10px;\">
                             <div>
                                 <div style=\"font-weight:600;\">${item.name}</div>
@@ -1136,6 +1164,7 @@
                             <div style=\"text-align:right;\">x${item.quantity || 1}<br>₱${Number(item.price || 0).toLocaleString()}</div>
                         </div>
                     `).join('');
+                    list.innerHTML = itemsHtml;
                     const totalEl = document.getElementById('reservation-total');
                     if (totalEl) {
                         const total = data.reservation && typeof data.reservation.total_amount !== 'undefined'
@@ -1144,9 +1173,9 @@
                         totalEl.textContent = `Total: ₱${total.toLocaleString()}`;
                     }
                 })
-                .catch(() => {
+                .catch((error) => {
                     const list = document.getElementById('reservation-products');
-                    list.innerHTML = '<div style="color:#6B7280;font-size:0.9rem;">Products API not available. Ensure backend endpoint exists.</div>';
+                    list.innerHTML = `<div style="color:#DC2626;font-size:0.9rem;">Error loading products: ${error.message || 'Unknown error'}</div>`;
                 });
 
             renderReservationModalActions(id, status);
@@ -1177,7 +1206,17 @@
 
         function openTransactionModal(reservationId) {
             txContext = { reservationId, total: 0 };
-            fetch(`{{ route('pos.api.reservations.show', ['id' => 'RES_ID']) }}`.replace('RES_ID', reservationId))
+            const txApiUrl = `{{ route('pos.api.reservations.show', ['id' => 'RES_ID']) }}`.replace('RES_ID', reservationId);
+            
+            fetch(txApiUrl, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                credentials: 'same-origin'
+            })
                 .then(r => r.json())
                 .then(data => {
                     const items = data.items || [];
@@ -1251,7 +1290,15 @@
             const paid = parseFloat(paidRaw || '0');
             if (!(paid >= txContext.total)) return;
 
-            try { await updateReservationStatus(txContext.reservationId, 'completed', { reload: false }); } catch (e) {}
+            const changeAmount = Math.max(0, paid - txContext.total);
+
+            try { 
+                await updateReservationStatus(txContext.reservationId, 'completed', { 
+                    reload: false,
+                    amount_paid: paid,
+                    change_given: changeAmount
+                }); 
+            } catch (e) {}
 
             const receiptWin = window.open('', '_blank', 'width=480,height=640');
             const now = new Date();

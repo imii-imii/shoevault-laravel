@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use App\Models\User;
 
 class AuthController extends Controller
@@ -26,6 +27,13 @@ class AuthController extends Controller
      */
     public function login(Request $request)
     {
+        // Add debug logging
+        Log::info('Staff login attempt', [
+            'username' => $request->username,
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent()
+        ]);
+
         $request->validate([
             'username' => 'required|string',
             'password' => 'required|string',
@@ -36,8 +44,22 @@ class AuthController extends Controller
                    ->where('is_active', true)
                    ->first();
 
+        Log::info('User lookup result', [
+            'username' => $request->username,
+            'user_found' => $user ? true : false,
+            'user_id' => $user ? $user->user_id : null,
+            'user_role' => $user ? $user->role : null
+        ]);
+
         if ($user && Hash::check($request->password, $user->password)) {
+            Log::info('Password check passed, attempting Auth::login()');
+            
             Auth::login($user, $request->filled('remember'));
+            
+            Log::info('Auth::login() completed', [
+                'authenticated' => Auth::check(),
+                'auth_user_id' => Auth::check() ? Auth::user()->user_id : null
+            ]);
             
             if ($request->expectsJson()) {
                 return response()->json([
@@ -45,15 +67,26 @@ class AuthController extends Controller
                     'message' => 'Login successful',
                     'redirect' => $this->getRedirectUrl($user),
                     'user' => [
-                        'name' => $user->name,
+                        'username' => $user->username,
                         'role' => $user->role,
-                        'permissions' => $user->permissions
+                        'user_id' => $user->user_id
                     ]
                 ]);
             }
 
+            Log::info('Attempting redirect for user', [
+                'user_role' => $user->role,
+                'redirect_route' => $this->getRedirectUrl($user)
+            ]);
+
             return $this->redirectBasedOnRole($user);
         }
+
+        Log::warning('Login failed', [
+            'username' => $request->username,
+            'user_found' => $user ? true : false,
+            'password_check' => $user ? Hash::check($request->password, $user->password) : false
+        ]);
 
         if ($request->expectsJson()) {
             return response()->json([

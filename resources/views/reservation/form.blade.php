@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Complete Your Reservation</title>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
   <link rel="stylesheet" href="{{ asset('css/reservation-portal.css') }}">
   <style>
     body { background:#f8fafc; font-family:'Montserrat',sans-serif; margin:0; color:#1a2230; }
@@ -130,6 +131,7 @@
         <div class="field-group">
           <label for="email">Email Address</label>
           <input id="email" name="email" type="email" required placeholder="you@example.com" />
+          <small id="emailNote" style="font-size: 0.7rem; color: #6b7280; margin-top: 4px; display: none;">Email cannot be changed (from your account)</small>
         </div>
         <div class="field-group">
           <label for="phone">Phone Number</label>
@@ -165,7 +167,76 @@
     </div>
   </div>
 
+  <!-- Customer Data for Auto-fill -->
   <script>
+    window.customerData = @json($customer);
+  </script>
+
+  <script>
+    // Auto-fill customer information if logged in
+    document.addEventListener('DOMContentLoaded', function() {
+      if (window.customerData && window.customerData.email) {
+        // Auto-fill full name
+        const fullNameInput = document.getElementById('fullName');
+        if (fullNameInput && window.customerData.fullname) {
+          fullNameInput.value = window.customerData.fullname;
+          fullNameInput.style.backgroundColor = '#f0f9ff';
+          fullNameInput.style.borderColor = '#3b82f6';
+        }
+        
+        // Auto-fill email (make it readonly)
+        const emailInput = document.getElementById('email');
+        if (emailInput && window.customerData.email) {
+          emailInput.value = window.customerData.email;
+          emailInput.readOnly = true;
+          emailInput.style.backgroundColor = '#f8fafc';
+          emailInput.style.cursor = 'not-allowed';
+          
+          // Show the email note
+          const emailNote = document.getElementById('emailNote');
+          if (emailNote) {
+            emailNote.style.display = 'block';
+          }
+        }
+        
+        // Auto-fill phone number
+        const phoneInput = document.getElementById('phone');
+        if (phoneInput && window.customerData.phone_number) {
+          phoneInput.value = window.customerData.phone_number;
+          phoneInput.style.backgroundColor = '#f0f9ff';
+          phoneInput.style.borderColor = '#3b82f6';
+        }
+        
+        // Add a small notification that fields were auto-filled
+        const form = document.getElementById('reservationForm');
+        if (form) {
+          const notification = document.createElement('div');
+          notification.style.cssText = `
+            background: #dbeafe;
+            border: 1px solid #3b82f6;
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin-bottom: 16px;
+            font-size: 0.8rem;
+            color: #1e40af;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+          `;
+          notification.innerHTML = `
+            <i class="fas fa-info-circle"></i>
+            Your information has been pre-filled from your account. You can edit name and phone if needed.
+          `;
+          form.insertBefore(notification, form.firstChild);
+        }
+        
+        // Trigger validation update after auto-filling
+        setTimeout(() => {
+          updateConfirmState();
+        }, 100);
+      }
+    });
+
     // Populate and manage reservation data from localStorage cart (sv_cart)
     const cartKey = 'sv_cart';
     const itemsEl = document.getElementById('reservedItems');
@@ -384,8 +455,15 @@
           console.error('Reservation error details:', result);
           let errorMessage = result.message || 'Failed to create reservation';
           
-          // Show detailed validation errors if available
-          if (result.errors) {
+          // Handle specific pending reservation error
+          if (result.pending_reservations && result.pending_reservations.length > 0) {
+            const pendingList = result.pending_reservations.map(res => 
+              `• ${res.reservation_id} (${res.created_at}) - Total: ₱${res.total_amount.toLocaleString()}`
+            ).join('\n');
+            
+            errorMessage = `You cannot make a new reservation because you have pending reservation(s):\n\n${pendingList}\n\nPlease wait for your current reservation(s) to be completed or contact us if you need assistance.`;
+          } else if (result.errors) {
+            // Show detailed validation errors if available
             const errorList = Object.entries(result.errors)
               .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
               .join('\n');

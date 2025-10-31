@@ -7,17 +7,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProductSize extends Model
 {
+    protected $primaryKey = 'product_size_id'; // Updated primary key name
+    
     protected $fillable = [
         'product_id',
         'size',
         'stock',
-        'price_adjustment',
         'is_available'
+        // Removed 'price_adjustment' as requested
     ];
 
     protected $casts = [
-        'price_adjustment' => 'decimal:2',
         'is_available' => 'boolean'
+        // Removed 'price_adjustment' cast
     ];
 
     /**
@@ -45,10 +47,10 @@ class ProductSize extends Model
     }
 
     /**
-     * Get the effective price for this size (base price + adjustment).
+     * Get the effective price for this size (just the base product price since price_adjustment removed).
      */
     public function getEffectivePrice(): float
     {
-        return $this->product->price + $this->price_adjustment;
+        return $this->product->price; // No more price adjustment
     }
 }

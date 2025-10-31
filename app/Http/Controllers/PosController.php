@@ -32,7 +32,7 @@ class PosController extends Controller
     public function reservations()
     {
         // Load same reservations and stats as inventory reservation reports
-        $reservations = \App\Models\Reservation::orderBy('created_at', 'desc')->get();
+        $reservations = \App\Models\Reservation::with('customer')->orderBy('created_at', 'desc')->get();
         if ($reservations->isEmpty()) {
             $reservations = collect([]);
         }
@@ -308,6 +308,14 @@ class PosController extends Controller
      */
     public function processSale(Request $request)
     {
+        // Ensure user is authenticated
+        if (!Auth::check() || !Auth::id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You must be logged in to process a sale'
+            ], 401);
+        }
+
         DB::beginTransaction();
         
         try {
@@ -335,9 +343,23 @@ class PosController extends Controller
                     throw new \Exception("Product not found: {$item['id']}");
                 }
                 
+                Log::info('Processing POS item', [
+                    'product_id' => $item['id'],
+                    'product_name' => $product->name,
+                    'requested_size' => $item['size'],
+                    'size_type' => gettype($item['size'])
+                ]);
+                
                 $size = ProductSize::where('product_id', $item['id'])
                     ->where('size', $item['size'])
                     ->first();
+                
+                Log::info('Size lookup result', [
+                    'product_id' => $item['id'],
+                    'requested_size' => $item['size'],
+                    'size_found' => $size ? true : false,
+                    'size_data' => $size ? $size->toArray() : null
+                ]);
                     
                 if (!$size) {
                     throw new \Exception("Size {$item['size']} not found for product {$product->name}");
@@ -354,7 +376,7 @@ class PosController extends Controller
                 // Build detailed item record for the sale
                 $saleItems[] = [
                     'product_id' => $product->id,
-                    'size_id' => $size->id,
+                    'size_id' => $size->product_size_id, // Fixed: use product_size_id instead of id
                     'product_name' => $product->name,
                     'product_brand' => $product->brand,
                     'product_size' => $size->size,
@@ -366,6 +388,14 @@ class PosController extends Controller
                     'cost_price' => $product->cost_price ?? 0,
                     'sku' => $product->sku ?? null
                 ];
+
+                // Debug log the size_id value
+                Log::info('Sale item debug', [
+                    'product_name' => $product->name,
+                    'size' => $size->size,
+                    'size_product_size_id' => $size->product_size_id,
+                    'size_object' => $size ? $size->toArray() : null
+                ]);
                 
                 $totalQuantity += $item['quantity'];
                 $totalItems++;
@@ -377,43 +407,56 @@ class PosController extends Controller
                 throw new \Exception('Insufficient payment amount');
             }
             
+            // Debug authentication before creating transaction
+            $currentUserId = Auth::id();
+            Log::info('POS Transaction creation debug', [
+                'auth_check' => Auth::check(),
+                'auth_id' => $currentUserId,
+                'auth_user' => Auth::user() ? Auth::user()->user_id : null,
+                'session_id' => session()->getId()
+            ]);
+            
+            if (!$currentUserId) {
+                throw new \Exception('User authentication failed - no user ID available');
+            }
+            
             // Create transaction record with simplified structure
-            $transaction = Transaction::create([
+            $transactionData = [
                 'transaction_id' => Transaction::generateTransactionId(),
                 'sale_type' => 'pos',
                 'reservation_id' => null,
-                'cashier_id' => Auth::id(),
+                'user_id' => $currentUserId, // Fixed: changed from cashier_id to user_id
                 'subtotal' => $validated['subtotal'],
                 'discount_amount' => $validated['discount'] ?? 0,
                 'total_amount' => $validated['total'],
                 'amount_paid' => $validated['amount_paid'],
                 'change_given' => $change,
                 'sale_date' => now()
-            ]);
+            ];
+            
+            Log::info('Creating transaction with data', $transactionData);
+            
+            $transaction = Transaction::create($transactionData);
 
             // Create individual transaction items
             foreach ($saleItems as $item) {
                 TransactionItem::create([
                     'transaction_id' => $transaction->transaction_id,
-                    'product_id' => $item['product_id'],
-                    'size_id' => $item['size_id'],
+                    'product_size_id' => $item['size_id'], // Fixed: changed from size_id to product_size_id
                     'product_name' => $item['product_name'],
                     'product_brand' => $item['product_brand'],
-                    'product_size' => $item['product_size'],
                     'product_color' => $item['product_color'],
                     'product_category' => $item['product_category'],
-                    'sku' => $item['sku'] ?? null,
-                    'unit_price' => $item['unit_price'],
-                    'cost_price' => $item['cost_price'] ?? 0,
                     'quantity' => $item['quantity'],
                     'size' => $item['product_size'], // Populate the size field with the same value as product_size
-                    'subtotal' => $item['subtotal']
+                    'unit_price' => $item['unit_price'],
+                    'cost_price' => $item['cost_price'] ?? 0
                 ]);
             }
             
             // Deduct stock for all items
             foreach ($saleItems as $item) {
-                $size = ProductSize::find($item['size_id']);
+                $size = ProductSize::where('product_size_id', $item['size_id'])->first(); // Fixed: use product_size_id
                 if ($size) {
                     $size->decrement('stock', $item['quantity']);
                 }
@@ -426,7 +469,7 @@ class PosController extends Controller
                 'total_amount' => $transaction->total_amount,
                 'items_count' => $transaction->total_items,
                 'total_quantity' => $transaction->total_quantity,
-                'cashier_id' => Auth::id()
+                'user_id' => Auth::id() // Fixed: changed from cashier_id to user_id for consistency
             ]);
             
             return response()->json([

@@ -350,8 +350,40 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.setItem('sv_cart', JSON.stringify(cart));
     }
 
-    function addToCart(data) {
+    async function checkAuthStatus() {
+        try {
+            const response = await fetch('/customer/user', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                },
+                credentials: 'same-origin'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                return data.success;
+            }
+            return false;
+        } catch (error) {
+            console.error('Auth check failed:', error);
+            return false;
+        }
+    }
+
+    async function addToCart(data) {
         console.log('Adding to cart:', data); // Debug log
+        
+        // Check if user is authenticated before allowing add to cart
+        const isAuthenticated = await checkAuthStatus();
+        if (!isAuthenticated) {
+            // Redirect to login with return URL
+            const currentUrl = encodeURIComponent(window.location.href);
+            window.location.href = `/customer/login?return=${currentUrl}`;
+            return;
+        }
+
         const key = `${data.id}__${data.sizeId}__${data.color}`;
         let existing = cart.find(i => i.key === key);
         
@@ -596,8 +628,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     if (cartModalCheckoutBtn) {
-        cartModalCheckoutBtn.addEventListener('click', () => {
-            window.location.href = '/form';
+        cartModalCheckoutBtn.addEventListener('click', async () => {
+            await handleCheckoutClick();
         });
     }
 
@@ -625,8 +657,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Checkout handler
     if (checkoutBtn) {
-        checkoutBtn.addEventListener('click', () => {
-            window.location.href = '/form';
+        checkoutBtn.addEventListener('click', async () => {
+            await handleCheckoutClick();
         });
     }
 
@@ -654,7 +686,161 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // User authentication status handling
+    async function updateUserStatus() {
+        const loginBtn = document.querySelector('.login-btn');
+        const userDropdown = document.querySelector('.user-dropdown');
+        
+        try {
+            const response = await fetch('/customer/user', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                },
+                credentials: 'same-origin'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.customer) {
+                    // User is logged in, show user dropdown
+                    loginBtn.style.display = 'none';
+                    userDropdown.style.display = 'block';
+                    
+                    // Update user info
+                    const userInitials = data.customer.name.split(' ').map(n => n[0]).join('').toUpperCase();
+                    document.querySelector('.user-initials').textContent = userInitials;
+                    document.querySelector('.user-name').textContent = data.customer.name.split(' ')[0];
+                    document.querySelector('.user-email').textContent = data.customer.email;
+                } else {
+                    // User is not logged in
+                    loginBtn.style.display = 'inline-flex';
+                    userDropdown.style.display = 'none';
+                }
+            } else {
+                // User is not logged in
+                loginBtn.style.display = 'inline-flex';
+                userDropdown.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Failed to check user status:', error);
+            // Default to not logged in
+            loginBtn.style.display = 'inline-flex';
+            userDropdown.style.display = 'none';
+        }
+    }
+
+    // Handle user dropdown toggle
+    const userDropdownBtn = document.querySelector('.user-dropdown-btn');
+    const userDropdownMenu = document.querySelector('.user-dropdown-menu');
+    
+    if (userDropdownBtn && userDropdownMenu) {
+        userDropdownBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const isVisible = userDropdownMenu.style.display === 'block';
+            userDropdownMenu.style.display = isVisible ? 'none' : 'block';
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function() {
+            userDropdownMenu.style.display = 'none';
+        });
+
+        // Prevent dropdown from closing when clicking inside
+        userDropdownMenu.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+    }
+
+    // Handle logout
+    const logoutBtn = document.querySelector('.logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async function() {
+            try {
+                const response = await fetch('/customer/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                    },
+                    credentials: 'same-origin'
+                });
+
+                if (response.ok) {
+                    // Clear cart and refresh page
+                    cart = [];
+                    saveCart();
+                    window.location.reload();
+                }
+            } catch (error) {
+                console.error('Logout failed:', error);
+            }
+        });
+    }
+
+    // Handle checkout button click - check for pending reservations first
+    async function handleCheckoutClick() {
+        // Check if user is logged in
+        if (!window.customerData || !window.customerData.email) {
+            alert('Please log in to make a reservation.');
+            window.location.href = '/customer/login';
+            return;
+        }
+
+        try {
+            // Show loading state
+            const originalText = checkoutBtn ? checkoutBtn.textContent : cartModalCheckoutBtn.textContent;
+            if (checkoutBtn) checkoutBtn.textContent = 'Checking...';
+            if (cartModalCheckoutBtn) cartModalCheckoutBtn.textContent = 'Checking...';
+            
+            // Check for pending reservations
+            const response = await fetch('/api/check-pending-reservations', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                }
+            });
+
+            const data = await response.json();
+
+            // Restore button text
+            if (checkoutBtn) checkoutBtn.textContent = originalText;
+            if (cartModalCheckoutBtn) cartModalCheckoutBtn.textContent = originalText;
+
+            if (response.status === 401) {
+                // Not authenticated
+                alert('Please log in to make a reservation.');
+                window.location.href = '/customer/login';
+                return;
+            }
+
+            if (data.success && !data.hasPending) {
+                // No pending reservations, proceed to form
+                window.location.href = '/form';
+            } else if (data.hasPending) {
+                // Has pending reservations, show error
+                const pendingIds = data.pendingReservations?.join(', ') || 'Unknown';
+                alert(`You already have pending reservation(s): ${pendingIds}\n\nPlease wait for your current reservation(s) to be completed or cancelled before making a new one.`);
+            } else {
+                // Error occurred
+                alert(data.message || 'An error occurred while checking for pending reservations. Please try again.');
+            }
+
+        } catch (error) {
+            console.error('Error checking pending reservations:', error);
+            
+            // Restore button text
+            if (checkoutBtn) checkoutBtn.textContent = 'Reserve';
+            if (cartModalCheckoutBtn) cartModalCheckoutBtn.textContent = 'Reserve';
+            
+            alert('Network error. Please check your connection and try again.');
+        }
+    }
+
     // Initialize
     attachProductCardListeners();
     loadCart();
+    updateUserStatus();
 });
