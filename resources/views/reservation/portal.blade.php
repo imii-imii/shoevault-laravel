@@ -45,6 +45,21 @@
       height: 100%;
       object-fit: cover;
     }
+
+    /* Login Required Modal */
+    .login-required { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(2,6,23,.5); backdrop-filter: blur(4px); z-index: 5000; }
+    .login-required.is-open { display: flex; }
+    .login-required-card { width: min(420px, 92vw); background: #ffffff; border-radius: 16px; border: 1px solid rgba(2,6,23,.06); box-shadow: 0 18px 48px rgba(2,6,23,.18); padding: 20px 18px; transform: scale(.94); opacity: 0; animation: lr-zoom .28s ease forwards; }
+    .login-required-head { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+    .login-required-head .ico { width:36px; height:36px; display:grid; place-items:center; border-radius:10px; background:#eef2ff; color:#3730a3; }
+    .login-required-title { font-size: 1.05rem; font-weight: 800; color: #0f172a; margin: 0; }
+    .login-required-text { color:#475569; margin:8px 2px 14px 2px; }
+    .login-required-actions { display:flex; gap:10px; justify-content:flex-end; }
+    .lr-btn { display:inline-flex; align-items:center; gap:8px; height:40px; padding:0 14px; border-radius:12px; border:1px solid #e5e7eb; background:#f8fafc; color:#0f172a; font-weight:800; cursor:pointer; transition: transform .05s ease, filter .15s ease, box-shadow .15s ease; }
+    .lr-btn:hover { filter: brightness(1.03); }
+    .lr-btn:active { transform: translateY(1px); }
+    .lr-btn.primary { border:1px solid transparent; background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%) padding-box, linear-gradient(135deg, #000e2e 0%, #2343ce 100%) border-box; color:#0b1220; box-shadow: 0 12px 28px -14px rgba(35,67,206,.28); }
+    @keyframes lr-zoom { to { transform: scale(1); opacity: 1; } }
   </style>
 </head>
 <body>
@@ -278,4 +293,66 @@
 
   <!-- Products Data for JavaScript -->
   <script src="{{ asset('js/reservation-portal-laravel.js') }}"></script>
+
+  <!-- Login Required Modal -->
+  <div class="login-required" id="loginRequiredModal" aria-hidden="true" role="dialog" aria-label="Login required">
+    <div class="login-required-card">
+      <div class="login-required-head">
+        <div class="ico"><i class="fas fa-lock"></i></div>
+        <h3 class="login-required-title">You need to log in</h3>
+      </div>
+      <p class="login-required-text">You need to log in first to use this feature. Would you like to log in now?</p>
+      <div class="login-required-actions">
+        <button type="button" class="lr-btn" id="lrCancelBtn">Not now</button>
+        <button type="button" class="lr-btn primary" id="lrLoginBtn" data-login-url="{{ route('customer.login') }}">
+          <i class="fas fa-user"></i>
+          Login
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Guard to avoid double-binding
+    (function(){
+      if (window.__lrBound) return; window.__lrBound = true;
+
+      const modal = document.getElementById('loginRequiredModal');
+      const cancelBtn = document.getElementById('lrCancelBtn');
+      const loginBtn = document.getElementById('lrLoginBtn');
+
+      function showLoginRequired(){
+        if (!modal) return;
+        modal.classList.add('is-open');
+      }
+      function hideLoginRequired(){
+        modal?.classList.remove('is-open');
+      }
+
+      // Dismiss on ESC or backdrop click
+      document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') hideLoginRequired(); });
+      modal?.addEventListener('click', (e)=>{ if (e.target === modal) hideLoginRequired(); });
+      cancelBtn?.addEventListener('click', hideLoginRequired);
+
+      loginBtn?.addEventListener('click', ()=>{
+        const baseUrl = loginBtn.getAttribute('data-login-url') || '#';
+        const returnParam = encodeURIComponent(window.location.href);
+        window.location.href = `${baseUrl}?return=${returnParam}`;
+      });
+
+      // Intercept clicks on Add-to-Cart and Cart buttons when not logged in
+      document.addEventListener('click', (e)=>{
+        const addBtn = e.target.closest?.('.res-portal-add-cart-btn');
+        const cartBtn = e.target.closest?.('.res-portal-cart-btn');
+        const notLoggedIn = !window.customerData || !window.customerData.id;
+        if ((addBtn || cartBtn) && notLoggedIn) {
+          e.preventDefault();
+          e.stopPropagation();
+          showLoginRequired();
+        }
+      }, true);
+    })();
+  </script>
+</body>
+</html>
   

@@ -298,7 +298,7 @@ async function loadSupplyLogs() {
         if (response.ok) {
             // Cache supply data for client-side filters
             window.__supplyData = Array.isArray(data.supplyData) ? data.supplyData : [];
-            renderSupplyTable(data.supplyData);
+            renderSupplyTable(window.__supplyData);
         } else {
             console.error('Failed to load supply logs:', data.message);
         }
@@ -312,16 +312,14 @@ function applySupplyFilters({ search = '', sort = 'date-desc' } = {}) {
     const q = (search || '').toLowerCase();
     if (q) {
         rows = rows.filter(r => (
-            String(r.name || '').toLowerCase().includes(q) ||
-            String(r.contact_person || '').toLowerCase().includes(q) ||
-            String(r.brands || '').toLowerCase().includes(q) ||
+            String(r.supplier_name || '').toLowerCase().includes(q) ||
             String(r.country || '').toLowerCase().includes(q) ||
-            String(r.email || '').toLowerCase().includes(q) ||
-            String(r.phone || '').toLowerCase().includes(q)
+            String(r.brand || '').toLowerCase().includes(q) ||
+            String(r.size || '').toLowerCase().includes(q)
         ));
     }
-    if (sort === 'date-asc') rows.sort((a,b)=> new Date(a.updated_at || a.created_at || 0) - new Date(b.updated_at || b.created_at || 0));
-    else if (sort === 'date-desc') rows.sort((a,b)=> new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0));
+    if (sort === 'date-asc') rows.sort((a,b)=> new Date(a.received_at || 0) - new Date(b.received_at || 0));
+    else if (sort === 'date-desc') rows.sort((a,b)=> new Date(b.received_at || 0) - new Date(a.received_at || 0));
     else if (sort === 'id-asc') rows.sort((a,b)=> Number(a.id||0) - Number(b.id||0));
     else if (sort === 'id-desc') rows.sort((a,b)=> Number(b.id||0) - Number(a.id||0));
     renderSupplyTable(rows);
@@ -929,34 +927,28 @@ function renderSupplyTable(supplyData) {
     if (!tbody) return;
 
     if (!Array.isArray(supplyData) || supplyData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#6b7280;">No suppliers found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#6b7280;">No supply logs found.</td></tr>';
         return;
     }
 
     const rows = supplyData.map((s) => {
         const id = s.id ?? '';
-        const name = s.name ?? '';
-        const contact = s.contact_person ?? '';
-        const brands = Array.isArray(s.brands) ? s.brands.join(', ') : (s.brands ?? '');
-        const stock = Number(s.total_stock ?? 0);
+        const supplier = s.supplier_name ?? '';
         const country = s.country ?? 'N/A';
-        const updated = s.updated_at || s.created_at || '';
-        const email = s.email ?? '';
-        const phone = s.phone ?? '';
-        const statusTxt = (s.status || (s.is_active ? 'active' : 'inactive') || 'active').toString().toLowerCase();
-        const badgeClass = statusTxt === 'active' ? 'status-active' : 'status-inactive';
+        const brand = s.brand ?? '';
+        const size = s.size ?? '';
+        const qty = Number(s.quantity ?? 0);
+        const received = s.received_at ? new Date(s.received_at) : null;
+        const recStr = received ? received.toLocaleString() : '';
         return `
             <tr>
                 <td>${id}</td>
-                <td>${name}</td>
-                <td>${contact}</td>
-                <td>${brands || 'N/A'}</td>
-                <td>${stock}</td>
+                <td>${supplier}</td>
                 <td>${country}</td>
-                <td>${updated ? formatDate(updated) : ''}</td>
-                <td>${email}</td>
-                <td>${phone}</td>
-                <td><span class="status-badge ${badgeClass}">${statusTxt.charAt(0).toUpperCase() + statusTxt.slice(1)}</span></td>
+                <td>${brand}</td>
+                <td>${size}</td>
+                <td>${qty}</td>
+                <td>${recStr}</td>
             </tr>
         `;
     }).join('');

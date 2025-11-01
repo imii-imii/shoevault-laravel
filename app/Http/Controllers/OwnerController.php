@@ -131,32 +131,31 @@ class OwnerController extends Controller
      */
     public function supplyLogs(Request $request)
     {
-        // Connect to suppliers table and return normalized rows matching the UI columns
+        // Return supply log rows joined with suppliers as a single table
         $search = trim((string) $request->get('search', ''));
-        $sort = $request->get('sort', 'date-desc');
+        $sort = $request->get('sort', 'date-desc'); // date-asc|date-desc|id-asc|id-desc
 
-        $query = \App\Models\Supplier::query();
+        $query = \App\Models\SupplyLog::query()
+            ->with('supplier:id,name,country')
+            ->select(['id','supplier_id','brand','size','quantity','received_at']);
 
         if ($search !== '') {
             $like = "%$search%";
             $query->where(function ($q) use ($like) {
-                $q->where('name', 'like', $like)
-                  ->orWhere('contact_person', 'like', $like)
-                  ->orWhere('email', 'like', $like)
-                  ->orWhere('phone', 'like', $like)
-                  ->orWhere('country', 'like', $like)
-                  ->orWhere('address', 'like', $like)
-                  ->orWhere('notes', 'like', $like);
+                $q->where('brand', 'like', $like)
+                  ->orWhere('size', 'like', $like);
             });
-            // Basic JSON match for brands column if present
-            if (\Illuminate\Support\Facades\Schema::hasColumn('suppliers', 'brands')) {
-                $query->orWhere('brands', 'like', $like);
-            }
+            // Join supplier constraints
+            $query->orWhereHas('supplier', function ($qs) use ($like) {
+                $qs->where('name', 'like', $like)
+                   ->orWhere('country', 'like', $like);
+            });
         }
 
+        // Sorting
         switch ($sort) {
             case 'date-asc':
-                $query->orderBy('updated_at', 'asc');
+                $query->orderBy('received_at', 'asc');
                 break;
             case 'id-asc':
                 $query->orderBy('id', 'asc');
@@ -166,37 +165,21 @@ class OwnerController extends Controller
                 break;
             case 'date-desc':
             default:
-                $query->orderBy('updated_at', 'desc');
+                $query->orderBy('received_at', 'desc');
                 break;
         }
 
-        $suppliers = $query->limit(500)->get([
-            'id','name','contact_person','email','phone','country','brands','total_stock','available_sizes','status','is_active','created_at','updated_at'
-        ]);
+        $logs = $query->limit(1000)->get();
 
-        $rows = $suppliers->map(function ($s) {
-            $brandText = null;
-            if (is_array($s->brands)) {
-                $brandText = implode(', ', array_filter($s->brands));
-            } elseif (!empty($s->brands)) {
-                // If stored as JSON string but not cast, try decode
-                $decoded = json_decode($s->brands, true);
-                $brandText = is_array($decoded) ? implode(', ', array_filter($decoded)) : (string)$s->brands;
-            }
-            $status = $s->status ?: ($s->is_active ? 'active' : 'inactive');
+        $rows = $logs->map(function ($log) {
             return [
-                'id' => $s->id,
-                'name' => $s->name,
-                'contact_person' => $s->contact_person,
-                'brands' => $brandText,
-                'total_stock' => (int)($s->total_stock ?? 0),
-                'country' => $s->country,
-                'available_sizes' => $s->available_sizes,
-                'email' => $s->email,
-                'phone' => $s->phone,
-                'status' => $status,
-                'created_at' => $s->created_at,
-                'updated_at' => $s->updated_at,
+                'id' => $log->id,
+                'supplier_name' => optional($log->supplier)->name,
+                'country' => optional($log->supplier)->country,
+                'brand' => $log->brand,
+                'size' => $log->size,
+                'quantity' => (int) $log->quantity,
+                'received_at' => optional($log->received_at)->toDateTimeString(),
             ];
         })->values();
 

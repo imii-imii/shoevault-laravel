@@ -288,10 +288,10 @@
                 </div>
             </div>
             <div class="filters" style="display:flex; gap:12px; align-items:center; margin-bottom:18px;">
-                <input type="text" id="supply-search" placeholder="Search supply logs..." class="search-input" style="flex:1; min-width:180px;">
-                <select id="supply-sort-filter" class="filter-select" style="min-width:180px;">
-                    <option value="date-desc">Date Modified (Newest)</option>
-                    <option value="date-asc">Date Modified (Oldest)</option>
+                <input type="text" id="supply-search" placeholder="Search by supplier, country, brand, or size..." class="search-input" style="flex:1; min-width:220px;">
+                <select id="supply-sort-filter" class="filter-select" style="min-width:220px;">
+                    <option value="date-desc">Received Date (Newest)</option>
+                    <option value="date-asc">Received Date (Oldest)</option>
                     <option value="id-desc">Log ID (Descending)</option>
                     <option value="id-asc">Log ID (Ascending)</option>
                 </select>
@@ -305,15 +305,12 @@
                     <thead>
                         <tr>
                             <th>Log ID</th>
-                            <th>Supplier Name</th>
-                            <th>Contact</th>
-                            <th>Brand</th>
-                            <th>Stock</th>
+                            <th>Supplier</th>
                             <th>Country</th>
-                            <th>Last Update</th>
-                            <th>Email</th>
-                            <th>Phone</th>
-                            <th>Status</th>
+                            <th>Brand</th>
+                            <th>Size</th>
+                            <th>Quantity</th>
+                            <th>Received At</th>
                         </tr>
                     </thead>
                     <tbody id="supply-logs-tbody"></tbody>
@@ -666,6 +663,7 @@
                 };
                 loadSupplyLogs();
             }
+
             let t;
             searchEl?.addEventListener('input', ()=> { clearTimeout(t); t = setTimeout(apply, 200); });
             sortEl?.addEventListener('change', apply);

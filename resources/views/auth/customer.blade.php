@@ -111,6 +111,17 @@
       .actions{flex-direction:column;align-items:stretch;gap:10px}
       .actions .btn{width:100%}
     }
+
+    /* Terms & Conditions Modal */
+    .t-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:4000}
+    .t-modal.is-open{display:flex}
+    .t-modal .t-backdrop{position:absolute;inset:0;background:rgba(2,6,23,.5);backdrop-filter:blur(4px)}
+    .t-modal .t-window{position:relative;z-index:1;width:min(720px,92vw);max-height:80vh;overflow:auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 22px 60px rgba(2,6,23,.18);padding:18px 18px 16px 18px;transform:scale(.94);opacity:0;animation:t-zoom .28s ease forwards}
+    .t-modal .t-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+    .t-modal .t-title{margin:0;font-size:1.1rem;font-weight:800;color:#0f172a}
+    .t-modal .t-close{border:0;background:#f1f5f9;color:#0f172a;width:34px;height:34px;border-radius:10px;cursor:pointer}
+    .t-modal .t-content{color:#475569;line-height:1.6}
+    @keyframes t-zoom{to{transform:scale(1);opacity:1}}
   </style>
 </head>
 <body>
@@ -191,6 +202,14 @@
                   <input class="input" type="password" id="su-confirm" placeholder="Re-enter password" required />
                 </div>
               </div>
+              <!-- Terms & Conditions consent -->
+              <div class="field" style="flex-direction:row;align-items:center;gap:10px">
+                <input type="checkbox" id="su-terms" style="width:18px;height:18px" />
+                <label for="su-terms" class="label" style="margin:0;color:#0f172a">
+                  I agree to the
+                  <a href="#" id="open-terms" class="terms-link" style="color:var(--accent);text-decoration:underline;font-weight:700">Terms & Conditions</a>
+                </label>
+              </div>
               <div class="actions" style="justify-content:flex-end">
                 <button class="btn btn-ghost" type="button" id="go-login">Already have an account?</button>
                 <button class="btn btn-primary" type="submit">Create Account</button>
@@ -207,6 +226,26 @@
           <h2>Step into seamless reservations</h2>
           <p>Keep your sizes secure, and checkout faster across devices.</p>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Terms & Conditions Modal -->
+  <div id="termsModal" class="t-modal" aria-hidden="true" role="dialog" aria-label="Terms and Conditions">
+    <div class="t-backdrop"></div>
+    <div class="t-window">
+      <div class="t-header">
+        <h3 class="t-title">Sample Terms & Conditions</h3>
+        <button class="t-close" aria-label="Close Terms">&times;</button>
+      </div>
+      <div class="t-content">
+        <p>Welcome to ShoeVault. These sample Terms & Conditions are for demonstration only:</p>
+        <ul>
+          <li>Use a valid email address and keep your password secure.</li>
+          <li>Reservations may be subject to stock availability and confirmation.</li>
+          <li>Your information will be processed according to our privacy practices.</li>
+        </ul>
+        <p>By creating an account, you confirm that you have read and agreed to these terms.</p>
       </div>
     </div>
   </div>
@@ -719,6 +758,7 @@
         const email = document.getElementById('su-email').value;
         const password = document.getElementById('su-pass').value;
         const confirmPassword = document.getElementById('su-confirm').value;
+        const termsAccepted = document.getElementById('su-terms')?.checked;
 
         // Basic validation
         if (!firstName || !lastName || !username || !email || !password) {
@@ -728,6 +768,11 @@
 
         if (password !== confirmPassword) {
           showMessage('Passwords do not match.', 'error');
+          return;
+        }
+
+        if (!termsAccepted) {
+          showMessage('Please accept the Terms & Conditions to continue.', 'error');
           return;
         }
 
@@ -778,6 +823,15 @@
       // Form event listeners
       loginForm.addEventListener('submit', handleLogin);
       signupForm.addEventListener('submit', handleSignup);
+
+      // Terms modal events
+      const termsModal = document.getElementById('termsModal');
+      const openTerms = document.getElementById('open-terms');
+      function openTermsModal(e){ e?.preventDefault?.(); termsModal?.classList.add('is-open'); }
+      function closeTermsModal(){ termsModal?.classList.remove('is-open'); }
+      openTerms?.addEventListener('click', openTermsModal);
+      termsModal?.addEventListener('click', (e)=>{ if (e.target === termsModal || e.target.closest('.t-close')) closeTermsModal(); });
+      document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') closeTermsModal(); });
     })();
   </script>
 </body>
