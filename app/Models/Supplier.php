@@ -10,32 +10,20 @@ class Supplier extends Model
     use HasFactory;
 
     protected $fillable = [
+        // Restrict to only the supported/available columns
         'name',
         'contact_person',
         'email',
-        'phone',
-        'address',
-        'notes',
-        'is_active',
-        'brands',
-        'total_stock',
         'country',
-        'available_sizes',
-        'status',
     ];
 
-    protected $casts = [
-        'is_active' => 'boolean',
-        'brands' => 'array',
-    ];
+    // Remove casts for dropped/unused columns
+    protected $casts = [];
 
     /**
      * Scope for active suppliers
      */
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
-    }
+    // Note: "active" scope removed since is_active column is not used
 
     /**
      * Get products from this supplier

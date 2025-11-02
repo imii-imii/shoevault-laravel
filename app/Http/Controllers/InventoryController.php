@@ -66,30 +66,20 @@ class InventoryController extends Controller
     public function storeSupplier(Request $request)
     {
         try {
+            // Only accept the four allowed fields
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
-                'contact_person' => 'nullable|string|max:255',
-                'brands' => 'nullable|array',
-                'brands.*' => 'string|max:100',
-                'email' => 'nullable|email|max:255',
-                'phone' => 'nullable|string|max:50',
-                'country' => 'nullable|string|max:120',
-                'available_sizes' => 'nullable|string|max:255',
-                'total_stock' => 'nullable|integer|min:0',
-                'status' => 'nullable|in:active,inactive',
+                'contact_person' => 'required|string|max:255',
+                'email' => 'required|email|max:255',
+                'country' => 'required|string|max:120',
             ]);
 
+            // Create supplier with only the allowed columns
             $supplier = Supplier::create([
                 'name' => $validated['name'],
-                'contact_person' => $validated['contact_person'] ?? null,
-                'brands' => $validated['brands'] ?? null,
-                'email' => $validated['email'] ?? null,
-                'phone' => $validated['phone'] ?? null,
-                'country' => $validated['country'] ?? null,
-                'available_sizes' => $validated['available_sizes'] ?? null,
-                'total_stock' => $validated['total_stock'] ?? 0,
-                'status' => $validated['status'] ?? 'active',
-                'is_active' => ($validated['status'] ?? 'active') === 'active',
+                'contact_person' => $validated['contact_person'],
+                'email' => $validated['email'],
+                'country' => $validated['country'],
             ]);
 
             return response()->json([
@@ -117,15 +107,20 @@ class InventoryController extends Controller
     public function updateSupplier(Request $request, Supplier $supplier)
     {
         try {
+            // Only allow updating the four supported fields
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
-                'contact_person' => 'nullable|string|max:255',
-                'country' => 'nullable|string|max:120',
-                'email' => 'nullable|email|max:255',
-                'status' => 'nullable|in:active,inactive',
+                'contact_person' => 'required|string|max:255',
+                'country' => 'required|string|max:120',
+                'email' => 'required|email|max:255',
             ]);
 
-            $supplier->update($validated);
+            $supplier->update([
+                'name' => $validated['name'],
+                'contact_person' => $validated['contact_person'],
+                'country' => $validated['country'],
+                'email' => $validated['email'],
+            ]);
 
             return response()->json([
                 'success' => true,

@@ -21,7 +21,10 @@ return new class extends Migration
                 $table->timestamp('received_at')->nullable();
                 $table->timestamps();
 
-                $table->foreign('supplier_id')->references('id')->on('suppliers')->onDelete('cascade');
+                $table->foreign('supplier_id')
+                    ->references('id')
+                    ->on('suppliers')
+                    ->onDelete('cascade');
             });
         }
     }
@@ -31,6 +34,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('supply_logs');
+        if (Schema::hasTable('supply_logs')) {
+            Schema::drop('supply_logs');
+        }
     }
 };
