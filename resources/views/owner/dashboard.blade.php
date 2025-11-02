@@ -22,7 +22,7 @@
         .notification-bell { width:36px; height:36px; display:flex; align-items:center; justify-content:center; background:none; border:none; color:#6b7280; border-radius:10px; cursor:pointer; transition: all .2s ease; }
         .notification-bell:hover { background:#f3f4f6; color:#1f2937; }
         .notification-count { position:absolute; top:-4px; right:-4px; background:#ef4444; color:#fff; border-radius:999px; padding:0 6px; height:16px; min-width:16px; line-height:16px; font-size:0.65rem; font-weight:700; border:2px solid #fff; }
-        .notification-dropdown { position:absolute; top:calc(100% + 8px); right:0; width:280px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,.08); display:none; overflow:hidden; z-index:200; }
+        .notification-dropdown { position:absolute; top:calc(100% + 8px); right:0; width:280px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,.08); display:none; overflow:hidden; z-index:9999; }
         .notification-wrapper.open .notification-dropdown { display:block; }
         .notification-list { max-height:300px; overflow-y:auto; }
         .notification-empty { padding:12px; color:#6b7280; text-align:center; display:flex; align-items:center; justify-content:center; gap:8px; }
@@ -354,6 +354,7 @@
 <!-- Include Laravel's CSRF token for AJAX requests -->
 <meta name="csrf-token" content="{{ csrf_token() }}">
 
+<script src="{{ asset('js/notifications.js') }}"></script>
 <script src="{{ asset('js/owner.js') }}"></script>
 <script>
 // Pass Laravel data to JavaScript
@@ -410,20 +411,13 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeDashboard();
     updateDateTime();
     setInterval(updateDateTime, 1000); // Update time every second
-    // Simple notifications toggle
-    (function initNotifications(){
-        document.querySelectorAll('.notification-wrapper').forEach(wrapper => {
-            const bell = wrapper.querySelector('.notification-bell');
-            if (!bell) return;
-            bell.addEventListener('click', (e) => {
-                e.stopPropagation();
-                wrapper.classList.toggle('open');
-            });
-        });
-        document.addEventListener('click', () => {
-            document.querySelectorAll('.notification-wrapper.open').forEach(w => w.classList.remove('open'));
-        });
-    })();
+    
+    // Initialize notification system
+    if (typeof NotificationManager !== 'undefined') {
+        const notificationManager = new NotificationManager();
+        notificationManager.init();
+        window.notificationManager = notificationManager; // Make it globally accessible
+    }
 
     // Initialize mock charts for forecast and reservations
     initOwnerForecastCharts();

@@ -466,10 +466,10 @@ class OwnerController extends Controller
      */
     private function getPopularProductsByCategory(): array
     {
-        // Aggregate total sold per product
+        // Aggregate total sold per product name (since we no longer have product_id in transaction_items)
         $soldAgg = DB::table('transaction_items')
-            ->select('product_id', DB::raw('SUM(quantity) as total_sold'))
-            ->groupBy('product_id');
+            ->select('product_name', 'product_category', DB::raw('SUM(quantity) as total_sold'))
+            ->groupBy('product_name', 'product_category');
 
         // Aggregate current stock per product
         $stockAgg = DB::table('product_sizes')
@@ -478,7 +478,8 @@ class OwnerController extends Controller
 
         $rows = DB::table('products as p')
             ->leftJoinSub($soldAgg, 'sa', function ($join) {
-                $join->on('sa.product_id', '=', 'p.id');
+                $join->on('sa.product_name', '=', 'p.name')
+                     ->on('sa.product_category', '=', 'p.category');
             })
             ->leftJoinSub($stockAgg, 'st', function ($join) {
                 $join->on('st.product_id', '=', 'p.id');
@@ -551,9 +552,9 @@ class OwnerController extends Controller
      */
     private function getTopSellingProducts()
     {
-        return Product::join('transaction_items', 'products.id', '=', 'transaction_items.product_id')
-                     ->select('products.name', DB::raw('SUM(transaction_items.quantity) as total_sold'))
-                     ->groupBy('products.id', 'products.name')
+        return DB::table('transaction_items')
+                     ->select('product_name as name', DB::raw('SUM(quantity) as total_sold'))
+                     ->groupBy('product_name')
                      ->orderBy('total_sold', 'desc')
                      ->limit(5)
                      ->get();
@@ -578,7 +579,7 @@ class OwnerController extends Controller
         // Aggregate transaction items into a semicolon-separated list with quantities
         // Fixed: Ensure we're using the correct column name for transaction reference
         $itemsAgg = DB::table('transaction_items')
-            ->select('transaction_id', DB::raw("GROUP_CONCAT(CONCAT(product_name, ' (', product_size, ') x', quantity) ORDER BY product_name SEPARATOR ', ') as products"))
+            ->select('transaction_id', DB::raw("GROUP_CONCAT(CONCAT(product_name, ' (', size, ') x', quantity) ORDER BY product_name SEPARATOR ', ') as products"))
             ->groupBy('transaction_id');
 
         $query = DB::table('transactions as s')
@@ -679,19 +680,15 @@ class OwnerController extends Controller
                 $items = [
                     [
                         'transaction_id' => $transaction['transaction_id'],
-                        'product_id' => 1,
-                        'size_id' => 1,
+                        'product_size_id' => 1, // Updated to use product_size_id
                         'product_name' => 'Test Shoe',
                         'product_brand' => 'Test Brand',
-                        'product_size' => '9',
                         'product_color' => 'Black',
                         'product_category' => 'men',
-                        'sku' => 'TEST-001',
                         'quantity' => 1,
                         'size' => '9',
                         'unit_price' => $transaction['subtotal'],
                         'cost_price' => $transaction['subtotal'] * 0.6,
-                        'subtotal' => $transaction['subtotal'],
                         'created_at' => $transaction['created_at'],
                         'updated_at' => $transaction['updated_at'],
                     ]
@@ -795,11 +792,10 @@ class OwnerController extends Controller
                 ->join('transactions as t', 't.transaction_id', '=', 'ti.transaction_id')
                 ->whereBetween('t.created_at', [$start, $end])
                 ->select(
-                    DB::raw('COALESCE(ti.product_id, 0) as product_id'),
                     DB::raw('COALESCE(ti.product_name, "Unknown") as name'),
                     DB::raw('SUM(ti.quantity) as sold')
                 )
-                ->groupBy('product_id', 'name')
+                ->groupBy('product_name')
                 ->orderByDesc('sold')
                 ->limit($limit)
                 ->get();

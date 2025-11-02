@@ -1821,8 +1821,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Notifications toggle
-    initNotifications();
+    // Initialize notification system
+    if (typeof NotificationManager !== 'undefined') {
+        const notificationManager = new NotificationManager();
+        notificationManager.init();
+        window.notificationManager = notificationManager; // Make it globally accessible
+    }
 });
 
 // ===== Payment input wiring =====
@@ -2003,22 +2007,6 @@ async function processSaleAndPrint(summary, paymentAmount) {
     }
 }
 
-// ===== Header notifications wiring =====
-function initNotifications() {
-    const wrappers = document.querySelectorAll('.notification-wrapper');
-    wrappers.forEach(wrapper => {
-        const bell = wrapper.querySelector('.notification-bell');
-        if (!bell) return;
-        bell.addEventListener('click', (e) => {
-            e.stopPropagation();
-            wrapper.classList.toggle('open');
-        });
-    });
-    document.addEventListener('click', () => {
-        document.querySelectorAll('.notification-wrapper.open').forEach(w => w.classList.remove('open'));
-    });
-}
-
 // Void pull-out panel: create and wire UI (visual only)
 (function(){
     function createVoidPull() {
@@ -2114,5 +2102,7 @@ function initNotifications() {
     else createVoidPull();
 })();
 </script>
+
+<script src="{{ asset('js/notifications.js') }}"></script>
 </body>
 </html>

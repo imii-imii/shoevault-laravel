@@ -3,6 +3,7 @@
 @section('title', 'Inventory Management - ShoeVault Batangas')
 
 @push('styles')
+<meta name="csrf-token" content="{{ csrf_token() }}">
 <link rel="stylesheet" href="{{ asset('assets/css/inventory.css') }}">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;600;700;800&family=Roboto+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
@@ -200,6 +201,16 @@
 /* State: when an image is present, hide placeholder and show preview only */
 .upload-box.has-image .upload-drop { display: none !important; }
 .upload-box.has-image .image-preview { display: block !important; }
+
+/* Notification Styles */
+.notification-wrapper { position: relative; }
+.notification-bell { width:36px; height:36px; display:flex; align-items:center; justify-content:center; background:none; border:none; color:#6b7280; border-radius:10px; cursor:pointer; transition: all .2s ease; }
+.notification-bell:hover { background:#f3f4f6; color:#1f2937; }
+.notification-count { position:absolute; top:-4px; right:-4px; background:#ef4444; color:#fff; border-radius:999px; padding:0 6px; height:16px; min-width:16px; line-height:16px; font-size:0.65rem; font-weight:700; border:2px solid #fff; }
+.notification-dropdown { position:absolute; top:calc(100% + 8px); right:0; width:280px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,.08); display:none; overflow:hidden; z-index:9999; }
+.notification-wrapper.open .notification-dropdown { display:block; }
+.notification-list { max-height:300px; overflow-y:auto; }
+.notification-empty { padding:12px; color:#6b7280; text-align:center; display:flex; align-items:center; justify-content:center; gap:8px; }
 </style>
 @endpush
 
@@ -278,16 +289,15 @@
             <div class="date-display" style="display:flex;align-items:center;gap:12px;">
                 <i class="fas fa-calendar"></i>
                 <span id="current-date">Loading...</span>
-                <button id="notif-bell" title="Notifications" style="background:none;border:none;cursor:pointer;position:relative;">
-                    <i class="fas fa-bell" style="font-size:1.5rem;"></i>
-                    <span id="notif-badge" style="position:absolute;top:-4px;right:-8px;background:#ef4444;color:#fff;border-radius:999px;padding:2px 6px;font-size:11px;display:none;">3</span>
+            </div>
+            <div class="notification-wrapper">
+                <button class="notification-bell" aria-label="Notifications">
+                    <i class="fas fa-bell"></i>
+                    <span class="notification-count" style="display:none;">0</span>
                 </button>
-                <div id="notif-dropdown" style="display:none;position:absolute;right:0;top:48px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.08);width:320px;z-index:1000;">
-                    <div style="padding:12px 14px;border-bottom:1px solid #f1f5f9;font-weight:700;">Notifications</div>
-                    <div style="max-height:280px;overflow:auto;">
-                        <div style="padding:10px 14px;border-bottom:1px solid #f8fafc;">Low stock: Converse Chuck Taylor size 8</div>
-                        <div style="padding:10px 14px;border-bottom:1px solid #f8fafc;">3 reservations expiring today</div>
-                        <div style="padding:10px 14px;">System backup completed</div>
+                <div class="notification-dropdown">
+                    <div class="notification-list">
+                        <div class="notification-empty"><i class="fas fa-inbox"></i> No new notifications</div>
                     </div>
                 </div>
             </div>
@@ -368,7 +378,7 @@
                     data-sizes="{{ $product->sizes->pluck('size')->implode(', ') }}" 
                     data-color="{{ $product->color }}"
                     data-image="{{ $product->image_url }}"
-                    style="position:relative;min-width:240px;max-width:220px;height:340px;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(67,56,202,0.08);padding:0px 18px 18px 18px;cursor:pointer;" onclick="openProductDetailsModal({{ $product->id }})">
+                    style="position:relative;min-width:220px;max-width:240px;height:340px;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(67,56,202,0.08);padding:0px 18px 18px 18px;cursor:pointer;" onclick="openProductDetailsModal('{{ $product->id }}')">
 
                     <!-- Category tag top-right -->
                     @php $cat = strtolower($product->category ?? ''); @endphp
@@ -2325,20 +2335,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load real inventory data from database
     loadInventoryData();
     
-    // Notification bell toggle
-    const bell = document.getElementById('notif-bell');
-    const dd = document.getElementById('notif-dropdown');
-    const badge = document.getElementById('notif-badge');
-    if (bell) {
-        bell.addEventListener('click', function(e){
-            e.stopPropagation();
-            dd.style.display = dd.style.display === 'none' || dd.style.display === '' ? 'block' : 'none';
-            badge.style.display = 'none';
-        });
-        document.addEventListener('click', function(){
-            dd.style.display = 'none';
-        });
-        badge.style.display = 'inline-block';
+    // Initialize notification system
+    if (typeof NotificationManager !== 'undefined') {
+        const notificationManager = new NotificationManager();
+        notificationManager.init();
+        window.notificationManager = notificationManager; // Make it globally accessible
     }
     
     // Modal overlay click handler
@@ -2395,4 +2396,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+
+<script src="{{ asset('js/notifications.js') }}"></script>
 @endpush

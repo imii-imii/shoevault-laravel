@@ -11,6 +11,7 @@ use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\OwnerController;
 use App\Http\Controllers\OwnerUsersController;
 use App\Http\Controllers\ReservationController;
+use App\Http\Controllers\NotificationController;
 
 // Authentication routes
 
@@ -59,6 +60,27 @@ Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::get('/logout', [AuthController::class, 'logout'])->name('logout.get'); // Alternative logout route
+
+// Notification routes (available to all authenticated users)
+Route::middleware(['auth'])->prefix('api/notifications')->name('notifications.')->group(function () {
+    Route::get('/', [NotificationController::class, 'index'])->name('index');
+    Route::get('/unread-count', [NotificationController::class, 'unreadCount'])->name('unread-count');
+    Route::get('/stats', [NotificationController::class, 'stats'])->name('stats');
+    Route::post('/{id}/read', [NotificationController::class, 'markAsRead'])->name('mark-read');
+    Route::post('/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('mark-all-read');
+    
+    // Admin-only notification routes
+    Route::middleware(['role:owner,manager'])->group(function () {
+        Route::post('/', [NotificationController::class, 'create'])->name('create');
+        Route::delete('/{id}', [NotificationController::class, 'destroy'])->name('destroy');
+    });
+    
+    // Owner-only notification routes
+    Route::middleware(['role:owner'])->group(function () {
+        Route::post('/trigger-checks', [NotificationController::class, 'triggerChecks'])->name('trigger-checks');
+        Route::post('/cleanup', [NotificationController::class, 'cleanup'])->name('cleanup');
+    });
+});
 
 // Customer authentication routes
 Route::prefix('customer')->name('customer.')->group(function () {
