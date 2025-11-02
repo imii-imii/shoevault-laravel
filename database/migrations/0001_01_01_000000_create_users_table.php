@@ -35,6 +35,20 @@ return new class extends Migration
             $table->longText('payload');
             $table->integer('last_activity')->index();
         });
+
+        Schema::create('reservations', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('product_id')->nullable();
+            $table->string('customer_name');
+            $table->string('customer_email');
+            $table->string('customer_phone');
+            $table->integer('quantity');
+            $table->string('size');
+            $table->enum('status', ['pending', 'confirmed', 'completed', 'cancelled'])->default('pending');
+            $table->date('reservation_date');
+            $table->text('notes')->nullable();
+            $table->timestamps();
+        });
     }
 
     /**
@@ -42,6 +56,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('reservations');
         Schema::dropIfExists('users');
         Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');

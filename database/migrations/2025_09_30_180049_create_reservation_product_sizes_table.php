@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('reservation_product_sizes', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('reservation_product_id')->constrained()->onDelete('cascade');
+            $table->unsignedBigInteger('reservation_product_id')->nullable();
             $table->string('size');
             $table->integer('stock')->default(0);
             $table->decimal('price_adjustment', 8, 2)->default(0.00);

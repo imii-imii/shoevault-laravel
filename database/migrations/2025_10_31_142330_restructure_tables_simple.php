@@ -12,14 +12,18 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Step 1: Rename product_sizes.id to product_size_id
-        Schema::table('product_sizes', function (Blueprint $table) {
-            $table->renameColumn('id', 'product_size_id');
-        });
+        // Step 1: Check if we need to rename the column
+        if (Schema::hasColumn('product_sizes', 'id') && !Schema::hasColumn('product_sizes', 'product_size_id')) {
+            Schema::table('product_sizes', function (Blueprint $table) {
+                $table->renameColumn('id', 'product_size_id');
+            });
+        }
         
-        // Step 2: Remove price_adjustment column from product_sizes
+        // Step 2: Remove price_adjustment column from product_sizes if it exists
         Schema::table('product_sizes', function (Blueprint $table) {
-            $table->dropColumn('price_adjustment');
+            if (Schema::hasColumn('product_sizes', 'price_adjustment')) {
+                $table->dropColumn('price_adjustment');
+            }
         });
         
         // Step 3: Clear transaction_items table (since structure is changing completely)
@@ -41,14 +45,28 @@ return new class extends Migration
         
         // Step 5: Add new columns for transaction_items
         Schema::table('transaction_items', function (Blueprint $table) {
-            // Add new columns
-            $table->string('product_name')->after('product_size_id');
-            $table->string('product_brand')->after('product_name');
-            $table->string('product_color')->after('product_brand');
-            $table->string('product_category')->after('product_color');
-            $table->string('size')->after('quantity');
-            $table->decimal('unit_price', 10, 2)->after('size');
-            $table->decimal('cost_price', 10, 2)->nullable()->after('unit_price');
+            // Add new columns only if they don't exist
+            if (!Schema::hasColumn('transaction_items', 'product_name')) {
+                $table->string('product_name')->after('product_size_id');
+            }
+            if (!Schema::hasColumn('transaction_items', 'product_brand')) {
+                $table->string('product_brand')->after('product_name');
+            }
+            if (!Schema::hasColumn('transaction_items', 'product_color')) {
+                $table->string('product_color')->after('product_brand');
+            }
+            if (!Schema::hasColumn('transaction_items', 'product_category')) {
+                $table->string('product_category')->after('product_color');
+            }
+            if (!Schema::hasColumn('transaction_items', 'size')) {
+                $table->string('size')->after('quantity');
+            }
+            if (!Schema::hasColumn('transaction_items', 'unit_price')) {
+                $table->decimal('unit_price', 10, 2)->after('size');
+            }
+            if (!Schema::hasColumn('transaction_items', 'cost_price')) {
+                $table->decimal('cost_price', 10, 2)->nullable()->after('unit_price');
+            }
         });
     }
 
