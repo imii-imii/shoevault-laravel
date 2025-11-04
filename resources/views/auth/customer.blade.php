@@ -204,7 +204,7 @@
               </div>
               <!-- Terms & Conditions consent -->
               <div class="field" style="flex-direction:row;align-items:center;gap:10px">
-                <input type="checkbox" id="su-terms" style="width:18px;height:18px" />
+                <input type="checkbox" id="su-terms" style="width:18px;height:18px" required />
                 <label for="su-terms" class="label" style="margin:0;color:#0f172a">
                   I agree to the
                   <a href="#" id="open-terms" class="terms-link" style="color:var(--accent);text-decoration:underline;font-weight:700">Terms & Conditions</a>
@@ -794,10 +794,20 @@
               username,
               email,
               password,
+              // Include terms acceptance for server-side validation
+              terms: termsAccepted,
             }),
           });
 
           const data = await response.json();
+
+          // Surface validation errors (e.g., terms must be accepted)
+          if (!response.ok && data?.errors) {
+            const firstField = Object.keys(data.errors)[0];
+            const firstMsg = Array.isArray(data.errors[firstField]) ? data.errors[firstField][0] : data.message;
+            showMessage(firstMsg || 'Please check the form and try again.', 'error');
+            return;
+          }
 
           if (data.success) {
             showMessage(data.message);

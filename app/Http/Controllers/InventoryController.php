@@ -703,10 +703,27 @@ class InventoryController extends Controller
 
             DB::commit();
 
+            // Reload with sizes and format a consistent response shape
+            $product = $product->load('sizes');
+            $formattedProduct = [
+                'id' => $product->id,
+                'name' => $product->name,
+                'product_id' => $product->product_id,
+                'brand' => $product->brand,
+                'category' => $product->category,
+                'color' => $product->color,
+                'price' => $product->price,
+                'image_url' => $product->image_url,
+                'available_sizes' => $product->sizes->pluck('size')->toArray(),
+                'total_stock' => $product->sizes->sum('stock'),
+                'stock_status' => $product->sizes->sum('stock') <= 0 ? 'out-of-stock' :
+                               ($product->sizes->sum('stock') <= 5 ? 'low-stock' : 'in-stock')
+            ];
+
             return response()->json([
                 'success' => true,
                 'message' => 'Product updated successfully',
-                'product' => $product->load('sizes')
+                'product' => $formattedProduct
             ]);
         } catch (\Exception $e) {
             DB::rollBack();

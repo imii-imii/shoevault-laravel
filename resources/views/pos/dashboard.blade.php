@@ -214,7 +214,7 @@
             gap: var(--spacing-md);
             margin-bottom: var(--spacing-md);
             padding: var(--spacing-md);
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0);
             border-radius: var(--radius-lg);
             backdrop-filter: blur(10px);
         }
@@ -662,6 +662,17 @@
             margin-top: -0.2rem;
             margin-bottom: 0.4rem;
         }
+
+        /* Color row + image preview button aligned to the right */
+        .color-row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom: 0.4rem; }
+        .preview-btn { width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--gray-200); background: var(--white); color: var(--gray-700); display:inline-flex; align-items:center; justify-content:center; cursor:pointer; box-shadow: var(--shadow-sm); transition: all var(--transition-fast); }
+        .preview-btn:hover { color:#1e40af; border-color:#2a6aff; box-shadow: 0 6px 16px rgba(42,106,255,0.18); }
+        .preview-btn i { font-size: .9rem; }
+
+        /* Floating image preview tooltip */
+        .preview-tooltip { position: fixed; top:0; left:0; transform: translate(-9999px, -9999px); background:#fff; border:1px solid var(--gray-200); border-radius:12px; box-shadow:0 12px 30px rgba(2,6,23,.22); padding:8px; z-index:3000; max-width:260px; max-height:260px; display:none; }
+        .preview-tooltip.open { display:block; }
+        .preview-tooltip img { max-width:244px; max-height:244px; border-radius:8px; display:block; }
 
         .price-stock-row {
             display: flex;
@@ -1212,6 +1223,10 @@
             #receipt-modal, #receipt-modal * { visibility: visible; }
             #receipt-modal { position: fixed; inset: 0; background: transparent !important; }
             .receipt-container { box-shadow: none; border: none; padding: 0; }
+            /* Hide action buttons when printing */
+            .receipt-actions,
+            #receipt-print,
+            #receipt-close { display: none !important; visibility: hidden !important; }
         }
 
         /* Responsive Design */
@@ -1419,6 +1434,10 @@
                 </div>
             </div>
             <div class="cart-summary">
+                <div class="summary-row" id="subtotal-row">
+                    <span>Subtotal</span>
+                    <span id="subtotal-amount">₱ 0.00</span>
+                </div>
                 <div class="summary-row" id="discount-row" style="display:none;">
                     <span>Discount</span>
                     <span id="discount-amount">- ₱ 0.00</span>
@@ -1537,6 +1556,7 @@ async function loadProducts(category = 'all') {
                 const totalStock = product.total_stock ?? (product.sizes ? product.sizes.reduce((s, x) => s + (x.stock || 0), 0) : 0);
                 const category = (product.category || 'men').toLowerCase();
                 const categoryLabel = category.toUpperCase();
+                const imageUrl = product.image_url || product.image || '';
                 const sizeButtons = (product.sizes || []).map(sz => {
                     const disabled = !sz.is_available || sz.stock <= 0;
                     return `<button class="size-btn" ${disabled ? 'disabled' : ''} onclick="addToCartWithSize(${product.id}, '${sz.size}')">${sz.size}</button>`;
@@ -1549,7 +1569,10 @@ async function loadProducts(category = 'all') {
                         <div class="product-details">
                             <h3>${product.name}</h3>
                             <p class="brand">${product.brand || ''}</p>
-                            ${product.color ? `<p class="product-color">${product.color}</p>` : ''}
+                            <div class="color-row">
+                                ${product.color ? `<p class=\"product-color\">${product.color}</p>` : '<span></span>'}
+                                ${imageUrl ? `<button class=\"preview-btn\" data-image=\"${imageUrl}\" title=\"Preview image\"><i class=\"fas fa-eye\"></i></button>` : ''}
+                            </div>
                             <div class="price-stock-row">
                                 <p class="price">₱${parseFloat(product.price).toLocaleString()}</p>
                                 <p class="product-stock">${totalStock} in stock</p>
@@ -1563,6 +1586,50 @@ async function loadProducts(category = 'all') {
                     <div class="product-footer" aria-hidden="true"></div>
                 </div>`;
             }).join('');
+
+            // Ensure a single global preview tooltip exists
+            if (!document.getElementById('image-preview-tooltip')) {
+                const tip = document.createElement('div');
+                tip.id = 'image-preview-tooltip';
+                tip.className = 'preview-tooltip';
+                tip.innerHTML = '<img alt="Product preview" />';
+                document.body.appendChild(tip);
+            }
+
+            // Bind preview events (hover and click)
+            grid.querySelectorAll('.preview-btn').forEach(btn => {
+                const show = (ev) => {
+                    const url = btn.getAttribute('data-image');
+                    if (!url) return;
+                    const tip = document.getElementById('image-preview-tooltip');
+                    const img = tip.querySelector('img');
+                    img.src = url;
+                    const rect = btn.getBoundingClientRect();
+                    const margin = 10;
+                    let top = rect.top + window.scrollY + rect.height + margin;
+                    let left = rect.left + window.scrollX - 232; // bias toward right edge above stock
+                    // Keep within viewport
+                    const tipWidth = 260;
+                    const tipHeight = 260;
+                    if (left + tipWidth > window.scrollX + window.innerWidth) left = window.scrollX + window.innerWidth - tipWidth - margin;
+                    if (left < window.scrollX) left = window.scrollX + margin;
+                    if (top + tipHeight > window.scrollY + window.innerHeight) top = rect.top + window.scrollY - tipHeight - margin;
+                    tip.style.transform = `translate(${left}px, ${top}px)`;
+                    tip.classList.add('open');
+                };
+                const hide = () => {
+                    const tip = document.getElementById('image-preview-tooltip');
+                    tip.classList.remove('open');
+                    tip.style.transform = 'translate(-9999px, -9999px)';
+                };
+                btn.addEventListener('mouseenter', show);
+                btn.addEventListener('mouseleave', hide);
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const tip = document.getElementById('image-preview-tooltip');
+                    if (tip.classList.contains('open')) hide(); else show(e);
+                });
+            });
         } else {
             grid.innerHTML = `
                 <div class="error-products">
@@ -1725,6 +1792,10 @@ function updateCartSummary() {
             discountAmtEl.textContent = '- ₱ 0.00';
         }
     }
+
+    // Update subtotal display
+    const subtotalEl = document.getElementById('subtotal-amount');
+    if (subtotalEl) subtotalEl.textContent = `₱ ${subtotal.toLocaleString()}`;
 
     document.getElementById('total-amount').textContent = `₱ ${total.toLocaleString()}`;
     

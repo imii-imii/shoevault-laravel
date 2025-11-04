@@ -214,7 +214,7 @@
             gap: var(--spacing-md);
             margin-bottom: var(--spacing-md);
             padding: var(--spacing-md);
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0);
             border-radius: var(--radius-lg);
             backdrop-filter: blur(10px);
         }

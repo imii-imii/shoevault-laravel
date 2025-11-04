@@ -30,7 +30,7 @@
         .nav-item.active .nav-link{background:rgba(255,255,255,.15);border-left:3px solid #fff}
         .nav-link:hover{background:rgba(255,255,255,.1);color:#fff}
         .sidebar-footer{padding:var(--spacing-lg);border-top:1px solid rgba(255,255,255,.1)}
-        .user-info{display:flex;align-items:center;gap:var(--spacing-md);margin-bottom:var(--spacing-md);padding:var(--spacing-md);background:rgba(255,255,255,.1);border-radius:12px}
+        .user-info{display:flex;align-items:center;gap:var(--spacing-md);margin-bottom:var(--spacing-md);padding:var(--spacing-md);background:rgba(255, 255, 255, 0);border-radius:12px}
         .user-avatar{width:40px;height:40px;border-radius:50%;overflow:hidden;border:2px solid rgba(255,255,255,.3)}
         .user-avatar img{width:100%;height:100%;object-fit:cover}
         .user-details h4{color:#fff;font-size:.85rem;font-weight:600;margin-bottom:.25rem}

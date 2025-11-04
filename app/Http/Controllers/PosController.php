@@ -260,8 +260,13 @@ class PosController extends Controller
             
             $products = $query->get();
 
-            // Transform products to include sizes summary
+            // Transform products to include sizes summary and image URL
             $transformed = $products->map(function ($product) {
+                // Resolve image URL: allow absolute URLs; otherwise prefix with asset()
+                $imageUrl = $product->image_url;
+                if ($imageUrl && !preg_match('/^https?:\\/\\//', $imageUrl)) {
+                    $imageUrl = asset($imageUrl);
+                }
                 $sizes = $product->sizes->map(function ($size) use ($product) {
                     return [
                         'id' => $size->id,
@@ -280,6 +285,7 @@ class PosController extends Controller
                     'category' => $product->category,
                     'color' => $product->color,
                     'price' => (float) $product->price,
+                    'image_url' => $imageUrl,
                     'inventory_type' => $product->inventory_type,
                     'total_stock' => (int) $product->sizes->sum('stock'),
                     'sizes' => $sizes,

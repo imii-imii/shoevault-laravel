@@ -974,6 +974,17 @@ function addProductToCardView(product) {
 
 // Function to update a product in both card and table view
 function updateProductInView(product) {
+    // Derive sizes/stock if backend returned raw sizes
+    const derivedSizes = Array.isArray(product.available_sizes)
+        ? product.available_sizes
+        : (Array.isArray(product.sizes) ? product.sizes.map(s => s.size) : []);
+    const derivedTotalStock = (product.total_stock !== undefined && product.total_stock !== null)
+        ? Number(product.total_stock)
+        : (Array.isArray(product.sizes) ? product.sizes.reduce((sum, s) => sum + (parseInt(s.stock, 10) || 0), 0) : 0);
+    // Normalize for downstream UI usage
+    product.available_sizes = derivedSizes;
+    product.total_stock = derivedTotalStock;
+
     // Update the product card
     const productCard = document.querySelector(`[data-id="${product.id}"]`);
     if (productCard) {
@@ -982,8 +993,8 @@ function updateProductInView(product) {
         productCard.setAttribute('data-brand', product.brand);
         productCard.setAttribute('data-category', product.category);
         productCard.setAttribute('data-price', product.price);
-        productCard.setAttribute('data-stock', product.total_stock || 0);
-        productCard.setAttribute('data-sizes', product.available_sizes ? product.available_sizes.join(', ') : '');
+        productCard.setAttribute('data-stock', (product.total_stock || 0).toString());
+        productCard.setAttribute('data-sizes', derivedSizes.length ? derivedSizes.join(', ') : '');
         productCard.setAttribute('data-color', product.color);
         productCard.setAttribute('data-image', product.image_url);
         
@@ -1008,8 +1019,8 @@ function updateProductInView(product) {
                 <div class="pd-color" style="font-size:0.8rem;color:#374151;">${product.color || '—'}</div>
                 <div class="pd-category" style="display:none;">${(product.category || '').charAt(0).toUpperCase() + (product.category || '').slice(1)}</div>
                 <span class="pd-price" style="font-size:0.95rem;font-weight:800;color:#111827;margin-top:6px;">₱ ${(parseFloat(product.price)||0).toLocaleString()}</span>
-                <span class="pd-stock" style="font-size:0.78rem;color:#2a6aff;font-weight:600;margin-top:-18px;align-self:flex-end;">${product.total_stock || 0} in stock</span>
-                <div class="pd-sizes" style="font-size:0.78rem;color:#374151;margin-top:6px;">Sizes: ${product.available_sizes ? product.available_sizes.join(', ') : 'N/A'}</div>
+                <span class="pd-stock" style="font-size:0.78rem;color:#2a6aff;font-weight:600;margin-top:-18px;align-self:flex-end;">${derivedTotalStock || 0} in stock</span>
+                <div class="pd-sizes" style="font-size:0.78rem;color:#374151;margin-top:6px;">Sizes: ${derivedSizes.length ? derivedSizes.join(', ') : 'N/A'}</div>
             </div>
             <button type="button" class="btn btn-primary browse-btn" style="display:flex;align-items:center;justify-content:center;width:calc(100% + 36px);height:32px;border-radius:0 0 16px 16px;font-size:0.85rem;margin:8px -18px -18px -18px;padding:0;" onclick="event.stopPropagation(); openEditProductModal('${product.id}')">Update</button>
         `;
@@ -1018,7 +1029,13 @@ function updateProductInView(product) {
     // Update the inventory data array
     const inventoryIndex = inventoryData.findIndex(item => item.id === product.id);
     if (inventoryIndex !== -1) {
-        inventoryData[inventoryIndex] = product;
+        // Merge and normalize fields so table reflects new sizes/stock immediately
+        inventoryData[inventoryIndex] = {
+            ...inventoryData[inventoryIndex],
+            ...product,
+            total_stock: product.total_stock,
+            available_sizes: product.available_sizes,
+        };
         // Re-render the table to show updated data
         renderInventoryTable();
     }

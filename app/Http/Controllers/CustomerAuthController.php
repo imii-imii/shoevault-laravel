@@ -181,6 +181,8 @@ class CustomerAuthController extends Controller
             'username' => 'required|string|max:255|unique:users,username',
             'email' => 'required|email|max:255|unique:customers,email',
             'password' => 'required|string|min:6',
+            // Require Terms & Conditions to be accepted
+            'terms' => 'accepted',
         ]);
 
         DB::beginTransaction();
