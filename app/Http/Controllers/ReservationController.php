@@ -99,11 +99,25 @@ class ReservationController extends Controller
             $query->where('price', '<=', (float)$maxPrice);
         }
 
-        $products = $query->get();
+        // Pagination: 40 items per page
+        $perPage = 40;
+        $page = $request->get('page', 1);
+        $products = $query->paginate($perPage);
 
-        // Return HTML partial for AJAX requests
+        // Return HTML partial for AJAX requests with pagination metadata
         if ($request->ajax()) {
-            return view('reservation.partials.product-grid', compact('products'))->render();
+            $html = view('reservation.partials.product-grid', ['products' => $products->items()])->render();
+            return response()->json([
+                'html' => $html,
+                'pagination' => [
+                    'current_page' => $products->currentPage(),
+                    'last_page' => $products->lastPage(),
+                    'per_page' => $products->perPage(),
+                    'total' => $products->total(),
+                    'from' => $products->firstItem(),
+                    'to' => $products->lastItem(),
+                ]
+            ]);
         }
 
         return response()->json(['products' => $products]);

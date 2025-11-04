@@ -25,14 +25,138 @@ document.addEventListener('DOMContentLoaded', function() {
     const priceToggleBtn = document.querySelector('.price-toggle-btn');
     const pricePanel = document.getElementById('pricePanel');
 
-    function buildFilterUrl(category) {
+    let currentPage = 1;
+    let paginationData = null;
+
+    function buildFilterUrl(category, page = 1) {
         const params = new URLSearchParams();
         if (category) params.set('category', category);
         const min = priceMinEl && priceMinEl.value ? parseInt(priceMinEl.value, 10) : '';
         const max = priceMaxEl && priceMaxEl.value ? parseInt(priceMaxEl.value, 10) : '';
         if (!isNaN(min) && min !== '') params.set('minPrice', min);
         if (!isNaN(max) && max !== '') params.set('maxPrice', max);
+        if (page > 1) params.set('page', page);
         return `/api/products/filter?${params.toString()}`;
+    }
+
+    function loadProducts(category, page = 1) {
+        currentPage = page;
+        
+        // Show loading state
+        productsGrid.innerHTML = '<div class="loading-spinner"></div>';
+        
+        // Scroll to top of products grid smoothly
+        const portalMain = document.querySelector('.res-portal-main');
+        if (portalMain && page > 1) {
+            portalMain.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        
+        // Fetch filtered products from Laravel
+        fetch(buildFilterUrl(category, page), {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            productsGrid.innerHTML = data.html;
+            paginationData = data.pagination;
+            
+            // Render pagination controls
+            renderPagination(category);
+            
+            // Re-attach event listeners for new product cards
+            attachProductCardListeners();
+        })
+        .catch(error => {
+            console.error('Error filtering products:', error);
+            productsGrid.innerHTML = '<div class="error-message">Error loading products. Please try again.</div>';
+        });
+    }
+
+    function renderPagination(category) {
+        // Remove existing pagination
+        const existingPagination = document.querySelector('.sv-pagination');
+        if (existingPagination) existingPagination.remove();
+        
+        if (!paginationData || paginationData.last_page <= 1) return;
+        
+        const paginationDiv = document.createElement('div');
+        paginationDiv.className = 'sv-pagination';
+        
+        // Previous button
+        const prevBtn = document.createElement('button');
+        prevBtn.className = 'sv-pagination-btn';
+        prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+        prevBtn.disabled = currentPage === 1;
+        prevBtn.onclick = () => loadProducts(category, currentPage - 1);
+        paginationDiv.appendChild(prevBtn);
+        
+        // Page numbers with smart ellipsis
+        const totalPages = paginationData.last_page;
+        const maxVisible = 5;
+        let startPage = Math.max(1, currentPage - 2);
+        let endPage = Math.min(totalPages, currentPage + 2);
+        
+        // Always show first page
+        if (startPage > 1) {
+            const firstBtn = createPageButton(1, category);
+            paginationDiv.appendChild(firstBtn);
+            if (startPage > 2) {
+                const dots = document.createElement('span');
+                dots.className = 'sv-pagination-dots';
+                dots.textContent = '...';
+                paginationDiv.appendChild(dots);
+            }
+        }
+        
+        // Page number buttons
+        for (let i = startPage; i <= endPage; i++) {
+            const pageBtn = createPageButton(i, category);
+            paginationDiv.appendChild(pageBtn);
+        }
+        
+        // Always show last page
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                const dots = document.createElement('span');
+                dots.className = 'sv-pagination-dots';
+                dots.textContent = '...';
+                paginationDiv.appendChild(dots);
+            }
+            const lastBtn = createPageButton(totalPages, category);
+            paginationDiv.appendChild(lastBtn);
+        }
+        
+        // Next button
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'sv-pagination-btn';
+        nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+        nextBtn.disabled = currentPage === totalPages;
+        nextBtn.onclick = () => loadProducts(category, currentPage + 1);
+        paginationDiv.appendChild(nextBtn);
+        
+        // Info text
+        const info = document.createElement('span');
+        info.className = 'sv-pagination-info';
+        info.textContent = `Showing ${paginationData.from}-${paginationData.to} of ${paginationData.total}`;
+        paginationDiv.appendChild(info);
+        
+        // Insert after products grid
+        productsGrid.parentNode.insertBefore(paginationDiv, productsGrid.nextSibling);
+    }
+
+    function createPageButton(pageNum, category) {
+        const btn = document.createElement('button');
+        btn.className = 'sv-pagination-btn page-num';
+        btn.textContent = pageNum;
+        if (pageNum === currentPage) {
+            btn.classList.add('active');
+        }
+        btn.onclick = () => loadProducts(category, pageNum);
+        return btn;
     }
 
     categoryButtons.forEach(button => {
@@ -44,27 +168,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Get category from data attribute
             const category = this.dataset.category;
             
-            // Show loading state
-            productsGrid.innerHTML = '<div class="loading-spinner">Loading products...</div>';
-            
-            // Fetch filtered products from Laravel
-            fetch(buildFilterUrl(category), {
-                method: 'GET',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'text/html',
-                }
-            })
-            .then(response => response.text())
-            .then(html => {
-                productsGrid.innerHTML = html;
-                // Re-attach event listeners for new product cards
-                attachProductCardListeners();
-            })
-            .catch(error => {
-                console.error('Error filtering products:', error);
-                productsGrid.innerHTML = '<div class="error-message">Error loading products. Please try again.</div>';
-            });
+            // Load products (page 1)
+            loadProducts(category, 1);
         });
     });
 
@@ -72,14 +177,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const triggerFetch = () => {
             const activeBtn = document.querySelector('.res-portal-category-btn.active');
             const category = activeBtn ? activeBtn.dataset.category : 'All';
-            productsGrid.innerHTML = '<div class="loading-spinner">Loading products...</div>';
-            fetch(buildFilterUrl(category), {
-                method: 'GET',
-                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' }
-            })
-            .then(r => r.text())
-            .then(html => { productsGrid.innerHTML = html; attachProductCardListeners(); })
-            .catch(() => { productsGrid.innerHTML = '<div class="error-message">Error loading products. Please try again.</div>'; });
+            loadProducts(category, 1); // Reset to page 1 when filtering
         };
         priceApplyBtn.addEventListener('click', triggerFetch);
         [priceMinEl, priceMaxEl].forEach(el => el && el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); triggerFetch(); }}));
@@ -564,6 +662,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Cart dropdown interactions
     function openCart() {
+        // Don't open cart if user is not logged in
+        const isLoggedIn = window.customerData && window.customerData.id;
+        if (!isLoggedIn) return;
+        
         cartDropdown.classList.add('open');
         if (cartSticky) { cartDropdown.classList.add('sticky'); }
         else { cartDropdown.classList.remove('sticky'); }
@@ -575,7 +677,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Cart hover and click handlers
     cartBtn.addEventListener('mouseenter', () => {
-        if (isMobile() || cartSticky) return;
+        // Don't show cart dropdown on hover if not logged in
+        const isLoggedIn = window.customerData && window.customerData.id;
+        if (!isLoggedIn || isMobile() || cartSticky) return;
+        
         clearTimeout(hoverTimeout);
         openCart();
     });
@@ -594,6 +699,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     cartBtn.addEventListener('click', (e) => {
         e.stopPropagation();
+        
+        // Don't open cart if user is not logged in
+        const isLoggedIn = window.customerData && window.customerData.id;
+        if (!isLoggedIn) {
+            // The login modal will be shown by the existing event listener
+            return;
+        }
+        
         if (isMobile()) {
             // open cart modal on mobile
             if (cartModalOverlay) {

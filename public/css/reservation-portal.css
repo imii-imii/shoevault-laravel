@@ -33,7 +33,8 @@
   /* Reserve space for fixed navbar without adding extra page height */
   /* Use padding-top + min-height that together equal 100vh to avoid empty vertical scroll */
   .res-portal-main-mobile {
-    padding-top: 44px; /* navbar height */
+    /* reserve space for navbar + sticky search (navbar 44px + search ~56px) */
+    padding-top: calc(44px + 56px);
     min-height: calc(100vh - 44px);
   }
   .res-portal-logo {
@@ -68,28 +69,48 @@
     font-size: 1rem;
   }
   .res-portal-search.mobile-only {
-    width: 100%;
+    /* Collapsible search bar controlled by --collapse (0 = expanded, 1 = icon-only) */
+    --collapse: 0;
+    height: 30px;
+    min-height: 30px;
+    width: calc(((100vw - 30px) * (1 - var(--collapse))) + (30px * var(--collapse)));
     margin: 0 0 10px 0;
     padding: 0 6px;
-    background: var(--white);
-    border-radius: var(--radius-lg);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    background: rgba(255,255,255,0.95);
+    border-radius: 9999px;
+    box-shadow: 0 8px 20px -12px rgba(2, 6, 23, 0.651);
     align-items: center;
     gap: 6px;
+    /* Fixed so it stays visible while scrolling */
+    position: fixed;
+    left: 15px; /* match container horizontal inset */
+    top: 54px; /* 44px navbar height + 10px margin */
+    z-index: 950; /* below navbar (1000) but above content */
+    backdrop-filter: blur(5px);
+    transition: width .28s ease, padding .2s ease, box-shadow .25s ease, background .2s ease;
   }
   .res-portal-search.mobile-only input {
-    font-size: 0.85rem;
-    flex: 1;
+    font-size: 0.95rem;
+    flex: 1 1 auto;
+    max-width: calc(100% * (1 - var(--collapse)));
+    opacity: calc(1 - var(--collapse));
     padding: 8px 0;
     border: none;
     outline: none;
     background: transparent;
     color: var(--primary);
+    transition: max-width .28s ease, opacity .25s ease;
   }
   .res-portal-search.mobile-only i {
-    color: var(--gray-400);
-    font-size: 0.9rem;
-    margin-right: 10px;
+    color: var(--gray-500);
+    font-size: 1rem;
+    margin-right: calc(10px * (1 - var(--collapse)));
+    transition: margin-right .25s ease, color .2s ease, transform .2s ease;
+  }
+
+  /* Hover affordance when collapsed */
+  .res-portal-search.mobile-only[style*="--collapse: 1"] {
+    box-shadow: 0 10px 24px rgba(2, 6, 23, 0.363);
   }
   .res-portal-banner {
     width: 100% !important;
@@ -1315,25 +1336,50 @@ html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavi
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px;
-  font-size: 0.9rem;
-  color: var(--gray-600, #666);
+  min-height: 400px;
+  width: 100%;
+  grid-column: 1 / -1;
+  position: relative;
 }
 
 .loading-spinner::before {
   content: '';
-  width: 20px;
-  height: 20px;
-  border: 2px solid #eee;
-  border-top: 2px solid #2a6aff;
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(42, 106, 255, 0.1);
+  border-top: 4px solid #2a6aff;
+  border-right: 4px solid #2a6aff;
   border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-right: 10px;
+  animation: spin-trendy 0.8s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
+  box-shadow: 0 4px 12px rgba(42, 106, 255, 0.15);
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+.loading-spinner::after {
+  content: '';
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border: 3px solid transparent;
+  border-top: 3px solid rgba(42, 106, 255, 0.3);
+  border-radius: 50%;
+  animation: spin-reverse 1.2s linear infinite;
+}
+
+@keyframes spin-trendy {
+  0% { 
+    transform: rotate(0deg) scale(1);
+  }
+  50% { 
+    transform: rotate(180deg) scale(1.05);
+  }
+  100% { 
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+@keyframes spin-reverse {
+  0% { transform: rotate(360deg); }
+  100% { transform: rotate(0deg); }
 }
 
 .error-message {

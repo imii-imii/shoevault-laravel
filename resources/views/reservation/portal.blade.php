@@ -60,6 +60,11 @@
     .lr-btn:active { transform: translateY(1px); }
     .lr-btn.primary { border:1px solid transparent; background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%) padding-box, linear-gradient(135deg, #000e2e 0%, #2343ce 100%) border-box; color:#0b1220; box-shadow: 0 12px 28px -14px rgba(35,67,206,.28); }
     @keyframes lr-zoom { to { transform: scale(1); opacity: 1; } }
+    
+    /* Mobile adjustments */
+    @media (max-width: 700px) {
+      .login-required-card { margin: 0 20px; width: min(420px, calc(100vw - 40px)); }
+    }
   </style>
 </head>
 <body>
@@ -351,6 +356,86 @@
           showLoginRequired();
         }
       }, true);
+
+      // Update cart button title attribute based on login status
+      const updateCartButtonState = () => {
+        const cartBtnEl = document.querySelector('.res-portal-cart-btn');
+        if (cartBtnEl) {
+          const isLoggedIn = window.customerData && window.customerData.id;
+          cartBtnEl.title = isLoggedIn ? 'View Cart' : 'Please login to view cart';
+          cartBtnEl.style.opacity = isLoggedIn ? '1' : '0.6';
+          cartBtnEl.style.cursor = isLoggedIn ? 'pointer' : 'not-allowed';
+        }
+      };
+      
+      // Run on load
+      updateCartButtonState();
+      
+      // Also run after potential login state changes
+      window.addEventListener('storage', updateCartButtonState);
+    })();
+  </script>
+
+  <!-- Mobile search collapse/expand controller -->
+  <script>
+    (function(){
+      if (window.__svSearchBound) return; window.__svSearchBound = true;
+      const searchEl = document.querySelector('.res-portal-search.mobile-only');
+      if (!searchEl) return;
+
+      let lastY = window.scrollY || 0;
+      let lockExpanded = false; // when true, keep expanded until user scrolls a bit
+      let lockBase = 0;
+      const START = 10;   // start collapsing after 10px scroll
+      const RANGE = 220;  // pixels to reach fully collapsed
+
+      function clamp01(n){ return Math.max(0, Math.min(1, n)); }
+
+      function setCollapse(value){
+        const v = clamp01(value);
+        // Write inline style variable to drive CSS animation
+        searchEl.style.setProperty('--collapse', String(v));
+        // Toggle pointer events for input when collapsed
+        const input = searchEl.querySelector('input');
+        if (input) input.style.pointerEvents = v >= 0.98 ? 'none' : 'auto';
+      }
+
+      function computeCollapse(y){
+        if (lockExpanded) return 0; // fully expanded while locked
+        const d = Math.max(0, y - START);
+        return clamp01(d / RANGE);
+      }
+
+      function onScroll(){
+        const y = window.scrollY || 0;
+        // Unlock if user scrolls a bit after manual expand
+        if (lockExpanded && Math.abs(y - lockBase) > 40) {
+          lockExpanded = false;
+        }
+        setCollapse(computeCollapse(y));
+        lastY = y;
+      }
+
+      // Click to expand when collapsed (icon state)
+      function onClick(e){
+        const current = parseFloat(getComputedStyle(searchEl).getPropertyValue('--collapse') || '0') || 0;
+        if (current >= 0.98) {
+          // Lock expanded and focus input
+          lockExpanded = true;
+          lockBase = window.scrollY || 0;
+          setCollapse(0);
+          const input = searchEl.querySelector('input');
+          if (input) {
+            // Delay focus slightly to let layout settle
+            setTimeout(()=> input.focus(), 60);
+          }
+        }
+      }
+
+      // Initialize
+      setCollapse(0);
+      window.addEventListener('scroll', onScroll, { passive: true });
+      searchEl.addEventListener('click', onClick, true);
     })();
   </script>
 </body>
