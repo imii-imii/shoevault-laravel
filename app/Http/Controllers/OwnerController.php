@@ -262,7 +262,13 @@ class OwnerController extends Controller
      */
     public function settings()
     {
-        return view('owner.settings');
+        return view('owner.settings', [
+            'userIndexRoute' => route('owner.users.index'),
+            'userStoreRoute' => route('owner.users.store'),
+            'userToggleRoute' => route('owner.users.toggle'),
+            'customerIndexRoute' => route('owner.customers.index'),
+            'customerToggleRoute' => route('owner.customers.toggle'),
+        ]);
     }
 
     /**
