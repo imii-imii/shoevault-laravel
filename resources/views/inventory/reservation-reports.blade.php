@@ -476,9 +476,8 @@ function renderReservationModalActions(reservationId, status) {
             <button onclick=\"updateReservationStatus('${reservationId}','cancelled')\" style=\"min-width:120px;padding:10px 16px;border-radius:8px;background:#DC2626;color:#fff;border:none;font-weight:700;\">Cancel</button>
         `;
     } else if (status === 'completed') {
-        actions.innerHTML = `
-              <button onclick=\"updateReservationStatus('${reservationId}','pending')\" style=\"min-width:120px;padding:10px 16px;border-radius:8px;background:#2563EB;color:#fff;border:none;font-weight:700;\">Revert</button>
-        `;
+        // Revert action removed: no modal actions for already completed reservations
+        actions.innerHTML = '';
     } else {
         actions.innerHTML = '';
     }

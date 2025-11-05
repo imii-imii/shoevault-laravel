@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="{{ asset('css/reservation-portal.css') }}">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Roboto+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
   <style>
     .no-products-message {
       grid-column: 1 / -1;
@@ -442,6 +443,506 @@
       setCollapse(0);
       window.addEventListener('scroll', onScroll, { passive: true });
       searchEl.addEventListener('click', onClick, true);
+    })();
+  </script>
+
+  <!-- Force scroll to top on initial load to avoid unwanted anchor/history jumps -->
+  <script>
+    (function(){
+      try {
+        if ('scrollRestoration' in history) {
+          // Prevent browser from restoring previous scroll position
+          history.scrollRestoration = 'manual';
+        }
+      } catch (e) {
+        // ignore (some browsers or CSPs may restrict)
+      }
+
+      // Ensure we run after everything has loaded
+      function forceTop() {
+        try { window.scrollTo(0, 0); } catch(e) {}
+        // Run again shortly to counteract any late anchor scrolls
+        setTimeout(function(){ try{ window.scrollTo(0,0); } catch(e){} }, 60);
+      }
+
+      if (document.readyState === 'complete') {
+        forceTop();
+      } else {
+        window.addEventListener('load', forceTop, { passive: true });
+      }
+    })();
+  </script>
+
+  <!-- Anime.js Interactive Animations -->
+  <script>
+    (function() {
+      if (typeof anime === 'undefined') return;
+      if (window.__animePortalInit) return;
+      window.__animePortalInit = true;
+
+      // Wait for DOM to be fully ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initAnimations);
+      } else {
+        initAnimations();
+      }
+
+      function initAnimations() {
+        // 1. Animate navbar entrance (avoid transforms to prevent breaking fixed children on mobile)
+        anime({
+          targets: '.res-portal-navbar',
+          opacity: [0, 1],
+          duration: 600,
+          easing: 'easeOutQuad'
+        });
+
+        // 2. Logo bounce in
+        anime({
+          targets: '.res-portal-logo',
+          scale: [0.7, 1],
+          rotate: [-8, 0],
+          duration: 700,
+          delay: 200,
+          easing: 'easeOutElastic(1, 0.6)'
+        });
+
+        // 3. Search bar expand
+        anime({
+          targets: '.res-portal-search.desktop-only',
+          scaleX: [0.9, 1],
+          opacity: [0, 1],
+          duration: 600,
+          delay: 300,
+          easing: 'easeOutQuad'
+        });
+
+        // 4. Skip animations on cart button and user status container to avoid interfering with interactions (mobile-safe)
+
+        // 5. Mobile search slide down
+        anime({
+          targets: '.res-portal-search.mobile-only',
+          translateY: [-20, 0],
+          opacity: [0, 1],
+          duration: 600,
+          delay: 350,
+          easing: 'easeOutQuad'
+        });
+
+        // 6. Banner entrance
+        anime({
+          targets: '.res-portal-banner',
+          translateY: [40, 0],
+          opacity: [0, 1],
+          duration: 800,
+          delay: 500,
+          easing: 'easeOutExpo'
+        });
+
+        // 7. Banner content stagger
+        anime({
+          targets: ['.banner-title', '.banner-tagline'],
+          translateY: [20, 0],
+          opacity: [0, 1],
+          duration: 600,
+          delay: anime.stagger(150, {start: 700}),
+          easing: 'easeOutQuad'
+        });
+
+        // 8. Banner CTA buttons
+        anime({
+          targets: '.banner-cta-btn',
+          scale: [0.85, 1],
+          opacity: [0, 1],
+          duration: 500,
+          delay: anime.stagger(100, {start: 1000}),
+          easing: 'easeOutElastic(1, 0.7)'
+        });
+
+        // 9. Navigation buttons slide in
+        anime({
+          targets: '.res-portal-nav-btn',
+          translateY: [30, 0],
+          opacity: [0, 1],
+          duration: 600,
+          delay: anime.stagger(60, {start: 600}),
+          easing: 'easeOutExpo'
+        });
+
+        // 10. Category buttons pop in
+        anime({
+          targets: '.res-portal-category-btn',
+          scale: [0.85, 1],
+          opacity: [0, 1],
+          duration: 500,
+          delay: anime.stagger(40, {start: 800}),
+          easing: 'easeOutElastic(1, 0.8)'
+        });
+
+        // 11. Price filter expand
+        anime({
+          targets: '.res-portal-price-filter',
+          scaleX: [0.9, 1],
+          opacity: [0, 1],
+          duration: 600,
+          delay: 900,
+          easing: 'easeOutQuad'
+        });
+
+        // 12. Product cards entrance with stagger from center
+        anime({
+          targets: '.res-portal-product-card',
+          translateY: [40, 0],
+          opacity: [0, 1],
+          scale: [0.92, 1],
+          duration: 700,
+          delay: anime.stagger(50, {start: 1000, from: 'center'}),
+          easing: 'easeOutExpo'
+        });
+
+
+        // 14. Continuous pulse for floating button
+        anime({
+          targets: '.floating-conversion-btn',
+          scale: [1, 1.08, 1],
+          duration: 2200,
+          delay: 2200,
+          loop: true,
+          easing: 'easeInOutQuad'
+        });
+
+        // 15. Product card hover effects
+        document.querySelectorAll('.res-portal-product-card').forEach(card => {
+          card.addEventListener('mouseenter', function() {
+            anime({
+              targets: this,
+              translateY: -10,
+              scale: 1.03,
+              duration: 350,
+              easing: 'easeOutCubic'
+            });
+            
+            const btn = this.querySelector('.res-portal-add-cart-btn');
+            if (btn) {
+              anime({
+                targets: btn,
+                scale: 1,
+                duration: 300,
+                easing: 'easeOutElastic(1, 0.6)'
+              });
+            }
+          });
+
+          card.addEventListener('mouseleave', function() {
+            anime({
+              targets: this,
+              translateY: 0,
+              scale: 1,
+              duration: 350,
+              easing: 'easeOutCubic'
+            });
+
+            const btn = this.querySelector('.res-portal-add-cart-btn');
+            if (btn) {
+              anime({
+                targets: btn,
+                scale: 1,
+                duration: 300,
+                easing: 'easeOutQuad'
+              });
+            }
+          });
+        });
+
+        // 16. Button click feedback
+        document.querySelectorAll('.res-portal-add-cart-btn, .banner-cta-btn, .res-portal-category-btn, .price-apply, .res-portal-nav-btn').forEach(btn => {
+          btn.addEventListener('click', function(e) {
+            anime({
+              targets: this,
+              scale: [1, 0.92, 1, 1],
+              duration: 400,
+              easing: 'easeOutElastic(1, 0.8)'
+            });
+          });
+        });
+
+        // 17. Cart badge animation
+        const originalUpdateBadge = window.updateCartBadge;
+        if (typeof originalUpdateBadge === 'function') {
+          window.updateCartBadge = function(...args) {
+            originalUpdateBadge.apply(this, args);
+            const badge = document.querySelector('.cart-badge');
+            if (badge && badge.style.display !== 'none') {
+              anime({
+                targets: badge,
+                scale: [0.5, 1.3, 1],
+                rotate: [0, 12, -12, 0],
+                duration: 600,
+                easing: 'easeOutElastic(1, 0.6)'
+              });
+            }
+          };
+        }
+
+        // 18. Modal entrance animation
+        const productModal = document.getElementById('productModal');
+        if (productModal) {
+          const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+              if (mutation.attributeName === 'style') {
+                const display = productModal.style.display;
+                if (display === 'flex') {
+                  anime({
+                    targets: '.product-modal-overlay',
+                    opacity: [0, 1],
+                    duration: 300,
+                    easing: 'easeOutQuad'
+                  });
+                  anime({
+                    targets: '.product-modal-card',
+                    scale: [0.7, 1],
+                    opacity: [0, 1],
+                    duration: 450,
+                    easing: 'easeOutExpo'
+                  });
+                  
+                  setTimeout(() => {
+                    anime({
+                      targets: '.modal-size-options .size-option-label',
+                      scale: [0.8, 1],
+                      opacity: [0, 1],
+                      duration: 400,
+                      delay: anime.stagger(40),
+                      easing: 'easeOutElastic(1, 0.7)'
+                    });
+                  }, 200);
+                }
+              }
+            });
+          });
+          observer.observe(productModal, { attributes: true });
+        }
+
+        // 19. Category filter switch animation
+        document.querySelectorAll('.res-portal-category-btn').forEach(btn => {
+          btn.addEventListener('click', function() {
+            // Fade out current products
+            anime({
+              targets: '.res-portal-product-card',
+              opacity: [1, 0],
+              translateY: [0, 20],
+              scale: [1, 0.95],
+              duration: 300,
+              easing: 'easeInQuad',
+              complete: () => {
+                // Wait for products to reload, then fade them back in
+                setTimeout(() => {
+                  const newCards = document.querySelectorAll('.res-portal-product-card');
+                  if (newCards.length > 0) {
+                    anime({
+                      targets: newCards,
+                      translateY: [30, 0],
+                      opacity: [0, 1],
+                      scale: [0.9, 1],
+                      duration: 600,
+                      delay: anime.stagger(40, {from: 'center'}),
+                      easing: 'easeOutExpo'
+                    });
+                  }
+                }, 150);
+              }
+            });
+          });
+        });
+
+        // 20. (Removed) User menu dropdown animation — avoid animating menu open to prevent interaction issues on mobile
+
+        // 21. Cart dropdown animation
+        const cartBtn = document.querySelector('.res-portal-cart-btn');
+        if (cartBtn) {
+          cartBtn.addEventListener('mouseenter', function() {
+            setTimeout(() => {
+              const dropdown = document.querySelector('.cart-dropdown.open');
+              if (dropdown && window.matchMedia('(min-width: 701px)').matches) {
+                anime({
+                  targets: dropdown,
+                  translateY: [-12, 0],
+                  opacity: [0, 1],
+                  duration: 350,
+                  easing: 'easeOutQuad'
+                });
+              }
+            }, 50);
+          });
+        }
+
+        // 22. Loading spinner animation
+        const productsContainer = document.getElementById('products');
+        if (productsContainer) {
+          const loadingObserver = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+              mutation.addedNodes.forEach((node) => {
+                if (node.classList && node.classList.contains('loading-spinner')) {
+                  anime({
+                    targets: node,
+                    opacity: [0, 1],
+                    scale: [0.8, 1],
+                    duration: 400,
+                    easing: 'easeOutQuad'
+                  });
+                }
+              });
+            });
+          });
+          loadingObserver.observe(productsContainer, { childList: true, subtree: true });
+        }
+
+        // 23. Pagination entrance
+        const paginationObserver = new MutationObserver((mutations) => {
+          const pagination = document.querySelector('.sv-pagination');
+          if (pagination && !pagination.dataset.animated) {
+            pagination.dataset.animated = 'true';
+            anime({
+              targets: pagination,
+              translateY: [20, 0],
+              opacity: [0, 1],
+              duration: 500,
+              easing: 'easeOutQuad'
+            });
+            anime({
+              targets: '.sv-pagination-btn',
+              scale: [0.85, 1],
+              opacity: [0, 1],
+              duration: 400,
+              delay: anime.stagger(30),
+              easing: 'easeOutElastic(1, 0.7)'
+            });
+          }
+        });
+        if (productsContainer && productsContainer.parentNode) {
+          paginationObserver.observe(productsContainer.parentNode, { childList: true });
+        }
+
+        // 24. Banner CTA hover effects
+        document.querySelectorAll('.banner-cta-btn').forEach(btn => {
+          btn.addEventListener('mouseenter', function() {
+            anime({
+              targets: this,
+              translateY: -4,
+              scale: 1.05,
+              duration: 300,
+              easing: 'easeOutQuad'
+            });
+          });
+          btn.addEventListener('mouseleave', function() {
+            anime({
+              targets: this,
+              translateY: 0,
+              scale: 1,
+              duration: 300,
+              easing: 'easeOutQuad'
+            });
+          });
+        });
+
+        // 25. Floating button hover
+        const floatingBtn = document.querySelector('.floating-conversion-btn');
+        if (floatingBtn) {
+          floatingBtn.addEventListener('mouseenter', function() {
+            anime({
+              targets: this,
+              scale: 1.15,
+              rotate: 5,
+              duration: 300,
+              easing: 'easeOutQuad'
+            });
+          });
+          floatingBtn.addEventListener('mouseleave', function() {
+            anime({
+              targets: this,
+              scale: 1,
+              rotate: 0,
+              duration: 300,
+              easing: 'easeOutQuad'
+            });
+          });
+        }
+
+        // 26. Nav button hover effects
+        document.querySelectorAll('.res-portal-nav-btn').forEach(btn => {
+          btn.addEventListener('mouseenter', function() {
+            anime({
+              targets: this.querySelector('.nav-icon'),
+              scale: 1.2,
+              rotate: 5,
+              duration: 300,
+              easing: 'easeOutQuad'
+            });
+          });
+          btn.addEventListener('mouseleave', function() {
+            anime({
+              targets: this.querySelector('.nav-icon'),
+              scale: 1,
+              rotate: 0,
+              duration: 300,
+              easing: 'easeOutQuad'
+            });
+          });
+        });
+
+        // 27. Category button active state animation
+        document.querySelectorAll('.res-portal-category-btn').forEach(btn => {
+          btn.addEventListener('click', function() {
+            anime({
+              targets: this,
+              scale: [1, 1.1, 1],
+              duration: 400,
+              easing: 'easeOutElastic(1, 0.7)'
+            });
+          });
+        });
+
+        // 28. Price filter toggle animation (mobile)
+        const priceToggle = document.querySelector('.price-toggle-btn');
+        if (priceToggle) {
+          priceToggle.addEventListener('click', function() {
+            setTimeout(() => {
+              const panel = document.querySelector('.res-portal-price-filter.open');
+              if (panel) {
+                anime({
+                  targets: panel,
+                  translateX: [20, 0],
+                  opacity: [0, 1],
+                  duration: 350,
+                  easing: 'easeOutQuad'
+                });
+              }
+            }, 50);
+          });
+        }
+
+        // 29. (Removed) Cart modal entrance (mobile) — no overlay/window animations to avoid forced close/focus conflicts
+
+        // 30. Login required modal animation
+        const loginModal = document.getElementById('loginRequiredModal');
+        if (loginModal) {
+          const loginObserver = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+              if (mutation.attributeName === 'class') {
+                if (loginModal.classList.contains('is-open')) {
+                  anime({
+                    targets: '.login-required-card',
+                    scale: [0.8, 1],
+                    opacity: [0, 1],
+                    duration: 400,
+                    easing: 'easeOutExpo'
+                  });
+                }
+              }
+            });
+          });
+          loginObserver.observe(loginModal, { attributes: true });
+        }
+      }
     })();
   </script>
 </body>
