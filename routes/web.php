@@ -288,6 +288,10 @@ Route::middleware(['auth', 'role:owner,admin'])->prefix('owner')->name('owner.')
     Route::get('/users', [OwnerUsersController::class, 'index'])->name('users.index');
     Route::post('/users', [OwnerUsersController::class, 'store'])->name('users.store');
     Route::post('/users/toggle', [OwnerUsersController::class, 'toggle'])->name('users.toggle');
+    
+    // Customer management APIs
+    Route::get('/customers', [OwnerUsersController::class, 'customersIndex'])->name('customers.index');
+    Route::post('/customers/toggle', [OwnerUsersController::class, 'customersToggle'])->name('customers.toggle');
 });
 
 // Analytics routes (for owners and admin) - Future implementation  

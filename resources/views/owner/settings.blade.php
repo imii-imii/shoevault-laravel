@@ -200,13 +200,12 @@
 							<div id="user-list" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:16px; align-items:stretch;"></div>
 						</div>
 
-						<!-- Customers management (UI only) -->
+						<!-- Customers management -->
 						<div id="customer-management" style="display:none;">
 							<div style="display:flex; gap:12px; align-items:center; margin-bottom:14px;">
 								<input type="text" id="customer-search" placeholder="Search customers..." class="search-input" style="flex:1; min-width:180px;">
 							</div>
 							<div id="customer-list" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:16px; align-items:stretch;"></div>
-							<div style="margin-top:10px; color:#6b7280; font-size:0.85rem;">Note: Customer account actions are UI-only in this build.</div>
 						</div>
 					</div>
 
@@ -457,9 +456,24 @@ document.addEventListener('DOMContentLoaded', function() {
 		const cancelBtn = document.getElementById('au-cancel');
 		const form = document.getElementById('add-user-form');
 		const userList = document.getElementById('user-list');
-	const apiUrl = '{{ $userStoreRoute ?? '' }}';
-	const toggleUrl = '{{ $userToggleRoute ?? '' }}';
-	const indexUrl = '{{ $userIndexRoute ?? '' }}';
+	const apiUrl = @json($userStoreRoute ?? '');
+	const toggleUrl = @json($userToggleRoute ?? '');
+	const indexUrl = @json($userIndexRoute ?? '');
+	const customerIndexUrl = @json($customerIndexRoute ?? '');
+	const customerToggleUrl = @json($customerToggleRoute ?? '');
+
+	// Debug: Log the URLs to console for troubleshooting
+	console.log('User Management URLs:', { apiUrl, toggleUrl, indexUrl });
+	console.log('Customer Management URLs:', { customerIndexUrl, customerToggleUrl });
+
+	// Global variables to ensure they're accessible everywhere
+	window.customerIndexUrl = customerIndexUrl;
+	window.customerToggleUrl = customerToggleUrl;
+	
+	// Fallback for showSection if not loaded yet
+	window.showSection = window.showSection || function(sectionId) {
+		console.warn('showSection called but not yet loaded:', sectionId);
+	};
 
 		function open(){ overlay.style.display='block'; modal.style.display='block'; }
 		function close(){ modal.style.display='none'; overlay.style.display='none'; form.reset(); clearErrors(); }
@@ -611,9 +625,9 @@ document.addEventListener('DOMContentLoaded', function() {
 					if (!ok) { switchInput.checked = true; return; }
 				}
 
-				if ('{{ $userToggleRoute ?? '' }}' && card.dataset.userId) {
+				if (toggleUrl && card.dataset.userId) {
 					try {
-						const resp = await fetch('{{ $userToggleRoute ?? '' }}', {
+						const resp = await fetch(toggleUrl, {
 							method: 'POST',
 							headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
 							body: JSON.stringify({ id: card.dataset.userId, enabled: wantEnabled })
@@ -698,11 +712,16 @@ document.addEventListener('DOMContentLoaded', function() {
 	</script>
 
 	<script>
-	// Employee/Customer account type toggle and Customer UI (no backend)
+	// Employee/Customer account type toggle and real customer data
 	(function(){
 		const toggle = document.getElementById('account-type-toggle');
 		const emp = document.getElementById('employee-management');
 		const cust = document.getElementById('customer-management');
+		const customerListEl = document.getElementById('customer-list');
+		const customerSearchEl = document.getElementById('customer-search');
+		
+		let cachedCustomers = { list: [] };
+		
 		if (toggle && emp && cust) {
 			toggle.addEventListener('click', (e)=>{
 				const btn = e.target.closest('.seg-btn');
@@ -714,21 +733,45 @@ document.addEventListener('DOMContentLoaded', function() {
 				btn.classList.add('active');
 				btn.setAttribute('aria-selected','true');
 				const type = btn.getAttribute('data-type');
-				if (type === 'customers') { emp.style.display = 'none'; cust.style.display=''; }
+				if (type === 'customers') { 
+					emp.style.display = 'none'; 
+					cust.style.display=''; 
+					// Load customers when switching to customer tab
+					if (cachedCustomers.list.length === 0) {
+						loadCustomers();
+					}
+				}
 				else { cust.style.display='none'; emp.style.display=''; }
 			});
 		}
 
-		// Customer UI only: mock data and interactions
-		const customerListEl = document.getElementById('customer-list');
-		const customerSearchEl = document.getElementById('customer-search');
-		const customersCache = { list: [
-			{id: 101, name:'Ana Reyes', username:'anareyes', email:'ana@example.com', phone:'+63 900 123 4567', status:'active'},
-			{id: 102, name:'Marco Santos', username:'marcos', email:'marco@example.com', phone:'+63 917 555 1212', status:'locked'},
-			{id: 103, name:'Lia Gomez', username:'liag', email:'lia@example.com', phone:'+63 905 111 2222', status:'banned'},
-			{id: 104, name:'Ken Tan', username:'kent', email:'ken@example.com', phone:'+63 918 333 4444', status:'active'},
-			{id: 105, name:'Mica Cruz', username:'micacruz', email:'mica@example.com', phone:'+63 912 777 8888', status:'active'}
-		] };
+		// Load customers from API
+		async function loadCustomers(search = '') {
+			const custIndexUrl = window.customerIndexUrl || customerIndexUrl;
+			if (!custIndexUrl || !customerListEl) {
+				console.error('Customer index URL not available:', custIndexUrl);
+				return;
+			}
+			
+			try {
+				// Show loading skeleton
+				customerListEl.innerHTML = Array.from({length:6}).map(()=>'<div class="odash-card skeleton" style="width:200px;height:300px;border-radius:12px;"></div>').join('');
+				
+				const url = new URL(custIndexUrl, window.location.origin);
+				if (search) url.searchParams.set('search', search);
+				
+				const res = await fetch(url.toString(), { headers: { 'Accept':'application/json' } });
+				const data = await res.json();
+				
+				if (!res.ok || data.success === false) throw new Error(data.message || 'Failed to load customers');
+				
+				cachedCustomers.list = Array.isArray(data.customers) ? data.customers : [];
+				renderCustomers(cachedCustomers.list);
+			} catch(err) {
+				console.error(err);
+				customerListEl.innerHTML = '<div style="color:#ef4444;">Failed to load customers.</div>';
+			}
+		}
 
 		function renderCustomers(items){
 			if (!customerListEl) return;
@@ -743,16 +786,22 @@ document.addEventListener('DOMContentLoaded', function() {
 		function buildCustomerCard(c){
 			const card = document.createElement('div');
 			card.className = 'odash-list-item odash-card';
-			const isLocked = c.status === 'locked';
-			const isBanned = c.status === 'banned';
+			card.dataset.customerId = c.id;
+			
+			const isLocked = !c.is_active;
+			const isBanned = c.status === 'banned'; // Future enhancement
+			
 			if (isLocked) card.classList.add('is-locked');
 			if (isBanned) card.classList.add('is-banned');
+			
 			const badgeClass = isBanned ? 'banned' : (isLocked ? 'locked' : 'active');
 			const badgeText = isBanned ? 'Banned' : (isLocked ? 'Locked' : 'Active');
+			
 			card.style.cssText = [
 				'width:200px','height:300px','display:flex','flex-direction:column','align-items:center','justify-content:flex-start','padding:14px',
 				'border:1px solid #e5e7eb','border-radius:12px','background:#fff','box-shadow:0 2px 8px rgba(0,0,0,0.04)','position:relative'
 			].join(';');
+			
 			card.innerHTML = `
 				<div class="odash-status-badge ${badgeClass}">${badgeText}</div>
 				<div style="flex:0 0 auto;display:flex;justify-content:center;width:100%;margin-top:8px;">
@@ -762,8 +811,7 @@ document.addEventListener('DOMContentLoaded', function() {
 					<div class="name" style="font-weight:800;color:#111827;">${c.name}</div>
 					<div class="sub" style="color:#6b7280;font-size:0.85rem;">@${c.username}</div>
 				</div>
-				<!-- Email and phone intentionally hidden for customer privacy -->
-				<div style="flex:0 0 auto;height:8px;margin-top:8px;"></div>
+				<div style="flex:0 0 auto;text-align:center;margin-top:8px;color:#6b7280;font-size:0.85rem;">${c.email || 'N/A'}</div>
 				<div style="flex:1 1 auto"></div>
 				<div style="flex:0 0 auto;margin-top:8px;display:flex;flex-direction:column;align-items:center;gap:10px;">
 					<div style="display:flex;align-items:center;gap:10px;">
@@ -773,37 +821,50 @@ document.addEventListener('DOMContentLoaded', function() {
 						</label>
 						<span style="font-size:0.8rem;color:#374151;font-weight:700;">Lock</span>
 					</div>
-					<div style="display:flex;align-items:center;gap:10px;">
-						<label class="odash-switch" title="Ban account">
-							<input type="checkbox" class="odash-switch-input cust-ban" ${isBanned ? 'checked' : ''}>
-							<span class="odash-switch-track" style="background:#fecaca"></span>
-						</label>
-						<span style="font-size:0.8rem;color:#7f1d1d;font-weight:800;">Ban</span>
-					</div>
 				</div>
 			`;
 
 			const badge = card.querySelector('.odash-status-badge');
 			const lockInput = card.querySelector('.cust-lock');
-			const banInput = card.querySelector('.cust-ban');
 
-			function refreshState(){
-				card.classList.toggle('is-locked', lockInput?.checked && !banInput?.checked);
-				card.classList.toggle('is-banned', !!banInput?.checked);
-				let state = 'Active';
-				let cls = 'active';
-				if (banInput?.checked) { state='Banned'; cls='banned'; }
-				else if (lockInput?.checked) { state='Locked'; cls='locked'; }
-				badge.textContent = state;
-				badge.className = 'odash-status-badge ' + cls;
-				lockInput.disabled = !!banInput?.checked; // cannot lock while banned
-			}
-
-			lockInput?.addEventListener('change', ()=>{
-				refreshState();
-			});
-			banInput?.addEventListener('change', ()=>{
-				refreshState();
+			lockInput?.addEventListener('change', async ()=>{
+				const wantLocked = lockInput.checked;
+				const custToggleUrl = window.customerToggleUrl || customerToggleUrl;
+				
+				if (custToggleUrl && card.dataset.customerId) {
+					try {
+						const resp = await fetch(custToggleUrl, {
+							method: 'POST',
+							headers: { 
+								'Content-Type': 'application/json', 
+								'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content 
+							},
+							body: JSON.stringify({ 
+								id: card.dataset.customerId, 
+								action: 'lock',
+								enabled: wantLocked 
+							})
+						});
+						
+						const result = await resp.json().catch(()=>({}));
+						if (!resp.ok || result.success === false) {
+							throw new Error(result.message || 'Failed to update customer status');
+						}
+						
+						// Update UI
+						card.classList.toggle('is-locked', wantLocked);
+						const state = wantLocked ? 'Locked' : 'Active';
+						const cls = wantLocked ? 'locked' : 'active';
+						badge.textContent = state;
+						badge.className = 'odash-status-badge ' + cls;
+						
+					} catch(err) {
+						console.error(err);
+						// Revert checkbox on error
+						lockInput.checked = !wantLocked;
+						alert('Failed to update customer status: ' + err.message);
+					}
+				}
 			});
 
 			return card;
@@ -811,20 +872,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
 		function applyCustomerSearch(){
 			const q = (customerSearchEl?.value || '').toLowerCase();
-			let rows = [...customersCache.list];
+			let rows = [...cachedCustomers.list];
 			if (q) rows = rows.filter(x => (
-				String(x.name).toLowerCase().includes(q) || String(x.username).toLowerCase().includes(q) || String(x.email).toLowerCase().includes(q)
+				String(x.name).toLowerCase().includes(q) || 
+				String(x.username).toLowerCase().includes(q) || 
+				String(x.email).toLowerCase().includes(q)
 			));
 			renderCustomers(rows);
 		}
 
-		// Initial customer skeleton then render
-		if (customerListEl) {
-			customerListEl.innerHTML = Array.from({length:6}).map(()=>'<div class="odash-card skeleton" style="width:200px;height:300px;border-radius:12px;"></div>').join('');
-			setTimeout(()=> renderCustomers(customersCache.list), 300);
-		}
 		let ct;
-		customerSearchEl?.addEventListener('input', ()=>{ clearTimeout(ct); ct = setTimeout(applyCustomerSearch, 200); });
+		customerSearchEl?.addEventListener('input', ()=>{ 
+			clearTimeout(ct); 
+			ct = setTimeout(applyCustomerSearch, 200); 
+		});
 	})();
 	</script>
 
