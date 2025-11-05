@@ -7,6 +7,7 @@
   <title>ShoeVault Account</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Montserrat:wght@600;800&display=swap" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
   <style>
     :root{
       /* Light mode, monochrome with minimal blue accent */
@@ -122,6 +123,101 @@
     .t-modal .t-close{border:0;background:#f1f5f9;color:#0f172a;width:34px;height:34px;border-radius:10px;cursor:pointer}
     .t-modal .t-content{color:#475569;line-height:1.6}
     @keyframes t-zoom{to{transform:scale(1);opacity:1}}
+
+    /* Login Success Overlay (anime.js animated) */
+    .login-success-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #020d27 0%, #092c80 50%, #1e40af 100%);
+      z-index: 9999;
+      overflow: hidden;
+    }
+    .login-success-overlay.is-open { display: flex; }
+    
+    .success-particles {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .success-particle {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      background: rgba(255,255,255,0.6);
+      border-radius: 50%;
+    }
+    
+    .success-content {
+      position: relative;
+      z-index: 10;
+      text-align: center;
+      color: #fff;
+      opacity: 0;
+    }
+    .success-icon-wrap {
+      width: 120px;
+      height: 120px;
+      margin: 0 auto 24px;
+      position: relative;
+    }
+    .success-circle {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 12px 32px rgba(16,185,129,0.5);
+    }
+    .success-check {
+      font-size: 60px;
+      color: #fff;
+    }
+    .success-ripple {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 3px solid rgba(16,185,129,0.8);
+      opacity: 0;
+    }
+    .success-title {
+      font-size: 32px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      letter-spacing: -0.5px;
+    }
+    .success-subtitle {
+      font-size: 16px;
+      color: rgba(255,255,255,0.85);
+      margin-bottom: 32px;
+    }
+    .success-loader {
+      width: 200px;
+      height: 4px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 999px;
+      margin: 0 auto;
+      overflow: hidden;
+    }
+    .success-loader-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #ffffff 0%, #e0e7ff 100%);
+      border-radius: 999px;
+      box-shadow: 0 0 12px rgba(255,255,255,0.6);
+      transform: translateX(-100%);
+    }
+    @media (max-width: 480px) {
+      .success-icon-wrap { width: 90px; height: 90px; }
+      .success-circle { width: 90px; height: 90px; }
+      .success-check { font-size: 45px; }
+      .success-title { font-size: 24px; }
+      .success-subtitle { font-size: 14px; }
+    }
   </style>
 </head>
 <body>
@@ -230,6 +326,26 @@
     </div>
   </div>
 
+  <!-- Login Success Overlay -->
+  <div id="loginSuccessOverlay" class="login-success-overlay">
+    <div class="success-particles" id="successParticles"></div>
+    <div class="success-content" id="successContent">
+      <div class="success-icon-wrap">
+        <div class="success-ripple" id="ripple1"></div>
+        <div class="success-ripple" id="ripple2"></div>
+        <div class="success-ripple" id="ripple3"></div>
+        <div class="success-circle">
+          <i class="fas fa-check success-check" id="successCheck"></i>
+        </div>
+      </div>
+      <h1 class="success-title">Welcome Back!</h1>
+      <p class="success-subtitle">Login successful. Redirecting to portal...</p>
+      <div class="success-loader">
+        <div class="success-loader-bar" id="successLoaderBar"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Terms & Conditions Modal -->
   <div id="termsModal" class="t-modal" aria-hidden="true" role="dialog" aria-label="Terms and Conditions">
     <div class="t-backdrop"></div>
@@ -327,12 +443,13 @@
           const data = await response.json();
 
           if (data.success) {
-            showMessage('Login successful! Redirecting...');
+            // Show anime.js success animation
+            showLoginSuccessAnimation();
             // Redirect back to the page they came from or portal
             const returnUrl = new URLSearchParams(window.location.search).get('return') || '{{ route("reservation.portal") }}';
             setTimeout(() => {
               window.location.href = returnUrl;
-            }, 1000);
+            }, 2200);
           } else {
             // Check if email verification is needed
             if (data.needs_email_verification) {
@@ -842,6 +959,80 @@
       openTerms?.addEventListener('click', openTermsModal);
       termsModal?.addEventListener('click', (e)=>{ if (e.target === termsModal || e.target.closest('.t-close')) closeTermsModal(); });
       document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') closeTermsModal(); });
+
+      // Login success animation with anime.js
+      function showLoginSuccessAnimation() {
+        const overlay = document.getElementById('loginSuccessOverlay');
+        const content = document.getElementById('successContent');
+        const check = document.getElementById('successCheck');
+        const ripple1 = document.getElementById('ripple1');
+        const ripple2 = document.getElementById('ripple2');
+        const ripple3 = document.getElementById('ripple3');
+        const loaderBar = document.getElementById('successLoaderBar');
+        const particlesContainer = document.getElementById('successParticles');
+
+        // Show overlay
+        overlay.classList.add('is-open');
+
+        // Generate floating particles
+        for (let i = 0; i < 25; i++) {
+          const particle = document.createElement('div');
+          particle.className = 'success-particle';
+          particle.style.left = Math.random() * 100 + '%';
+          particle.style.top = '100%';
+          particlesContainer.appendChild(particle);
+
+          // Animate particle floating up
+          anime({
+            targets: particle,
+            translateY: [0, -window.innerHeight - 100],
+            opacity: [0, 1, 1, 0],
+            scale: [0, 1, 1, 0.5],
+            delay: Math.random() * 1000,
+            duration: 3000 + Math.random() * 1000,
+            easing: 'easeOutCubic'
+          });
+        }
+
+        // Animate content fade in
+        anime({
+          targets: content,
+          opacity: [0, 1],
+          translateY: [30, 0],
+          duration: 600,
+          easing: 'easeOutExpo'
+        });
+
+        // Animate checkmark pop
+        anime({
+          targets: check,
+          scale: [0, 1],
+          rotate: [-45, 0],
+          duration: 500,
+          delay: 200,
+          easing: 'easeOutElastic(1, 0.6)'
+        });
+
+        // Animate ripples
+        anime({
+          targets: [ripple1, ripple2, ripple3],
+          scale: [1, 1.8],
+          opacity: [0.8, 0],
+          duration: 2000,
+          delay: anime.stagger(400, {start: 300}),
+          loop: true,
+          easing: 'easeOutQuad'
+        });
+
+        // Animate loader bar
+        anime({
+          targets: loaderBar,
+          translateX: ['-100%', '0%'],
+          duration: 2000,
+          delay: 400,
+          easing: 'easeOutQuad'
+        });
+      }
     })();
   </script>
 </body>

@@ -60,11 +60,6 @@
     .lr-btn:active { transform: translateY(1px); }
     .lr-btn.primary { border:1px solid transparent; background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%) padding-box, linear-gradient(135deg, #000e2e 0%, #2343ce 100%) border-box; color:#0b1220; box-shadow: 0 12px 28px -14px rgba(35,67,206,.28); }
     @keyframes lr-zoom { to { transform: scale(1); opacity: 1; } }
-    
-    /* Mobile adjustments */
-    @media (max-width: 700px) {
-      .login-required-card { margin: 0 20px; width: min(420px, calc(100vw - 40px)); }
-    }
   </style>
 </head>
 <body>
@@ -79,29 +74,32 @@
         <i class="fas fa-shopping-cart"></i>
       </button>
       <div class="user-status-container">
-        <!-- When not logged in -->
-        <a href="{{ route('customer.login') }}" class="res-portal-profile-btn login-btn" title="Sign in / Create account" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:999px;border:1px solid rgba(0,0,0,.06);background:#ffffff;box-shadow:0 6px 16px rgba(0,0,0,.08);color:#0f172a;transition:filter .15s ease, transform .05s ease;">
-          <i class="fas fa-user"></i>
-        </a>
-        <!-- When logged in (hidden by default) -->
-        <div class="user-dropdown" style="display:none;position:relative;">
-          <button class="user-dropdown-btn" style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:20px;border:1px solid rgba(0,0,0,.06);background:#ffffff;box-shadow:0 6px 16px rgba(0,0,0,.08);color:#0f172a;font-size:0.85rem;cursor:pointer;transition:all 0.15s ease;" onmouseover="this.style.boxShadow='0 8px 20px rgba(0,0,0,.12)'; this.style.transform='translateY(-1px)'" onmouseout="this.style.boxShadow='0 6px 16px rgba(0,0,0,.08)'; this.style.transform='translateY(0)'">>
-            <div class="user-avatar" style="width:20px;height:20px;border-radius:50%;background:#e0e7ff;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:600;color:#3730a3;">
-              <span class="user-initials">U</span>
-            </div>
-            <span class="user-name">User</span>
-            <i class="fas fa-chevron-down" style="font-size:0.7rem;"></i>
-          </button>
-          <div class="user-dropdown-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;min-width:200px;background:#ffffff;border:1px solid rgba(0,0,0,.08);border-radius:12px;box-shadow:0 12px 28px rgba(0,0,0,.15);z-index:1000;">
-            <div class="user-dropdown-item" style="padding:12px 16px;border-bottom:1px solid rgba(0,0,0,.06);">
-              <div class="user-email" style="font-size:0.85rem;color:#6b7280;"></div>
-            </div>
-            <button class="user-dropdown-item logout-btn" style="width:100%;text-align:left;padding:12px 16px;border:none;background:none;color:#dc2626;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background-color 0.15s ease;" onmouseover="this.style.backgroundColor='#fef2f2'" onmouseout="this.style.backgroundColor='transparent'">
-              <i class="fas fa-sign-out-alt"></i>
-              <span>Logout</span>
+        @if(auth('customer')->check())
+          <div class="sv-user">
+            <button class="sv-user-btn" type="button" aria-expanded="false" aria-haspopup="menu">
+              <span class="sv-user-avatar">{{ strtoupper(substr((auth('customer')->user()->first_name ?? auth('customer')->user()->name ?? auth('customer')->user()->email), 0, 1)) }}</span>
+              <span class="sv-user-name">{{ auth('customer')->user()->first_name ?? auth('customer')->user()->name ?? 'Customer' }}</span>
+              <i class="fas fa-chevron-down" style="font-size:0.75rem;"></i>
             </button>
+            <div class="sv-user-menu" role="menu">
+              <div class="sv-user-meta">
+                <div class="sv-user-email">{{ auth('customer')->user()->email }}</div>
+              </div>
+              <form method="POST" action="{{ route('customer.logout') }}">
+                @csrf
+                <button type="submit" class="sv-user-item danger" role="menuitem">
+                  <i class="fas fa-sign-out-alt"></i>
+                  <span>Logout</span>
+                </button>
+              </form>
+            </div>
           </div>
-        </div>
+        @else
+          <!-- When not logged in -->
+          <a href="{{ route('customer.login') }}" class="res-portal-profile-btn login-btn" title="Sign in / Create account" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:999px;border:1px solid rgba(0,0,0,.06);background:#ffffff;box-shadow:0 6px 16px rgba(0,0,0,.08);color:#0f172a;transition:filter .15s ease, transform .05s ease;">
+            <i class="fas fa-user"></i>
+          </a>
+        @endif
       </div>
       <div class="cart-dropdown" id="cartDropdown">
         <div class="cart-dropdown-header">
@@ -293,7 +291,8 @@
 
   <!-- Customer Data for JavaScript -->
   <script>
-    window.customerData = @json($customer);
+    window.customerData = @json(auth('customer')->user());
+    window.IS_CUSTOMER_LOGGED_IN = {{ auth('customer')->check() ? 'true' : 'false' }};
   </script>
 
   <!-- Products Data for JavaScript -->
@@ -345,34 +344,48 @@
         window.location.href = `${baseUrl}?return=${returnParam}`;
       });
 
-      // Intercept clicks on Add-to-Cart and Cart buttons when not logged in
+      // Intercept clicks on Add-to-Cart buttons only when NOT logged in
+      // NOTE: We don't intercept cart button here anymore - it's handled by reservation-portal-laravel.js
       document.addEventListener('click', (e)=>{
         const addBtn = e.target.closest?.('.res-portal-add-cart-btn');
-        const cartBtn = e.target.closest?.('.res-portal-cart-btn');
-        const notLoggedIn = !window.customerData || !window.customerData.id;
-        if ((addBtn || cartBtn) && notLoggedIn) {
+        const notLoggedIn = !window.IS_CUSTOMER_LOGGED_IN;
+        if (addBtn && notLoggedIn) {
           e.preventDefault();
           e.stopPropagation();
           showLoginRequired();
         }
       }, true);
 
-      // Update cart button title attribute based on login status
-      const updateCartButtonState = () => {
-        const cartBtnEl = document.querySelector('.res-portal-cart-btn');
-        if (cartBtnEl) {
-          const isLoggedIn = window.customerData && window.customerData.id;
-          cartBtnEl.title = isLoggedIn ? 'View Cart' : 'Please login to view cart';
-          cartBtnEl.style.opacity = isLoggedIn ? '1' : '0.6';
-          cartBtnEl.style.cursor = isLoggedIn ? 'pointer' : 'not-allowed';
+      // Enhance cart button state based on login
+      const cartBtnEl = document.querySelector('.res-portal-cart-btn');
+      if (cartBtnEl) {
+        if (window.IS_CUSTOMER_LOGGED_IN) {
+          cartBtnEl.title = 'View Cart';
+          cartBtnEl.style.opacity = '1';
+          cartBtnEl.style.cursor = 'pointer';
+        } else {
+          cartBtnEl.title = 'Please login to view cart';
+          cartBtnEl.style.opacity = '0.6';
+          cartBtnEl.style.cursor = 'not-allowed';
         }
-      };
-      
-      // Run on load
-      updateCartButtonState();
-      
-      // Also run after potential login state changes
-      window.addEventListener('storage', updateCartButtonState);
+      }
+
+      // User menu interactions (when logged in)
+      if (window.IS_CUSTOMER_LOGGED_IN) {
+        const svUser = document.querySelector('.sv-user');
+        if (svUser) {
+          const btn = svUser.querySelector('.sv-user-btn');
+          const menu = svUser.querySelector('.sv-user-menu');
+          const toggle = () => {
+            const open = menu.classList.toggle('open');
+            btn?.setAttribute('aria-expanded', open ? 'true' : 'false');
+          };
+          const close = () => { menu.classList.remove('open'); btn?.setAttribute('aria-expanded','false'); };
+          btn?.addEventListener('click', (e)=>{ e.stopPropagation(); toggle(); });
+          document.addEventListener('click', (e)=>{ if (!svUser.contains(e.target)) close(); });
+          document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') close(); });
+        }
+      }
     })();
   </script>
 
@@ -384,31 +397,28 @@
       if (!searchEl) return;
 
       let lastY = window.scrollY || 0;
-      let lockExpanded = false; // when true, keep expanded until user scrolls a bit
+      let lockExpanded = false;
       let lockBase = 0;
-      const START = 10;   // start collapsing after 10px scroll
-      const RANGE = 220;  // pixels to reach fully collapsed
+      const START = 10;
+      const RANGE = 220;
 
       function clamp01(n){ return Math.max(0, Math.min(1, n)); }
 
       function setCollapse(value){
         const v = clamp01(value);
-        // Write inline style variable to drive CSS animation
         searchEl.style.setProperty('--collapse', String(v));
-        // Toggle pointer events for input when collapsed
         const input = searchEl.querySelector('input');
         if (input) input.style.pointerEvents = v >= 0.98 ? 'none' : 'auto';
       }
 
       function computeCollapse(y){
-        if (lockExpanded) return 0; // fully expanded while locked
+        if (lockExpanded) return 0;
         const d = Math.max(0, y - START);
         return clamp01(d / RANGE);
       }
 
       function onScroll(){
         const y = window.scrollY || 0;
-        // Unlock if user scrolls a bit after manual expand
         if (lockExpanded && Math.abs(y - lockBase) > 40) {
           lockExpanded = false;
         }
@@ -416,23 +426,19 @@
         lastY = y;
       }
 
-      // Click to expand when collapsed (icon state)
       function onClick(e){
         const current = parseFloat(getComputedStyle(searchEl).getPropertyValue('--collapse') || '0') || 0;
         if (current >= 0.98) {
-          // Lock expanded and focus input
           lockExpanded = true;
           lockBase = window.scrollY || 0;
           setCollapse(0);
           const input = searchEl.querySelector('input');
           if (input) {
-            // Delay focus slightly to let layout settle
             setTimeout(()=> input.focus(), 60);
           }
         }
       }
 
-      // Initialize
       setCollapse(0);
       window.addEventListener('scroll', onScroll, { passive: true });
       searchEl.addEventListener('click', onClick, true);
@@ -440,4 +446,3 @@
   </script>
 </body>
 </html>
-  

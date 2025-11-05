@@ -322,8 +322,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const sizeOptionsContainer = document.getElementById('modalSizeOptions');
         sizeOptionsContainer.innerHTML = '';
 
+        console.log('Populating sizes:', sizes); // Debug log
+
         if (sizes && sizes.length > 0) {
             sizes.forEach(sizeData => {
+                console.log('Creating size option for:', sizeData); // Debug log
+                
                 const label = document.createElement('label');
                 label.className = 'size-option-label';
                 
@@ -331,16 +335,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 input.type = 'radio';
                 input.name = 'size';
                 input.value = sizeData.size;
-                input.dataset.sizeId = sizeData.id;
-                input.dataset.stock = sizeData.stock;
-                input.dataset.priceAdjustment = sizeData.price_adjustment || 0;
+                // Normalize size id: API may send different keys (id or product_size_id)
+                const normalizedSizeId = sizeData.id ?? sizeData.product_size_id ?? sizeData.productSizeId ?? sizeData.product_sizeId ?? null;
+                input.dataset.sizeId = normalizedSizeId !== null ? String(normalizedSizeId) : '';
+                input.dataset.stock = String(sizeData.stock ?? 0);
+                input.dataset.priceAdjustment = String(sizeData.price_adjustment ?? 0);
                 
                 const span = document.createElement('span');
                 span.className = 'size-option';
                 span.textContent = sizeData.size;
                 
-                // Disable if out of stock
-                if (!sizeData.is_available || sizeData.stock <= 0) {
+                // Backend already filters out unavailable sizes, so only check stock
+                if (sizeData.stock <= 0) {
                     input.disabled = true;
                     label.classList.add('out-of-stock');
                     span.textContent += ' (Out)';
@@ -383,13 +389,24 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         const productData = JSON.parse(this.dataset.productData);
-        const selectedSizeData = productData.sizes.find(s => s.id == selectedSize.dataset.sizeId);
+        const selectedSizeId = selectedSize.dataset.sizeId;
+        const selectedSizeData = productData.sizes.find(s => String(s.id) === String(selectedSizeId));
         
         console.log('Product data:', productData); // Debug log
+        console.log('Selected size:', selectedSize); // Debug log
+        console.log('Selected size ID:', selectedSizeId); // Debug log
         console.log('Selected size data:', selectedSizeData); // Debug log
+        console.log('All sizes:', productData.sizes); // Debug log
         
-        if (!selectedSizeData || !selectedSizeData.is_available || selectedSizeData.stock <= 0) {
-            alert('Selected size is not available');
+        if (!selectedSizeData) {
+            alert('Selected size data not found. Please try again.');
+            console.error('Could not find size data for ID:', selectedSize.dataset.sizeId);
+            return;
+        }
+        
+        // Backend already filters out unavailable sizes, so if it's in the list, it's available
+        if (selectedSizeData.stock <= 0) {
+            alert('Selected size is out of stock');
             return;
         }
         
@@ -437,6 +454,12 @@ document.addEventListener('DOMContentLoaded', function() {
     let hoverTimeout;
 
     function loadCart() {
+        // Do not load or display cart for logged-out users
+        if (!window.IS_CUSTOMER_LOGGED_IN) {
+            cart = [];
+            renderCart();
+            return;
+        }
         try {
             const raw = localStorage.getItem('sv_cart');
             if (raw) { cart = JSON.parse(raw); }
@@ -445,6 +468,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function saveCart() {
+        // Persist cart only for logged-in users
+        if (!window.IS_CUSTOMER_LOGGED_IN) return;
         localStorage.setItem('sv_cart', JSON.stringify(cart));
     }
 
@@ -656,6 +681,12 @@ document.addEventListener('DOMContentLoaded', function() {
             badge.className = 'cart-badge';
             cartBtn.appendChild(badge);
         }
+        // Hide badge entirely when user is not logged in to avoid confusion
+        if (!window.IS_CUSTOMER_LOGGED_IN) {
+            badge.textContent = '';
+            badge.style.display = 'none';
+            return;
+        }
         badge.textContent = count;
         badge.style.display = count > 0 ? 'inline' : 'none';
     }
@@ -663,7 +694,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Cart dropdown interactions
     function openCart() {
         // Don't open cart if user is not logged in
-        const isLoggedIn = window.customerData && window.customerData.id;
+        const isLoggedIn = window.IS_CUSTOMER_LOGGED_IN;
         if (!isLoggedIn) return;
         
         cartDropdown.classList.add('open');
@@ -678,7 +709,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Cart hover and click handlers
     cartBtn.addEventListener('mouseenter', () => {
         // Don't show cart dropdown on hover if not logged in
-        const isLoggedIn = window.customerData && window.customerData.id;
+        const isLoggedIn = window.IS_CUSTOMER_LOGGED_IN;
         if (!isLoggedIn || isMobile() || cartSticky) return;
         
         clearTimeout(hoverTimeout);
@@ -700,10 +731,14 @@ document.addEventListener('DOMContentLoaded', function() {
     cartBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         
-        // Don't open cart if user is not logged in
-        const isLoggedIn = window.customerData && window.customerData.id;
+        // Check if user is logged in using the global flag
+        const isLoggedIn = window.IS_CUSTOMER_LOGGED_IN;
         if (!isLoggedIn) {
-            // The login modal will be shown by the existing event listener
+            // Show login required modal
+            const loginModal = document.getElementById('loginRequiredModal');
+            if (loginModal) {
+                loginModal.classList.add('is-open');
+            }
             return;
         }
         

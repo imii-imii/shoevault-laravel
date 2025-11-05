@@ -27,12 +27,17 @@
     <div class="res-portal-product-color">{{ $product->color ?: '—' }}</div>
     <div class="res-portal-product-category" style="display:none;">{{ ucfirst($product->category) }}</div>
     <span class="res-portal-product-price">₱ {{ number_format((float)$product->price, 0, '.', ',') }}</span>
-    <span class="res-portal-product-stock">{{ $product->getTotalStock() }} in stock</span>
-    <div class="res-portal-product-sizes">Sizes: {{ $product->sizes->pluck('size')->implode(', ') }}</div>
+    <span class="res-portal-product-stock">{{ $product->available_total_stock ?? $product->getTotalStock() }} in stock</span>
+    @php
+      // Prefer computed available sizes (labels provided as comma string)
+      $availableSizesCsv = $product->available_size_labels ?? null;
+      $availableSizesList = $availableSizesCsv ? collect(explode(',', $availableSizesCsv))->filter()->values() : $product->sizes->pluck('size');
+    @endphp
+    <div class="res-portal-product-sizes">Sizes: {{ $availableSizesList->implode(', ') }}</div>
   </div>
 
   <button class="res-portal-add-cart-btn" 
-          data-available-sizes="{{ $product->sizes->where('is_available', true)->where('stock', '>', 0)->pluck('size')->join(',') }}">
+    data-available-sizes="{{ ($product->available_size_labels ?? null) ?: $product->sizes->where('is_available', true)->where('stock', '>', 0)->pluck('size')->join(',') }}">
     Add to Cart
   </button>
 </div>

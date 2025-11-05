@@ -153,12 +153,7 @@
             <input id="pickupTime" name="pickupTime" type="time" required />
           </div>
         </div>
-        <div class="agreements">
-          <h3>Agreements</h3>
-          <div class="check-row"><input type="checkbox" id="agreeTerms"> <label for="agreeTerms">I agree to the Terms and Conditions.</label></div>
-          <div class="check-row"><input type="checkbox" id="agreePrivacy"> <label for="agreePrivacy">I have read and accept the Privacy Policy.</label></div>
-          <!-- Select / Deselect all removed per request -->
-        </div>
+        <!-- Agreements removed per request -->
         <div class="actions">
           <button type="button" class="btn btn-outline" id="backCatalogBtn">Back to Catalog</button>
           <button type="submit" class="btn btn-primary" id="confirmReservationBtn" disabled>Confirm Reservation</button>
@@ -314,9 +309,7 @@
       totalRow.style.display = 'flex';
     }
 
-    // Agreement logic
-    const agreeTerms = document.getElementById('agreeTerms');
-  const agreePrivacy = document.getElementById('agreePrivacy');
+    // Confirm button reference
     const confirmBtn = document.getElementById('confirmReservationBtn');
     function updateConfirmState(){
       // More explicit validation to avoid silent failures from checkValidity
@@ -326,9 +319,8 @@
       const pickupDate = (document.getElementById('pickupDate')?.value || '').trim();
       const pickupTime = (document.getElementById('pickupTime')?.value || '').trim();
 
-      const cart = loadCart();
-      const cartHasItems = Array.isArray(cart) && cart.length > 0;
-      const agreementsOK = agreeTerms.checked && agreePrivacy.checked;
+  const cart = loadCart();
+  const cartHasItems = Array.isArray(cart) && cart.length > 0;
 
       // Basic field checks
       const nameOK = fullName.length > 0;
@@ -361,18 +353,15 @@
         }
       }
 
-      const allValid = agreementsOK && cartHasItems && nameOK && emailOK && phoneOK && dateOK && timeOK;
+  const allValid = cartHasItems && nameOK && emailOK && phoneOK && dateOK && timeOK;
 
-      // debug - helpful when confirm doesn't enable
-      console.debug('updateConfirmState', { agreementsOK, cartHasItems, nameOK, emailOK, phoneOK, dateOK, timeOK, allValid });
+  // debug - helpful when confirm doesn't enable
+  console.debug('updateConfirmState', { cartHasItems, nameOK, emailOK, phoneOK, dateOK, timeOK, allValid });
 
       confirmBtn.disabled = !allValid;
     }
 
-    // Re-evaluate confirmation state when agreements change
-    agreeTerms.addEventListener('change', updateConfirmState);
-    agreePrivacy.addEventListener('change', updateConfirmState);
-    // (select/deselect all removed)
+  // (agreements removed; no event listeners needed)
 
     // Re-evaluate when form inputs change (so the Confirm button enables as soon as fields are filled)
     document.querySelectorAll('#reservationForm input, #reservationForm textarea, #reservationForm select').forEach(el => {
@@ -399,19 +388,57 @@
         return;
       }
       
-      // Properly format cart items for the backend
-      const items = cart.map(item => ({
-        id: parseInt(item.id),
-        sizeId: parseInt(item.sizeId),
-        qty: parseInt(item.qty),
-        name: item.name,
-        brand: item.brand,
-        size: item.size,
-        color: item.color,
-        price: item.price,
-        priceNumber: parseFloat(typeof item.priceNumber === 'string' ? 
-                               item.priceNumber.replace(/[₱,]/g, '') : item.priceNumber)
-      }));
+      // Properly format cart items for the backend, resolving any missing sizeId by fetching product details
+      const items = [];
+      for (const item of cart) {
+        let resolvedSizeId = item.sizeId ?? item.size_id ?? item.product_size_id ?? item.productSizeId ?? null;
+
+        // If sizeId is missing/null, try to fetch product details and match by size label
+        if (!resolvedSizeId) {
+          try {
+            const resp = await fetch(`/api/products/${item.id}/details`, { credentials: 'same-origin' });
+            if (resp.ok) {
+              const pd = await resp.json();
+              if (pd && Array.isArray(pd.sizes)) {
+                const sizeLabel = String(item.size ?? '').trim();
+                // Prefer matching by size label
+                let found = pd.sizes.find(s => String(s.size ?? '').trim() === sizeLabel);
+                // Optional numeric fallback (handles 8 vs 8.0)
+                if (!found) {
+                  const asNum = Number.parseFloat(sizeLabel);
+                  if (!Number.isNaN(asNum)) {
+                    found = pd.sizes.find(s => Number.parseFloat(String(s.size)) === asNum);
+                  }
+                }
+                if (found) resolvedSizeId = found.id ?? found.product_size_id ?? null;
+              }
+            }
+          } catch (err) {
+            console.warn('Failed to fetch product details to resolve sizeId for', item, err);
+          }
+        }
+
+        // If still not resolved, abort with user-friendly message
+        if (!resolvedSizeId) {
+          alert(`Unable to determine size for \"${item.name}\". Please re-open your cart, re-select the size for this item and try again.`);
+          // restore button state and abort
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = 'Confirm Reservation';
+          return;
+        }
+
+        items.push({
+          id: parseInt(item.id),
+          sizeId: parseInt(resolvedSizeId),
+          qty: parseInt(item.qty),
+          name: item.name,
+          brand: item.brand,
+          size: item.size,
+          color: item.color,
+          price: item.price,
+          priceNumber: parseFloat(typeof item.priceNumber === 'string' ? item.priceNumber.replace(/[₱,]/g, '') : item.priceNumber)
+        });
+      }
       
       const payload = {
         customer: Object.fromEntries(data.entries()),

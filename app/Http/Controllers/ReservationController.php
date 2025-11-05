@@ -38,6 +38,14 @@ class ReservationController extends Controller
 
         $products = $query->get();
 
+        // Compute current reservation holds and annotate product availability for the portal
+        [$holdsBySize, $holdsByProduct] = $this->computeReservationHoldsMaps();
+        $products = $this->annotateProductsWithAvailability($products, $holdsBySize);
+        // Filter out products that end up with zero available stock after holds
+        $products = $products->filter(function($p){
+            return ($p->available_total_stock ?? 0) > 0;
+        })->values();
+
         // Get available categories for the filter buttons
         $categories = Product::active()
             ->reservationInventory()
@@ -104,6 +112,15 @@ class ReservationController extends Controller
         $page = $request->get('page', 1);
         $products = $query->paginate($perPage);
 
+        // Annotate availability using reservation holds (operate on the page collection only)
+        [$holdsBySize, $holdsByProduct] = $this->computeReservationHoldsMaps();
+        $pageCollection = $products->getCollection();
+        $pageCollection = $this->annotateProductsWithAvailability($pageCollection, $holdsBySize);
+        $pageCollection = $pageCollection->filter(function($p){
+            return ($p->available_total_stock ?? 0) > 0;
+        })->values();
+        $products->setCollection($pageCollection);
+
         // Return HTML partial for AJAX requests with pagination metadata
         if ($request->ajax()) {
             $html = view('reservation.partials.product-grid', ['products' => $products->items()])->render();
@@ -133,6 +150,24 @@ class ReservationController extends Controller
         }])
         ->reservationInventory()
         ->findOrFail($id);
+        
+        // Apply reservation holds to size stocks
+        [$holdsBySize, $holdsByProduct] = $this->computeReservationHoldsMaps();
+        $adjustedSizes = $product->sizes->map(function($size) use ($holdsBySize) {
+            $keyName = $size->getKeyName();
+            $keyValue = $size->getAttribute($keyName);
+            $reserved = (int)($holdsBySize[$keyValue] ?? 0);
+            $available = max(0, (int)$size->stock - $reserved);
+            return [
+                'id' => $keyValue,
+                'size' => $size->size,
+                'stock' => $available,
+                'price_adjustment' => $size->price_adjustment ?? 0,
+                'is_available' => $size->is_available && $available > 0,
+            ];
+        })->filter(function($s){
+            return $s['is_available'] && $s['stock'] > 0;
+        })->values();
 
         return response()->json([
             'id' => $product->id,
@@ -140,18 +175,10 @@ class ReservationController extends Controller
             'brand' => $product->brand,
             'price' => $product->price,
             'formatted_price' => '₱ ' . number_format($product->price, 0),
-            'total_stock' => $product->sizes->sum('stock'),
+            'total_stock' => $adjustedSizes->sum('stock'),
             'image_url' => $product->image_url,
             'color' => $product->color,
-            'sizes' => $product->sizes->map(function($size) {
-                return [
-                    'id' => $size->id,
-                    'size' => $size->size,
-                    'stock' => $size->stock,
-                    'price_adjustment' => $size->price_adjustment ?? 0,
-                    'is_available' => $size->is_available && $size->stock > 0
-                ];
-            })
+            'sizes' => $adjustedSizes
         ]);
     }
 
@@ -237,7 +264,8 @@ class ReservationController extends Controller
                 'customer.notes' => 'nullable|string|max:1000',
                 'items' => 'required|array|min:1',
                 'items.*.id' => 'required|integer|exists:products,id',
-                'items.*.sizeId' => 'required|integer|exists:product_sizes,id',
+                // product_sizes primary key is product_size_id (see schema); validate against that column
+                'items.*.sizeId' => 'required|integer|exists:product_sizes,product_size_id',
                 'items.*.qty' => 'required|integer|min:1',
                 'total' => 'required|numeric|min:0'
             ]);
@@ -256,11 +284,14 @@ class ReservationController extends Controller
 
             DB::beginTransaction();
 
-            // Check stock availability for all items
+            // Check stock availability for all items against live holds
+            [$holdsBySize, $holdsByProduct] = $this->computeReservationHoldsMaps();
             foreach ($validated['items'] as $item) {
                 $size = ProductSize::findOrFail($item['sizeId']);
-                if ($size->stock < $item['qty']) {
-                    throw new \Exception("Insufficient stock for product size ID {$item['sizeId']}. Available: {$size->stock}, Requested: {$item['qty']}");
+                $held = (int)($holdsBySize[$item['sizeId']] ?? 0);
+                $available = max(0, (int)$size->stock - $held);
+                if ($available < (int)$item['qty']) {
+                    throw new \Exception("Insufficient available stock for size ID {$item['sizeId']}. Available now: {$available}, Requested: {$item['qty']}");
                 }
             }
 
@@ -344,6 +375,83 @@ class ReservationController extends Controller
                 'message' => 'Failed to create reservation: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Build maps of reserved quantities by size and by product for active holds.
+     * Active holds include statuses where inventory should be temporarily unavailable
+     * to others (e.g., pending and confirmed).
+     *
+     * @return array [holdsBySizeId, holdsByProductId]
+     */
+    private function computeReservationHoldsMaps(): array
+    {
+        $holdsBySize = [];
+        $holdsByProduct = [];
+
+        // Consider reservations that still hold inventory (pending/confirmed)
+        $activeReservations = Reservation::query()
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->select(['items'])
+            ->get();
+
+        foreach ($activeReservations as $reservation) {
+            $items = (array)($reservation->items ?? []);
+            foreach ($items as $it) {
+                // Expecting keys: product_id, size_id, quantity
+                $pid = $it['product_id'] ?? null;
+                $sid = $it['size_id'] ?? null;
+                $qty = (int)($it['quantity'] ?? 0);
+                if ($sid) {
+                    $holdsBySize[$sid] = ($holdsBySize[$sid] ?? 0) + $qty;
+                }
+                if ($pid) {
+                    $holdsByProduct[$pid] = ($holdsByProduct[$pid] ?? 0) + $qty;
+                }
+            }
+        }
+
+        return [$holdsBySize, $holdsByProduct];
+    }
+
+    /**
+     * Annotate each product model instance with availability derived from holds.
+     * Adds per-size available_stock and product-level available_total_stock and available_size_labels.
+     *
+     * @param \Illuminate\Support\Collection|array $products
+     * @param array $holdsBySize map of product_size_id => reservedQty
+     * @return \Illuminate\Support\Collection
+     */
+    private function annotateProductsWithAvailability($products, array $holdsBySize)
+    {
+        // Normalize to collection
+        $collection = collect($products);
+
+        return $collection->map(function($product) use ($holdsBySize) {
+            // Ensure sizes relation is loaded
+            $sizes = $product->relationLoaded('sizes') ? $product->sizes : collect();
+            $availableTotal = 0;
+            $availableSizeLabels = [];
+
+            foreach ($sizes as $size) {
+                $keyName = $size->getKeyName();
+                $keyValue = $size->getAttribute($keyName);
+                $reserved = (int)($holdsBySize[$keyValue] ?? 0);
+                $available = max(0, (int)$size->stock - $reserved);
+                // Attach a transient attribute for views
+                $size->setAttribute('available_stock', $available);
+                if ($size->is_available && $available > 0) {
+                    $availableTotal += $available;
+                    $availableSizeLabels[] = $size->size;
+                }
+            }
+
+            // Product-level computed attributes for the view
+            $product->setAttribute('available_total_stock', $availableTotal);
+            $product->setAttribute('available_size_labels', implode(',', $availableSizeLabels));
+
+            return $product;
+        });
     }
 
     /**

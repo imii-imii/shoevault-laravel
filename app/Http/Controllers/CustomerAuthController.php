@@ -280,10 +280,8 @@ class CustomerAuthController extends Controller
     {
         Auth::guard('customer')->logout();
         
-        return response()->json([
-            'success' => true,
-            'message' => 'Successfully logged out.',
-        ]);
+        // Return a view with animated success message that redirects to login
+        return view('auth.logout-success');
     }
 
     /**
