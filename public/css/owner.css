@@ -514,7 +514,8 @@ body {
 }
 
 .time-display i,
-.date-display i {
+.date-display i,
+.notification-bell i {
     background: linear-gradient(to top right, #112c70 0%, #2a6aff 100%);
     -webkit-background-clip: text;
     background-clip: text;

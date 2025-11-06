@@ -2,6 +2,11 @@
 .desktop-only { display: block; }
 .mobile-only { display: none !important; }
 
+/* Remove mobile tap highlight on interactive elements for a cleaner touch UX */
+button, a, input, textarea, select, .btn, .lr-btn, .res-portal-nav-btn, .res-portal-cart-btn, .res-portal-add-cart-btn, .res-portal-profile-btn, .res-portal-category-btn, .price-apply {
+  -webkit-tap-highlight-color: transparent;
+}
+
 @media (max-width: 700px) {
   .res-portal-main-mobile > .res-portal-search,
   .res-portal-main-mobile > .res-portal-banner,

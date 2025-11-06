@@ -41,7 +41,7 @@
     .brand h1{font-size:1.25rem;margin:0;font-weight:800;letter-spacing:.3px}
     .tag{color:var(--muted);font-size:.92rem;line-height:1.5}
   .switcher{display:flex;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:999px;padding:6px;gap:6px;width:max-content}
-  .switcher button{border:0;background:transparent;color:#64748b;font-weight:700;padding:10px 16px;border-radius:999px;cursor:pointer;transition:all .2s ease}
+  .switcher button{border:0;background:transparent;color:#64748b;font-weight:700;padding:10px 16px;border-radius:999px;cursor:pointer;transition:all .2s ease; -webkit-tap-highlight-color: transparent;}
     .switcher button.active{
       border:1px solid transparent;
       background:
