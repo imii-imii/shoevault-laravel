@@ -149,7 +149,7 @@
           </div>
           <div class="field-group">
             <label for="pickupTime">Pick-Up Time</label>
-            <small style="color: #666; font-size: 0.85em; display: block; margin-bottom: 4px;">Business hours: 8:00 AM - 6:00 PM</small>
+            <small style="color: #666; font-size: 0.85em; display: block; margin-bottom: 4px;">Business hours: 10:00 AM - 7:00 PM <br> select a time within these hours.</small>
             <input id="pickupTime" name="pickupTime" type="time" required />
           </div>
         </div>
@@ -241,27 +241,40 @@
     const editCartBtn = document.getElementById('editCartBtn');
 
       // Print styles: center content on page, set @page margins, preserve print colors
+      // Also hide interactive buttons and compact layout for single-page ticket prints (mobile-friendly)
       const printHelperStyles = `
-        @page { size: auto; margin: 15mm; }
+        @page { size: 520x260; margin: 8mm; }
         html,body { height:100%; margin:0; -webkit-print-color-adjust:exact; color-adjust:exact; }
         /* ensure consistent box-sizing and centering */
         *, *::before, *::after { box-sizing: border-box; }
         body { background:#f8fafc; display:flex; align-items:center; justify-content:center; padding:0; }
         .receipt-modal{ display:block !important; background:transparent !important; position:relative; }
-        .receipt-panel{ box-shadow:none; margin:0; width:100%; max-width:560px; border-radius:14px; background:#ffffff; }
+        .receipt-panel{ box-shadow:none; margin:0; width:100%; max-width:560px; border-radius:8px; background:#ffffff; padding:12px !important; }
         .receipt-panel * { -webkit-print-color-adjust: exact; color-adjust: exact; }
 
-        /* Table layout rules to ensure printed columns align like the modal */
-        .receipt-items { width:100%; border-collapse:collapse; table-layout: fixed; }
-        .receipt-items thead th, .receipt-items tbody td { padding:6px 8px; vertical-align:top; }
+        /* Hide interactive elements in printed/PDF output */
+        .receipt-actions, .btn-download, .btn-close, .receipt-footer-note, .receipt-badge { display: none !important; }
+
+        /* Compact table and typography for print */
+        .receipt-items { width:100%; border-collapse:collapse; table-layout: fixed; font-size:11px; }
+        .receipt-items thead th, .receipt-items tbody td { padding:4px 6px; vertical-align:top; }
         .receipt-items thead th { font-weight:600; }
-        .ri-name { width:56%; word-break:break-word; }
-        .ri-qty { width:8%; text-align:center; }
-        .ri-price, .ri-sub { width:18%; text-align:right; }
+        .ri-name { width:58%; word-break:break-word; }
+        .ri-qty { width:10%; text-align:center; }
+        .ri-price, .ri-sub { width:16%; text-align:right; }
+
+        .receipt-summary { font-size:11px; padding:6px 8px; }
+        .receipt-logo { font-size:14px !important; }
+
+        /* Avoid page breaks inside the ticket components */
+        .receipt-panel, .receipt-panel * { page-break-inside: avoid; }
+        table { page-break-inside: avoid; }
 
         @media print {
           body { background:#ffffff; }
-          .receipt-panel { box-shadow:none; border-radius:8px; }
+          .receipt-panel { box-shadow:none; border-radius:6px; max-width:100%; width:100%; padding:8px !important; }
+          /* Slightly reduce global font-size to help fit long tickets on single page */
+          .receipt-panel { font-size:12px; }
         }
       `;
     function formatCurrency(n){ return '₱ ' + n.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
@@ -343,13 +356,13 @@
         dateOK = selectedTime >= tomorrowTime && selectedTime <= maxDateTime;
       }
 
-      // Time: ensure within working hours 08:00 - 18:00
+      // Time: ensure within working hours 10:00 - 19:00
       let timeOK = false;
       if (pickupTime) {
         const [h, m] = pickupTime.split(':').map(x => parseInt(x,10));
         if (!Number.isNaN(h) && !Number.isNaN(m)) {
           const total = h * 60 + m;
-          timeOK = total >= 8*60 && total <= 18*60;
+          timeOK = total >= 10*60 && total <= 19*60;
         }
       }
 
@@ -540,8 +553,8 @@
     const maxDd = String(maxDate.getDate()).padStart(2,'0');
     dateInput.max = `${maxYyyy}-${maxMm}-${maxDd}`;
     // set working hours limits on time input
-    const WORK_START = '08:00';
-    const WORK_END = '18:00';
+  const WORK_START = '10:00';
+  const WORK_END = '19:00';
     if (timeInput) {
       timeInput.min = WORK_START;
       timeInput.max = WORK_END;

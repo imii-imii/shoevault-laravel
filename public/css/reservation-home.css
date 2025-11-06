@@ -56,6 +56,11 @@
     -moz-osx-font-smoothing: grayscale;
 }
 
+/* Remove the blue tap highlight on mobile for interactive elements */
+button, a, input, textarea, select, label, .btn, .link, .res-portal-cart-btn, .sv-user, .sv-user-menu {
+    -webkit-tap-highlight-color: transparent;
+}
+
 .bg-red {
     background-color: var(--red);
 }

@@ -289,21 +289,21 @@
                         <i class="bx bx-phone"></i>
                         <div>
                             <h4>Phone</h4>
-                            <p>+63 912 345 6789</p>
+                            <p>+63 936 382 0087</p>
                         </div>
                     </div>
                     <div class="contact-item">
                         <i class="bx bx-envelope"></i>
                         <div>
                             <h4>Email</h4>
-                            <p>info@shoebaultbatangas.com</p>
+                            <p>shoevault2020@gmail.com</p>
                         </div>
                     </div>
                     <div class="contact-item">
                         <i class="bx bx-time"></i>
                         <div>
                             <h4>Business Hours</h4>
-                            <p>Monday - Saturday: 9:00 AM - 8:00 PM<br>Sunday: 10:00 AM - 6:00 PM</p>
+                            <p>Monday - Sunday: 10:00am - 7:00pm</p>
                         </div>
                     </div>
                 </div>

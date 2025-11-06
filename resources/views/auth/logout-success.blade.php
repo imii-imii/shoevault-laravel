@@ -253,7 +253,97 @@
             window.location.href = '{{ route("customer.login") }}';
         }
         
-        setTimeout(redirectNow, 2500);
+                // store timer so anime.js can coordinate/clear it if needed
+                window.logoutRedirectTimer = setTimeout(redirectNow, 2500);
     </script>
+        <!-- anime.js for richer, coordinated animations -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha512-5x8mYfC6lqQ+e6kQeYJf9D2s+fXl1KqQG8qW2G2tYJm8v6Jp6jKf5rG9y9R5Gk2zQm9e5a1h2b3c4d5e6f7g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function(){
+                // pause/disable CSS particle animation to let anime.js drive motion
+                document.querySelectorAll('.particle').forEach(el => el.style.animation = 'none');
+
+                // Card entrance
+                anime({
+                    targets: '.logout-card',
+                    translateY: [30, 0],
+                    scale: [0.96, 1],
+                    opacity: [0, 1],
+                    duration: 700,
+                    easing: 'cubicBezier(.2,1,.3,1)'
+                });
+
+                // Particles: floating with staggered delays
+                const particles = Array.from(document.querySelectorAll('.particle'));
+                particles.forEach((p, i) => {
+                    const dur = 3800 + Math.floor(Math.random() * 1400);
+                    anime({
+                        targets: p,
+                        translateY: [window.innerHeight * 0.6, -window.innerHeight * 0.6],
+                        translateX: [0, (Math.random() - 0.5) * 240],
+                        opacity: [0, 1, 0],
+                        scale: [0.3, 1],
+                        easing: 'linear',
+                        delay: i * 120 + Math.floor(Math.random() * 300),
+                        duration: dur,
+                        loop: true
+                    });
+                });
+
+                // Ripples
+                anime({
+                    targets: '.ripple',
+                    scale: [1, 1.8],
+                    opacity: [1, 0],
+                    duration: 2000,
+                    delay: anime.stagger(350),
+                    easing: 'easeOutQuad',
+                    loop: true
+                });
+
+                // Checkmark pop
+                anime({
+                    targets: '.checkmark',
+                    scale: [0, 1.05, 1],
+                    rotate: [-30, 0],
+                    duration: 700,
+                    delay: 260,
+                    easing: 'spring(1, 80, 10, 0)'
+                });
+
+                // Progress bar animation - tie into existing redirect timer
+                const progressEl = document.querySelector('.progress-fill');
+                const totalMs = 2500; // match previous timeout
+
+                // clear existing timer if any and use anime's complete to redirect
+                if (window.logoutRedirectTimer) {
+                    clearTimeout(window.logoutRedirectTimer);
+                }
+
+                const prog = anime({
+                    targets: progressEl,
+                    width: ['0%','100%'],
+                    easing: 'linear',
+                    duration: totalMs,
+                    autoplay: true,
+                    complete: function(){
+                        // ensure redirect only happens once
+                        redirectNow();
+                    }
+                });
+
+                // Skip button: immediately redirect and stop progress
+                const skip = document.querySelector('.skip-btn');
+                if (skip) {
+                    skip.addEventListener('click', function(e){
+                        prog.pause();
+                        if (window.logoutRedirectTimer) {
+                            clearTimeout(window.logoutRedirectTimer);
+                        }
+                        redirectNow();
+                    });
+                }
+            });
+        </script>
 </body>
 </html>
