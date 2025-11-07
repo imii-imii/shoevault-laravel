@@ -1289,8 +1289,8 @@ body, html { background: linear-gradient(180deg,#f8fafc 0%, #eef2f6 100%); }
 /* Restore original home section display */
 
 #slider {
-    height: 100vh;
-    overflow: hidden;
+    height: 94.1%;
+    overflow: hidden !important;
     position: relative;
     background: linear-gradient(135deg, #f8fafc 0%, #eef2f6 100%);
 }
@@ -1317,6 +1317,7 @@ body, html { background: linear-gradient(180deg,#f8fafc 0%, #eef2f6 100%); }
     padding: 0 4vw;
     max-width: 50%;
     z-index: 2;
+    background: linear-gradient(135deg, #f8fafc 20%, #001224 100%);
 }
 
 .welcome-header h1 {
@@ -1438,7 +1439,7 @@ body, html { background: linear-gradient(180deg,#f8fafc 0%, #eef2f6 100%); }
 
 /* Mobile-first stacked slide layout */
 @media (max-width: 820px) {
-    #slider { height:auto; }
+    #slider { height:94.1%; }
     .slide { position:relative; flex-direction:column; height:auto; min-height:calc(100vh - 60px); padding-top:70px; display:none; }
     .slide.active { display:flex; }
     .col-6 { width:100%; }

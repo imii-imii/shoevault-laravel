@@ -7,6 +7,7 @@
     <link href='https://unpkg.com/boxicons@2.0.7/css/boxicons.min.css' rel='stylesheet'>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" type="text/css" href="{{ asset('css/reservation-home.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
 </head>
 
 <body>
@@ -32,8 +33,9 @@
     <!-- MAIN -->
     <div id="slider" class="slider">
         <div class="slider-content">
-            <!-- Left side - Welcome Info -->
+            <!-- Left side (now) - Welcome Info -->
             <div class="welcome-info">
+                <div class="welcome-container">
                 <div class="welcome-header">
                     <h1>Welcome to <span class="brand-name">Shoe Vault</span></h1>
                     <h2>Your Premier Footwear Destination in Batangas</h2>
@@ -55,7 +57,7 @@
                         <span>Premium Brand Selection</span>
                     </div>
                     <div class="feature-item">
-                        <i class="bx bx-shield-check"></i>
+                        <i class='bx  bx-badge-check'    ></i> 
                         <span>Quality Guarantee</span>
                     </div>
                 </div>
@@ -63,26 +65,23 @@
                     <a href="{{ route('reservation.portal') }}" class="cta-primary">Reserve Now</a>
                     <a href="{{ route('reservation.size-converter') }}" class="cta-secondary">Size Converter</a>
                 </div>
+                </div>
             </div>
-            
-            <!-- Right side - Shoe Showcase -->
+
+            <!-- Right side (now) - Shoe Showcase -->
             <div class="shoe-showcase">
                 <div class="showcase-container">
                     <div class="floating-shoe active" data-shoe="1">
                         <img src="{{ asset('reservation-assets/air-max-alpha-tr-3-mens-training-shoe-0C1CV7.png') }}" alt="Nike Air Max Alpha TR 3">
-                        <div class="shoe-label">Air Max Alpha TR 3</div>
                     </div>
                     <div class="floating-shoe" data-shoe="2">
                         <img src="{{ asset('reservation-assets/air-zoom-superrep-mens-hiit-class-shoe-ZWLnJW (1).png') }}" alt="Nike Air Zoom SuperRep">
-                        <div class="shoe-label">Air Zoom SuperRep</div>
                     </div>
                     <div class="floating-shoe" data-shoe="3">
                         <img src="{{ asset('reservation-assets/zoom-fly-3-mens-running-shoe-XhzpPH.png') }}" alt="Nike Zoom Fly 3">
-                        <div class="shoe-label">Zoom Fly 3</div>
                     </div>
                     <div class="floating-shoe" data-shoe="4">
                         <img src="{{ asset('reservation-assets/zoomx-vaporfly-next-running-shoe-4Q5jfG.png') }}" alt="Nike ZoomX Vaporfly NEXT%">
-                        <div class="shoe-label">ZoomX Vaporfly NEXT%</div>
                     </div>
                 </div>
                 <div class="showcase-bg-pattern"></div>
@@ -122,7 +121,7 @@
                 </div>
                 <div class="service-card">
                     <div class="service-icon">
-                        <i class="bx bx-check-shield"></i>
+                        <i class="bx bx-badge-check"></i>
                     </div>
                     <h3>Quality Guarantee</h3>
                     <p>100% authentic products with warranty protection. We stand behind every pair of shoes we sell.</p>
@@ -410,6 +409,7 @@
                 menu.querySelectorAll('a').forEach(a=> a.addEventListener('click', ()=>{ if(window.innerWidth<=780){ closeMenu(); }}));
             })();
         </script>
+        <script type="text/javascript" src="{{ asset('js/reservation-animations.js') }}"></script>
 </body>
 
 </html>

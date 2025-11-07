@@ -50,7 +50,7 @@
     /* Login Required Modal */
     .login-required { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(2,6,23,.5); backdrop-filter: blur(4px); z-index: 5000; }
     .login-required.is-open { display: flex; }
-    .login-required-card { width: min(420px, 92vw); background: #ffffff; border-radius: 16px; border: 1px solid rgba(2,6,23,.06); box-shadow: 0 18px 48px rgba(2,6,23,.18); padding: 20px 18px; transform: scale(.94); opacity: 0; animation: lr-zoom .28s ease forwards; }
+    .login-required-card { width: min(420px, 92vw); background: #ffffff; border-radius: 16px; border: 1px solid rgba(2,6,23,.06); box-shadow: 0 18px 48px rgba(2,6,23,.18); padding: 20px 18px; margin-right: 20px; margin-left: 20px; transform: scale(.94); opacity: 0; animation: lr-zoom .28s ease forwards; }
     .login-required-head { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
     .login-required-head .ico { width:36px; height:36px; display:grid; place-items:center; border-radius:10px; background:#eef2ff; color:#3730a3; }
     .login-required-title { font-size: 1.05rem; font-weight: 800; color: #0f172a; margin: 0; }
