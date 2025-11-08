@@ -24,32 +24,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
 
-            // === Shoe Showcase Auto-scroll ===
-            let currentShoeIndex = 0;
-            const shoes = document.querySelectorAll('.floating-shoe');
-            
-            function showNextShoe() {
-                if (!shoes.length) return;
-                
-                // Hide current shoe
-                shoes[currentShoeIndex].classList.remove('active');
-                
-                // Move to next shoe (loop back to 0 when reaching the end)
-                currentShoeIndex = (currentShoeIndex + 1) % shoes.length;
-                
-                // Show next shoe
-                shoes[currentShoeIndex].classList.add('active');
-            }
-            
-            // Initialize shoe showcase if shoes exist
-            if (shoes.length > 0) {
-                // Ensure first shoe is active
-                shoes[0].classList.add('active');
-                
-                // Auto-scroll every 3 seconds
-                setInterval(showNextShoe, 3000);
-            }
-
             // CTA Button functionality
             const ctaPrimary = document.querySelector('.cta-primary');
             const ctaSecondary = document.querySelector('.cta-secondary');

@@ -1582,7 +1582,6 @@ body, html { background: linear-gradient(180deg,#f8fafc 0%, #eef2f6 100%); }
     transform: rotate(-25deg) scale(0.8);
     transition: all 1.2s cubic-bezier(0.4, 0, 0.2, 1);
     filter: drop-shadow(0 15px 35px rgba(0, 0, 0, 0.15)) drop-shadow(0 0 40px rgba(42, 106, 255, 0.4)) drop-shadow(0 0 80px rgba(42, 106, 255, 0.2));
-    animation: float 6s ease-in-out infinite, glow 3s ease-in-out infinite alternate;
 }
 
 .floating-shoe.active {
@@ -1590,15 +1589,6 @@ body, html { background: linear-gradient(180deg,#f8fafc 0%, #eef2f6 100%); }
     transform: rotate(-25deg) scale(1);
     z-index: 10;
     filter: drop-shadow(0 15px 35px rgba(0, 0, 0, 0.15)) drop-shadow(0 0 50px rgba(42, 106, 255, 0.6)) drop-shadow(0 0 100px rgba(42, 106, 255, 0.3));
-}
-
-@keyframes glow {
-    0% {
-        filter: drop-shadow(0 15px 35px rgba(0, 0, 0, 0.15)) drop-shadow(0 0 40px rgba(42, 106, 255, 0.4)) drop-shadow(0 0 80px rgba(42, 106, 255, 0.2));
-    }
-    100% {
-        filter: drop-shadow(0 15px 35px rgba(0, 0, 0, 0.15)) drop-shadow(0 0 60px rgba(42, 106, 255, 0.7)) drop-shadow(0 0 120px rgba(42, 106, 255, 0.4));
-    }
 }
 
 .floating-shoe img {
@@ -1627,15 +1617,6 @@ body, html { background: linear-gradient(180deg,#f8fafc 0%, #eef2f6 100%); }
 
 .floating-shoe.active .shoe-label {
     opacity: 1;
-}
-
-@keyframes float {
-    0%, 100% {
-        transform: rotate(-25deg) scale(1) translateY(0px);
-    }
-    50% {
-        transform: rotate(-25deg) scale(1) translateY(-15px);
-    }
 }
 
 

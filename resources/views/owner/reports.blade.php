@@ -63,7 +63,7 @@
     .status-badge.status-inactive { background:#fee2e2; color:#991b1b; }
     /* Export buttons */
     .export-group { display:inline-flex; gap:8px; align-items:center; margin-left:10px; }
-    .export-btn {
+    .export-btn, .page-btn {
         -webkit-appearance: none; appearance: none; cursor: pointer;
         height: 32px; padding: 6px 10px; border-radius: 999px; border: 1px solid #e5e7eb;
         background:
@@ -74,8 +74,8 @@
         box-shadow: 0 4px 10px -6px rgba(2,6,23,.12);
         transition: box-shadow .15s ease, border-color .15s ease, background .15s ease, transform .05s ease;
     }
-    .export-btn:hover { border-color: #c7d2fe; box-shadow: 0 6px 16px -10px rgba(37,99,235,.35); }
-    .export-btn:active { transform: translateY(1px); }
+    .export-btn:hover, .page-btn:hover { border-color: #c7d2fe; box-shadow: 0 6px 16px -10px rgba(37,99,235,.35); }
+    .export-btn:active, .page-btn:active { transform: translateY(1px); }
     .hide-sm { display:inline; }
     @media (max-width: 720px) { .hide-sm { display:none; } }
     /* Sticky section header and filters */
@@ -205,14 +205,9 @@
                     </div>
                 </div>
             </div>
-            <div class="filters" style="display:flex; gap:12px; align-items:center; margin-bottom:18px;">
+            <div class="filters" style="display:flex; gap:12px; align-items:center; margin-bottom:18px; flex-wrap:wrap;">
                 <input type="text" id="sales-search" placeholder="Search sales..." class="search-input" style="flex:1; min-width:180px;">
-                <select id="sales-period-filter" class="filter-select">
-                    <option value="">All Periods</option>
-                    <option value="today">Today</option>
-                    <option value="week">This Week</option>
-                    <option value="month">This Month</option>
-                </select>
+                <input type="month" id="sales-month-filter" class="search-input" aria-label="Filter by month">
                 <select id="sales-sort-filter" class="filter-select" style="min-width:180px;">
                     <option value="date-desc">Date (Newest)</option>
                     <option value="date-asc">Date (Oldest)</option>
@@ -242,6 +237,11 @@
                     </thead>
                     <tbody id="sales-history-tbody"></tbody>
                 </table>
+                <div id="sales-pagination" style="display:flex; align-items:center; justify-content:flex-end; gap:8px; padding:8px 0;">
+                    <button type="button" id="sales-prev" class="page-btn" style="height:28px; padding:4px 10px;">Prev</button>
+                    <span id="sales-page-info" style="font-size:12px; color:#64748b;">Page 1 of 1</span>
+                    <button type="button" id="sales-next" class="page-btn" style="height:28px; padding:4px 10px;">Next</button>
+                </div>
             </div>
         </section>
 
@@ -609,9 +609,9 @@
         // Sales History filters wiring
         (function wireSalesFilters(){
             const searchEl = document.getElementById('sales-search');
-            const periodEl = document.getElementById('sales-period-filter');
+            const monthEl = document.getElementById('sales-month-filter');
+            const dateEl = document.getElementById('sales-date-filter');
             const sortEl = document.getElementById('sales-sort-filter');
-            const mapPeriod = (v)=> v==='today' ? 'daily' : (v==='week' ? 'weekly' : (v==='month' ? 'monthly' : 'weekly'));
             // Initial fetch
             if (typeof loadSalesHistory === 'function') {
                 const cont = document.querySelector('#reports-sales-history .table-container');
@@ -627,22 +627,18 @@
                         animateChildren('#reports-sales-history tbody');
                     }
                 };
-                loadSalesHistory(mapPeriod(periodEl?.value || ''));
+                loadSalesHistory({}); // default load
             }
             const apply = ()=> {
                 if (typeof applySalesFilters === 'function') applySalesFilters({
                     search: searchEl?.value || '',
-                    sort: sortEl?.value || 'date-desc',
-                    periodUi: (periodEl?.value || '')
+                    sort: sortEl?.value || 'date-desc'
                 });
             };
             let t;
             searchEl?.addEventListener('input', ()=> { clearTimeout(t); t = setTimeout(apply, 200); });
-            periodEl?.addEventListener('change', ()=> {
-                if (typeof loadSalesHistory === 'function') loadSalesHistory(mapPeriod(periodEl.value));
-                // apply after small delay to use latest cache
-                setTimeout(apply, 150);
-            });
+            monthEl?.addEventListener('change', ()=> { if (!dateEl?.value && typeof loadSalesHistory==='function') loadSalesHistory({ month: monthEl.value }); setTimeout(apply, 150); });
+            dateEl?.addEventListener('change', ()=> { if (typeof loadSalesHistory==='function') loadSalesHistory({ date: dateEl.value }); setTimeout(apply, 150); });
             sortEl?.addEventListener('change', apply);
         })();
 

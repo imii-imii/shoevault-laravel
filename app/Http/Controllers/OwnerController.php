@@ -41,7 +41,11 @@ class OwnerController extends Controller
      */
     public function salesHistory(Request $request)
     {
-        $period = $request->get('period', 'weekly');
+        // New filtering parameters replacing period-based filtering
+        $month = $request->get('month'); // format YYYY-MM
+        $date = $request->get('date');   // format YYYY-MM-DD (takes precedence over month)
+        $page = max(1, (int) $request->get('page', 1));
+        $perPage = min(100, max(10, (int) $request->get('per_page', 25))); // clamp per_page
         
         // Check if we have any transactions and create test data if empty
         $transactionCount = DB::table('transactions')->count();
@@ -50,18 +54,27 @@ class OwnerController extends Controller
             $this->createTestTransactionData();
         }
         
-        $salesData = $this->getSalesData($period);
+        // Chart data still uses broader range; optionally narrowed by month or date if provided
+        $salesData = $this->getSalesDataForFilters($month, $date);
         $topProducts = $this->getTopSellingProducts();
-        // Fetch latest transactional rows with required columns
-        $transactions = $this->getRecentSalesTransactions($period);
+        $transactionsResult = $this->getFilteredSalesTransactions($month, $date, $page, $perPage);
 
-        Log::info("Returning sales history data - transactions count: " . count($transactions));
+        Log::info("Returning sales history data - transactions count: " . count($transactionsResult['data']));
 
         return response()->json([
             'salesData' => $salesData,
             'topProducts' => $topProducts,
-            'transactions' => $transactions,
-            'period' => $period
+            'transactions' => $transactionsResult['data'],
+            'filters' => [
+                'month' => $month,
+                'date' => $date,
+            ],
+            'pagination' => [
+                'page' => $page,
+                'per_page' => $perPage,
+                'total' => $transactionsResult['total'],
+                'total_pages' => $transactionsResult['total_pages']
+            ]
         ]);
     }
 
@@ -554,6 +567,43 @@ class OwnerController extends Controller
     }
 
     /**
+     * New chart sales data builder honoring optional month/date filters.
+     */
+    private function getSalesDataForFilters(?string $month, ?string $date)
+    {
+        $dateCol = $this->salesDateColumn();
+        $amountExpr = $this->salesAmountExpression();
+        $query = Transaction::select(
+            DB::raw("DATE($dateCol) as date"),
+            DB::raw("SUM($amountExpr) as total"),
+            DB::raw('COUNT(*) as transactions')
+        );
+
+        if ($date) {
+            // Specific date
+            $query->whereDate($dateCol, $date);
+        } elseif ($month) {
+            // Month filter YYYY-MM
+            try {
+                [$y,$m] = explode('-', $month);
+                $start = Carbon::createFromDate((int)$y,(int)$m,1)->startOfDay();
+                $end = (clone $start)->endOfMonth();
+                $query->whereBetween($dateCol, [$start, $end]);
+            } catch (\Throwable $e) {
+                // Fallback: last 3 months if parse fails
+                $query->where($dateCol, '>=', Carbon::now()->subMonths(3));
+            }
+        } else {
+            // Default: last 6 months for chart readability
+            $query->where($dateCol, '>=', Carbon::now()->subMonths(6));
+        }
+
+        return $query->groupBy(DB::raw("DATE($dateCol)"))
+                     ->orderBy('date')
+                     ->get();
+    }
+
+    /**
      * Get top selling products
      */
     private function getTopSellingProducts()
@@ -569,7 +619,7 @@ class OwnerController extends Controller
     /**
      * Get recent sales transactions with required fields for the Sales History table.
      */
-    private function getRecentSalesTransactions(string $period)
+    private function getFilteredSalesTransactions(?string $month, ?string $date, int $page, int $perPage)
     {
         // Use created_at for datetime display (includes time), sale_date for date filtering only
         $dateCol = $this->salesDateColumn(); // sale_date or created_at - for filtering
@@ -612,37 +662,45 @@ class OwnerController extends Controller
                 DB::raw('COALESCE(items_agg.products, "No items") as products'),
             ]);
 
-        // Time window filtering - use broader time ranges to ensure we catch transactions
-        switch ($period) {
-            case 'daily':
-                $query->where('s.created_at', '>=', Carbon::now()->subDays(30)); // Expanded from 7 days
-                break;
-            case 'weekly':
-                $query->where('s.created_at', '>=', Carbon::now()->subWeeks(12)); // Expanded from 4 weeks
-                break;
-            case 'monthly':
-                $query->where('s.created_at', '>=', Carbon::now()->subMonths(24)); // Expanded from 12 months
-                break;
-            case 'yearly':
-                $query->where('s.created_at', '>=', Carbon::now()->subYears(5)); // Expanded from 3 years
-                break;
-            default:
-                // No time filter for debugging - show all transactions
-                break;
+        // Date filtering logic: specific date > month > default (last 12 months)
+        if ($date) {
+            $query->whereDate('s.created_at', $date);
+        } elseif ($month) {
+            try {
+                [$y,$m] = explode('-', $month);
+                $start = Carbon::createFromDate((int)$y,(int)$m,1)->startOfDay();
+                $end = (clone $start)->endOfMonth();
+                $query->whereBetween('s.created_at', [$start, $end]);
+            } catch (\Throwable $e) {
+                $query->where('s.created_at', '>=', Carbon::now()->subMonths(12));
+            }
+        } else {
+            $query->where('s.created_at', '>=', Carbon::now()->subMonths(12));
         }
 
-        $results = $query->orderByDesc('s.created_at') // Order by created_at for proper chronological order
-            ->limit(200)
+        // Total for pagination
+        $total = (clone $query)->count();
+        $totalPages = (int) ceil($total / $perPage);
+        $page = min(max(1,$page), max(1,$totalPages));
+        $offset = ($page - 1) * $perPage;
+
+        $results = $query->orderByDesc('s.created_at')
+            ->offset($offset)
+            ->limit($perPage)
             ->get();
 
         // Debug logging
         Log::info("Sales history query results count: " . $results->count());
-        Log::info("Date column used: {$dateCol}, Period: {$period}");
+        Log::info("Date column used: {$dateCol}, Filters month={$month} date={$date}");
         if ($results->count() > 0) {
             Log::info("First transaction: " . json_encode($results->first()));
         }
 
-        return $results;
+        return [
+            'data' => $results,
+            'total' => $total,
+            'total_pages' => $totalPages,
+        ];
     }
 
     /**

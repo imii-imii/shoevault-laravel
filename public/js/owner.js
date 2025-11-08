@@ -191,10 +191,15 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // --- Data Loading Functions ---
-async function loadSalesHistory(period = 'weekly') {
+async function loadSalesHistory(opts = {}) {
+    const { month = '', page = 1, perPage = 25 } = opts; // date removed
     try {
-        console.log(`Loading sales history for period: ${period}`);
-        const response = await fetch(`${laravelRoutes.salesHistory}?period=${period}`);
+        console.log(`Loading sales history (month=${month} page=${page})`);
+        const url = new URL(laravelRoutes.salesHistory, window.location.origin);
+        if (month) url.searchParams.set('month', month);
+        url.searchParams.set('page', page);
+        url.searchParams.set('per_page', perPage);
+        const response = await fetch(url.toString());
         const data = await response.json();
         
         console.log('Sales history response:', data);
@@ -205,34 +210,33 @@ async function loadSalesHistory(period = 'weekly') {
             console.log('Cached transactions:', window.__salesTransactions.length);
             
             updateSalesKPIs(data);
-            renderSalesChart(data.salesData, period);
+            renderSalesChart(data.salesData, month ? 'filtered' : 'default');
             renderTopSellingProducts(data.topProducts);
             // Prefer transactional rows if provided; fallback to aggregated structure
             if (Array.isArray(data.transactions)) {
                 console.log('Rendering sales table with', data.transactions.length, 'transactions');
                 renderSalesTable(data.transactions);
+                updateSalesPagination(data.pagination);
             } else {
                 console.log('No transactions array found, rendering empty table');
                 renderSalesTable([]);
+                updateSalesPagination({ page:1,total_pages:1,total:0, per_page:perPage });
             }
         } else {
             console.error('Failed to load sales history:', data.message);
             renderSalesTable([]);
+            updateSalesPagination({ page:1,total_pages:1,total:0, per_page:perPage });
         }
     } catch (error) {
         console.error('Error loading sales history:', error);
         renderSalesTable([]);
+        updateSalesPagination({ page:1,total_pages:1,total:0, per_page:perPage });
     }
 }
 
-// Apply filters on cached sales transactions and re-render the table
-function applySalesFilters({ search = '', sort = 'date-desc', periodUi = '' } = {}) {
+// Apply filters client-side (search/sort) on already fetched page
+function applySalesFilters({ search = '', sort = 'date-desc' } = {}) {
     let rows = Array.isArray(window.__salesTransactions) ? [...window.__salesTransactions] : [];
-    const todayStr = new Date().toISOString().slice(0,10);
-    // periodUi can be: '', 'today', 'week', 'month'
-    if (periodUi === 'today') {
-        rows = rows.filter(r => (r.sale_datetime || '').slice(0,10) === todayStr);
-    }
     // Search across transaction_id, cashier_name, products
     const q = (search || '').toLowerCase();
     if (q) {
@@ -250,6 +254,61 @@ function applySalesFilters({ search = '', sort = 'date-desc', periodUi = '' } = 
     else if (sort === 'amount-desc') rows.sort((a,b)=> num(b.total_amount) - num(a.total_amount));
     renderSalesTable(rows);
 }
+
+// Pagination state
+let __salesPageState = { page:1, total_pages:1, per_page:25, month:'' };
+
+function updateSalesPagination(pagination){
+    const infoEl = document.getElementById('sales-page-info');
+    const prevBtn = document.getElementById('sales-prev');
+    const nextBtn = document.getElementById('sales-next');
+    if (!pagination || !infoEl || !prevBtn || !nextBtn) return;
+    __salesPageState.page = pagination.page || 1;
+    __salesPageState.total_pages = pagination.total_pages || 1;
+    __salesPageState.per_page = pagination.per_page || __salesPageState.per_page;
+    infoEl.textContent = `Page ${__salesPageState.page} of ${__salesPageState.total_pages}`;
+    prevBtn.disabled = __salesPageState.page <= 1;
+    nextBtn.disabled = __salesPageState.page >= __salesPageState.total_pages;
+}
+
+function goSalesPage(delta){
+    const target = __salesPageState.page + delta;
+    if (target < 1 || target > __salesPageState.total_pages) return;
+    loadSalesHistory({
+        month: __salesPageState.month,
+        page: target,
+        perPage: __salesPageState.per_page
+    });
+}
+
+// Wire new month/date filters once DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    const monthEl = document.getElementById('sales-month-filter');
+    const searchEl = document.getElementById('sales-search');
+    const sortEl = document.getElementById('sales-sort-filter');
+    const prevBtn = document.getElementById('sales-prev');
+    const nextBtn = document.getElementById('sales-next');
+
+    function refetch(resetPage=true){
+        if (resetPage) __salesPageState.page = 1;
+        __salesPageState.month = monthEl?.value || '';
+        loadSalesHistory({
+            month: __salesPageState.month,
+            page: __salesPageState.page,
+            perPage: __salesPageState.per_page
+        });
+    }
+
+    monthEl?.addEventListener('change', () => { refetch(true); });
+
+    // Search + sort apply client side on current page
+    let searchTimer; 
+    searchEl?.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(()=> applySalesFilters({ search: searchEl.value, sort: sortEl.value }), 200); });
+    sortEl?.addEventListener('change', () => applySalesFilters({ search: searchEl?.value || '', sort: sortEl.value }));
+
+    prevBtn?.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); goSalesPage(-1); });
+    nextBtn?.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); goSalesPage(1); });
+});
 
 async function loadReservationLogs(period = 'weekly') {
     try {
