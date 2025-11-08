@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\ProductSize;
 use App\Models\Supplier;
 use App\Models\SupplyLog;
+use App\Models\Employee;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -14,6 +15,19 @@ use Illuminate\Support\Facades\Auth;
 
 class InventoryController extends Controller
 {
+    /**
+     * Predefined shoe sizes
+     */
+    const PREDEFINED_SIZES = [
+        '4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', 
+        '9', '9.5', '10', '10.5', '11', '11.5', '12', '12.5', '13', '13.5', '14'
+    ];
+    
+    /**
+     * Accessory size (no size variations)
+     */
+    const ACCESSORY_SIZE = 'One Size';
+
     /**
      * Show inventory dashboard
      */
@@ -48,6 +62,17 @@ class InventoryController extends Controller
         ];
         
         return view('inventory.dashboard', compact('products', 'suppliers', 'reservations', 'reservationStats', 'inventoryType'));
+    }
+
+    /**
+     * Get predefined shoe sizes
+     */
+    public function getPredefinedSizes()
+    {
+        return response()->json([
+            'success' => true,
+            'sizes' => self::PREDEFINED_SIZES
+        ]);
     }
 
     /**
@@ -245,7 +270,12 @@ class InventoryController extends Controller
      */
     public function settings()
     {
-        return view('inventory.settings');
+        $user = Auth::user();
+        $employee = $user->employee;
+        
+        return view('inventory.settings', [
+            'employee' => $employee,
+        ]);
     }
 
     /**
@@ -256,55 +286,174 @@ class InventoryController extends Controller
         try {
             $user = $request->user();
             
-            $validated = $request->validate([
-                'name' => 'required|string|max:255',
-                'username' => 'required|string|max:255|unique:users,username,' . $user->id,
-                'email' => 'required|email|max:255|unique:users,email,' . $user->id,
-                'phone' => 'nullable|string|max:20',
-                'profile_picture' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
+            // Debug: Log the incoming request data
+            Log::info('Profile update request data:', [
+                'all_data' => $request->all(),
+                'hasFile' => $request->hasFile('profile_picture'),
+                'fileSize' => $request->hasFile('profile_picture') ? $request->file('profile_picture')->getSize() : 'N/A',
+                'mimeType' => $request->hasFile('profile_picture') ? $request->file('profile_picture')->getMimeType() : 'N/A',
+                'originalName' => $request->hasFile('profile_picture') ? $request->file('profile_picture')->getClientOriginalName() : 'N/A',
+                'phpUploadMaxFilesize' => ini_get('upload_max_filesize'),
+                'phpPostMaxSize' => ini_get('post_max_size'),
+                'requestContentLength' => $request->header('Content-Length'),
             ]);
+            
+            // Step-by-step validation to isolate the issue
+            $rules = [
+                'name' => 'required|string|max:255',
+                'username' => 'required|string|max:255|unique:users,username,' . $user->user_id . ',user_id',
+                'email' => 'required|email|max:255',
+                'phone' => 'nullable|string|max:20',
+            ];
+            
+            // Only add profile picture validation if file is present
+            if ($request->hasFile('profile_picture')) {
+                $rules['profile_picture'] = 'image|mimes:jpeg,png,jpg,gif,webp|max:2048';
+            }
+            
+            Log::info('Validation rules:', $rules);
+            
+            $validated = $request->validate($rules);
+            
+            Log::info('Validation passed, validated data:', $validated);
+            
+            // Get or create employee record
+            $employee = $user->employee;
+            if (!$employee) {
+                $employee = Employee::create([
+                    'user_id' => $user->user_id,
+                    'fullname' => $validated['name'],
+                    'email' => $validated['email'],
+                    'phone_number' => $validated['phone'],
+                    'position' => $user->role,
+                    'hire_date' => now(),
+                ]);
+            }
             
             // Handle profile picture upload
             if ($request->hasFile('profile_picture')) {
+                Log::info('Processing profile picture upload');
+                
                 // Delete old profile picture if it exists
-                if ($user->profile_picture && file_exists(public_path($user->profile_picture))) {
-                    unlink(public_path($user->profile_picture));
+                if ($employee->profile_picture && file_exists(public_path($employee->profile_picture))) {
+                    unlink(public_path($employee->profile_picture));
+                    Log::info('Deleted old profile picture: ' . $employee->profile_picture);
                 }
                 
-                // Upload new profile picture
-                $file = $request->file('profile_picture');
-                $fileName = 'profile_' . $user->id . '_' . time() . '.' . $file->getClientOriginalExtension();
-                $filePath = 'assets/images/profiles/' . $fileName;
-                
-                // Create directory if it doesn't exist
-                $directory = public_path('assets/images/profiles');
-                if (!file_exists($directory)) {
-                    mkdir($directory, 0755, true);
+                try {
+                    // Upload new profile picture
+                    $file = $request->file('profile_picture');
+                    
+                    // Get file extension, with fallback
+                    $extension = $file->getClientOriginalExtension();
+                    if (empty($extension)) {
+                        // Fallback to guessing extension from MIME type
+                        $mimeType = $file->getMimeType();
+                        switch ($mimeType) {
+                            case 'image/jpeg':
+                                $extension = 'jpg';
+                                break;
+                            case 'image/png':
+                                $extension = 'png';
+                                break;
+                            case 'image/gif':
+                                $extension = 'gif';
+                                break;
+                            case 'image/webp':
+                                $extension = 'webp';
+                                break;
+                            default:
+                                $extension = 'jpg'; // Default fallback
+                        }
+                    }
+                    
+                    $fileName = 'profile_' . $user->user_id . '_' . time() . '.' . $extension;
+                    $relativePath = 'assets/images/profiles/' . $fileName;
+                    
+                    Log::info('File details:', [
+                        'originalName' => $file->getClientOriginalName(),
+                        'extension' => $extension,
+                        'mimeType' => $file->getMimeType(),
+                        'fileName' => $fileName
+                    ]);
+                    
+                    // Create directory if it doesn't exist
+                    $directory = public_path('assets/images/profiles');
+                    if (!is_dir($directory)) {
+                        if (!mkdir($directory, 0755, true)) {
+                            throw new \Exception('Failed to create upload directory');
+                        }
+                        Log::info('Created directory: ' . $directory);
+                    }
+                    
+                    // Move the uploaded file
+                    if (!$file->move($directory, $fileName)) {
+                        throw new \Exception('Failed to move uploaded file');
+                    }
+                    
+                    $fullPath = $directory . DIRECTORY_SEPARATOR . $fileName;
+                    
+                    Log::info('File upload successful:', [
+                        'fileName' => $fileName,
+                        'relativePath' => $relativePath,
+                        'fullPath' => $fullPath,
+                        'fileExists' => file_exists($fullPath),
+                        'fileSize' => file_exists($fullPath) ? filesize($fullPath) : 'N/A'
+                    ]);
+                    
+                    $validated['profile_picture'] = $relativePath;
+                    
+                } catch (\Exception $uploadException) {
+                    Log::error('Profile picture upload failed:', [
+                        'error' => $uploadException->getMessage(),
+                        'file_size' => $file->getSize(),
+                        'file_name' => $file->getClientOriginalName(),
+                        'mime_type' => $file->getMimeType()
+                    ]);
+                    
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Failed to upload profile picture: ' . $uploadException->getMessage()
+                    ], 500);
                 }
-                
-                $file->move($directory, $fileName);
-                $validated['profile_picture'] = $filePath;
             }
 
-            // Update user data
-            $user->update($validated);
+            // Update user username
+            $user->update(['username' => $validated['username']]);
+            
+            // Update employee profile data
+            $updateData = [
+                'fullname' => $validated['name'],
+                'email' => $validated['email'],
+                'phone_number' => $validated['phone'],
+            ];
+            
+            // Only update profile picture if a new one was uploaded
+            if (isset($validated['profile_picture'])) {
+                $updateData['profile_picture'] = $validated['profile_picture'];
+            }
+            
+            $employee->update($updateData);
+            
+            // Refresh the employee model to get updated data
+            $employee->refresh();
 
             return response()->json([
                 'success' => true,
                 'message' => 'Profile updated successfully!',
                 'user' => [
-                    'name' => $user->name,
+                    'name' => $employee->fullname,
                     'username' => $user->username,
-                    'email' => $user->email,
-                    'phone' => $user->phone,
-                    'profile_picture' => $this->getProfilePictureUrl($user)
+                    'email' => $employee->email,
+                    'phone' => $employee->phone_number,
+                    'profile_picture' => $this->getProfilePictureUrl($employee) . '?t=' . time() // Cache busting
                 ]
             ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation failed',
+                'message' => 'Validation failed: ' . collect($e->errors())->flatten()->implode(', '),
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
@@ -322,24 +471,32 @@ class InventoryController extends Controller
     {
         try {
             $user = $request->user();
+            $employee = $user->employee;
             
-            // Delete old profile picture if it exists
-            if ($user->profile_picture && file_exists(public_path($user->profile_picture))) {
-                unlink(public_path($user->profile_picture));
+            if (!$employee) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Employee record not found'
+                ], 404);
             }
             
-            // Update user record to remove profile picture
-            $user->update(['profile_picture' => null]);
+            // Delete old profile picture if it exists
+            if ($employee->profile_picture && file_exists(public_path($employee->profile_picture))) {
+                unlink(public_path($employee->profile_picture));
+            }
+            
+            // Update employee record to remove profile picture
+            $employee->update(['profile_picture' => null]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Profile picture removed successfully!',
                 'user' => [
-                    'name' => $user->name,
+                    'name' => $employee->fullname,
                     'username' => $user->username,
-                    'email' => $user->email,
-                    'phone' => $user->phone,
-                    'profile_picture' => $this->getProfilePictureUrl($user)
+                    'email' => $employee->email,
+                    'phone' => $employee->phone_number,
+                    'profile_picture' => $this->getProfilePictureUrl($employee)
                 ]
             ]);
 
@@ -403,18 +560,18 @@ class InventoryController extends Controller
     /**
      * Get profile picture URL with fallback to default
      */
-    private function getProfilePictureUrl($user)
+    private function getProfilePictureUrl($profileObject)
     {
-        if (!$user->profile_picture) {
+        if (!$profileObject->profile_picture) {
             return asset('assets/images/profile.png');
         }
         
-        $profilePicturePath = public_path($user->profile_picture);
+        $profilePicturePath = public_path($profileObject->profile_picture);
         if (!file_exists($profilePicturePath)) {
             return asset('assets/images/profile.png');
         }
         
-        return asset($user->profile_picture);
+        return asset($profileObject->profile_picture);
     }
 
     /**
@@ -433,7 +590,7 @@ class InventoryController extends Controller
         // Transform products to include size and stock information
         $transformedProducts = $products->map(function($product) {
             return [
-                'id' => $product->id,
+                'id' => $product->product_id,
                 'product_id' => $product->product_id,
                 'name' => $product->name,
                 'brand' => $product->brand,
@@ -524,15 +681,33 @@ class InventoryController extends Controller
 
             $product = $productModel::create($data);
 
-            // Create product sizes
-            foreach ($request->sizes as $sizeData) {
+            // Create sizes based on product category
+            $submittedSizes = collect($request->sizes)->keyBy('size');
+            
+            if ($request->category === 'accessories') {
+                // For accessories, create only "One Size" entry
+                $oneSizeStock = $submittedSizes->has(self::ACCESSORY_SIZE) ? $submittedSizes[self::ACCESSORY_SIZE]['stock'] : 0;
+                
                 $sizeModel::create([
-                    $relationKey => $product->id,
-                    'size' => $sizeData['size'],
-                    'stock' => $sizeData['stock'],
-                    'price_adjustment' => $sizeData['price_adjustment'] ?? 0,
-                    'is_available' => true
+                    $relationKey => $product->product_id,
+                    'size' => self::ACCESSORY_SIZE,
+                    'stock' => $oneSizeStock,
+                    'price_adjustment' => 0,
+                    'is_available' => $oneSizeStock > 0
                 ]);
+            } else {
+                // For shoes, create ALL predefined sizes
+                foreach (self::PREDEFINED_SIZES as $size) {
+                    $stock = $submittedSizes->has($size) ? $submittedSizes[$size]['stock'] : 0;
+                    
+                    $sizeModel::create([
+                        $relationKey => $product->product_id,
+                        'size' => $size,
+                        'stock' => $stock,
+                        'price_adjustment' => $submittedSizes->has($size) ? ($submittedSizes[$size]['price_adjustment'] ?? 0) : 0,
+                        'is_available' => $stock > 0
+                    ]);
+                }
             }
 
             DB::commit();
@@ -542,7 +717,7 @@ class InventoryController extends Controller
             
             // Format the product data for frontend
             $formattedProduct = [
-                'id' => $product->id,
+                'id' => $product->product_id, // Use product_id as the identifier
                 'name' => $product->name,
                 'product_id' => $product->product_id,
                 'brand' => $product->brand,
@@ -595,7 +770,8 @@ class InventoryController extends Controller
             
             // Format the product data for frontend
             $formattedProduct = [
-                'id' => $product->id,
+                'id' => $product->product_id, // Use product_id as the identifier
+                'product_id' => $product->product_id,
                 'name' => $product->name,
                 'brand' => $product->brand,
                 'category' => $product->category,
@@ -689,16 +865,75 @@ class InventoryController extends Controller
 
             $product->update($data);
 
-            // Update sizes - delete old ones and create new ones
-            $product->sizes()->delete();
-            foreach ($request->sizes as $sizeData) {
-                $sizeModel::create([
-                    $relationKey => $product->id,
-                    'size' => $sizeData['size'],
-                    'stock' => $sizeData['stock'],
-                    'price_adjustment' => $sizeData['price_adjustment'] ?? 0,
-                    'is_available' => true
-                ]);
+            // Update sizes based on category - NEVER delete, only update existing or create missing
+            $submittedSizes = collect($request->sizes)->keyBy('size');
+            $existingSizes = $product->sizes->keyBy('size');
+            
+            if ($request->category === 'accessories') {
+                // For accessories, only handle "One Size"
+                $oneSizeStock = $submittedSizes->has(self::ACCESSORY_SIZE) ? $submittedSizes[self::ACCESSORY_SIZE]['stock'] : 0;
+                
+                if ($existingSizes->has(self::ACCESSORY_SIZE)) {
+                    // Update existing "One Size" entry
+                    $existingSizes[self::ACCESSORY_SIZE]->update([
+                        'stock' => $oneSizeStock,
+                        'price_adjustment' => 0,
+                        'is_available' => $oneSizeStock > 0
+                    ]);
+                } else {
+                    // Create new "One Size" entry
+                    $sizeModel::create([
+                        $relationKey => $product->product_id,
+                        'size' => self::ACCESSORY_SIZE,
+                        'stock' => $oneSizeStock,
+                        'price_adjustment' => 0,
+                        'is_available' => $oneSizeStock > 0
+                    ]);
+                }
+                
+                // Set all shoe sizes to 0 stock (preserve entries but make unavailable)
+                foreach (self::PREDEFINED_SIZES as $size) {
+                    if ($existingSizes->has($size)) {
+                        $existingSizes[$size]->update([
+                            'stock' => 0,
+                            'price_adjustment' => 0,
+                            'is_available' => false
+                        ]);
+                    }
+                }
+            } else {
+                // For shoes, handle all predefined sizes
+                foreach (self::PREDEFINED_SIZES as $size) {
+                    $stock = $submittedSizes->has($size) ? $submittedSizes[$size]['stock'] : 0;
+                    $priceAdjustment = $submittedSizes->has($size) ? ($submittedSizes[$size]['price_adjustment'] ?? 0) : 0;
+                    
+                    if ($existingSizes->has($size)) {
+                        // Update existing size entry
+                        $existingSizes[$size]->update([
+                            'stock' => $stock,
+                            'price_adjustment' => $priceAdjustment,
+                            'is_available' => $stock > 0
+                        ]);
+                    } else {
+                        // Create new size entry (for newly added predefined sizes)
+                        $sizeModel::create([
+                            $relationKey => $product->product_id,
+                            'size' => $size,
+                            'stock' => $stock,
+                            'price_adjustment' => $priceAdjustment,
+                            'is_available' => $stock > 0
+                        ]);
+                    }
+                }
+                
+                // Set "One Size" to 0 stock if it exists (preserve entry but make unavailable)
+                if ($existingSizes->has(self::ACCESSORY_SIZE)) {
+                    $existingSizes[self::ACCESSORY_SIZE]->update([
+                        'stock' => 0,
+                        'price_adjustment' => 0,
+                        'is_available' => false
+                    ]);
+                }
             }
 
             DB::commit();
@@ -706,7 +941,7 @@ class InventoryController extends Controller
             // Reload with sizes and format a consistent response shape
             $product = $product->load('sizes');
             $formattedProduct = [
-                'id' => $product->id,
+                'id' => $product->product_id, // Use product_id as the identifier
                 'name' => $product->name,
                 'product_id' => $product->product_id,
                 'brand' => $product->brand,
@@ -810,9 +1045,9 @@ class InventoryController extends Controller
             ], 401);
         }
 
-        // Check if user has the right role (cashier, manager, or admin)
+        // Check if user has the right role (cashier or manager)
         $user = Auth::user();
-        if (!in_array($user->role, ['cashier', 'manager', 'admin'])) {
+        if (!in_array($user->role, ['cashier', 'manager'])) {
             Log::error('User with insufficient privileges attempted to update reservation status', [
                 'reservation_id' => $id,
                 'user_id' => $user->user_id,

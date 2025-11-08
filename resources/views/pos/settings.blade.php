@@ -156,7 +156,7 @@
         <div class="sidebar-footer">
             <div class="user-info">
                 <div class="user-avatar">
-                    <img src="{{ auth()->user() && auth()->user()->profile_picture && file_exists(public_path(auth()->user()->profile_picture)) ? asset(auth()->user()->profile_picture) : asset('assets/images/profile.png') }}" 
+                    <img src="{{ $employee && $employee->profile_picture && file_exists(public_path($employee->profile_picture)) ? asset($employee->profile_picture) : asset('assets/images/profile.png') }}" 
                          alt="User" 
                          class="sidebar-avatar-img">
                 </div>
@@ -217,7 +217,7 @@
                             <div class="card-title"><i class="fas fa-id-card"></i> User Information</div>
                             <div class="avatar-row">
                                 <img id="settings-avatar-preview" 
-                                     src="{{ auth()->user() && auth()->user()->profile_picture && file_exists(public_path(auth()->user()->profile_picture)) ? asset(auth()->user()->profile_picture) : asset('assets/images/profile.png') }}" 
+                                     src="{{ $employee && $employee->profile_picture && file_exists(public_path($employee->profile_picture)) ? asset($employee->profile_picture) : asset('assets/images/profile.png') }}" 
                                      alt="Avatar" 
                                      class="avatar-preview settings-avatar-img">
                                 <div class="avatar-actions">
@@ -229,7 +229,7 @@
                             <div class="form-grid">
                                 <div class="form-group">
                                     <label for="settings-name">Full Name</label>
-                                    <input id="settings-name" type="text" placeholder="Your name" value="{{ auth()->user()->name ?? '' }}">
+                                    <input id="settings-name" type="text" placeholder="Your name" value="{{ $employee->fullname ?? auth()->user()->name ?? '' }}">
                                 </div>
                                 <div class="form-group">
                                     <label for="settings-username">Username</label>
@@ -237,11 +237,11 @@
                                 </div>
                                 <div class="form-group">
                                     <label for="settings-email">Email</label>
-                                    <input id="settings-email" type="email" placeholder="name@example.com" value="{{ auth()->user()->email ?? '' }}">
+                                    <input id="settings-email" type="email" placeholder="name@example.com" value="{{ $employee->email ?? auth()->user()->email ?? '' }}">
                                 </div>
                                 <div class="form-group">
                                     <label for="settings-phone">Phone</label>
-                                    <input id="settings-phone" type="tel" placeholder="+63 900 000 0000">
+                                    <input id="settings-phone" type="tel" placeholder="+63 900 000 0000" value="{{ $employee->phone_number ?? '' }}">
                                 </div>
                                 
                             </div>
@@ -328,16 +328,196 @@
             reader.readAsDataURL(e.target.files[0]);
         }
     });
-    document.getElementById('settings-avatar-remove').addEventListener('click', function(){
+    document.getElementById('settings-avatar-remove').addEventListener('click', async function(){
         if (confirm('Are you sure you want to remove your avatar?')){
-            document.getElementById('settings-avatar-preview').src = '{{ asset('assets/images/profile.png') }}';
-            document.getElementById('settings-avatar').value = '';
+            const removeBtn = this;
+            const originalText = removeBtn.innerHTML;
+            
+            // Show loading state
+            removeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Removing...';
+            removeBtn.disabled = true;
+            
+            try {
+                // Determine the correct route based on current URL
+                let removeRoute;
+                if (window.location.pathname.includes('/pos/')) {
+                    removeRoute = '{{ route("pos.profile.picture.remove") }}';
+                } else if (window.location.pathname.includes('/owner/')) {
+                    removeRoute = '{{ route("owner.profile.picture.remove") }}';
+                } else {
+                    // Default fallback
+                    removeRoute = '{{ route("pos.profile.picture.remove") }}';
+                }
+                
+                const response = await fetch(removeRoute, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Update preview image
+                    document.getElementById('settings-avatar-preview').src = '{{ asset('assets/images/profile.png') }}';
+                    // Update sidebar avatar
+                    document.querySelector('.sidebar-avatar-img').src = '{{ asset('assets/images/profile.png') }}';
+                    // Clear file input
+                    document.getElementById('settings-avatar').value = '';
+                    alert('Profile picture removed successfully!');
+                } else {
+                    alert(data.message || 'Failed to remove profile picture');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while removing profile picture');
+            } finally {
+                // Restore button state
+                removeBtn.innerHTML = originalText;
+                removeBtn.disabled = false;
+            }
         }
     });
 
+    // Image compression function
+    async function compressImageIfNeeded(file, maxSizeKB = 2048) {
+        if (file.size <= maxSizeKB * 1024) {
+            return file;
+        }
+
+        return new Promise((resolve) => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            
+            img.onload = function() {
+                const maxWidth = 1200;
+                const maxHeight = 1200;
+                let { width, height } = img;
+                
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height = (height * maxWidth) / width;
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width = (width * maxHeight) / height;
+                        height = maxHeight;
+                    }
+                }
+                
+                canvas.width = width;
+                canvas.height = height;
+                
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                canvas.toBlob(resolve, 'image/jpeg', 0.8);
+            };
+            
+            img.src = URL.createObjectURL(file);
+        });
+    }
+
     // Profile save
-    document.getElementById('settings-profile-save').addEventListener('click', function(){
-        alert('Profile settings saved successfully!');
+    document.getElementById('settings-profile-save').addEventListener('click', async function(){
+        const saveBtn = this;
+        const originalText = saveBtn.innerHTML;
+        
+        // Validate required fields
+        const name = document.getElementById('settings-name').value.trim();
+        const username = document.getElementById('settings-username').value.trim();
+        const email = document.getElementById('settings-email').value.trim();
+        
+        if (!name || !username || !email) {
+            alert('Please fill in all required fields (Name, Username, Email)');
+            return;
+        }
+        
+        // Show loading state
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        saveBtn.disabled = true;
+        
+        try {
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('name', name);
+            formData.append('username', username);
+            formData.append('email', email);
+            formData.append('phone', document.getElementById('settings-phone').value.trim());
+            
+            // Handle profile picture if selected
+            const profilePictureInput = document.getElementById('settings-avatar');
+            if (profilePictureInput.files && profilePictureInput.files[0]) {
+                const originalFile = profilePictureInput.files[0];
+                console.log('Original file size:', originalFile.size, 'bytes');
+                
+                // Compress image if needed
+                const compressedFile = await compressImageIfNeeded(originalFile);
+                console.log('Compressed file size:', compressedFile.size, 'bytes');
+                
+                formData.append('profile_picture', compressedFile);
+            }
+            
+            // Send request - determine the correct route based on current URL
+            let updateRoute;
+            if (window.location.pathname.includes('/pos/')) {
+                updateRoute = '{{ route("pos.profile.update") }}';
+            } else if (window.location.pathname.includes('/owner/')) {
+                updateRoute = '{{ route("owner.profile.update") }}';
+            } else {
+                // Default fallback
+                updateRoute = '{{ route("pos.profile.update") }}';
+            }
+            
+            const response = await fetch(updateRoute, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('Profile updated successfully!');
+                
+                // Update UI with new data
+                if (data.user) {
+                    document.getElementById('settings-name').value = data.user.name;
+                    document.getElementById('settings-username').value = data.user.username;
+                    document.getElementById('settings-email').value = data.user.email;
+                    document.getElementById('settings-phone').value = data.user.phone || '';
+                    
+                    // Update profile picture if changed
+                    if (data.user.profile_picture) {
+                        document.getElementById('settings-avatar-preview').src = data.user.profile_picture;
+                        // Update sidebar avatar too
+                        document.querySelector('.sidebar-avatar-img').src = data.user.profile_picture;
+                    }
+                }
+                
+                // Clear file input
+                profilePictureInput.value = '';
+                
+                // Refresh page after short delay
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                alert(data.message || 'Failed to update profile');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred while updating profile');
+        } finally {
+            // Restore button state
+            saveBtn.innerHTML = originalText;
+            saveBtn.disabled = false;
+        }
     });
 
     // Password change
@@ -376,8 +556,19 @@
         formData.append('new_password', newPassword);
         formData.append('new_password_confirmation', confirmPassword);
         
+        // Determine the correct route based on current URL
+        let passwordRoute;
+        if (window.location.pathname.includes('/pos/')) {
+            passwordRoute = '{{ route("pos.password.update") }}';
+        } else if (window.location.pathname.includes('/owner/')) {
+            passwordRoute = '{{ route("owner.password.update") }}';
+        } else {
+            // Default fallback
+            passwordRoute = '{{ route("pos.password.update") }}';
+        }
+        
         // Send request
-        fetch('{{ route("pos.password.update") }}', {
+        fetch(passwordRoute, {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
@@ -412,18 +603,52 @@
 
     // ===== Header notifications wiring =====
     function initNotifications(){
-        const wrappers = document.querySelectorAll('.notification-wrapper');
-        wrappers.forEach(wrapper => {
-            const bell = wrapper.querySelector('.notification-bell');
-            if(!bell) return;
-            bell.addEventListener('click', (e) => {
-                e.stopPropagation();
-                wrapper.classList.toggle('open');
-            });
-        });
-        document.addEventListener('click', () => {
-            document.querySelectorAll('.notification-wrapper.open').forEach(w => w.classList.remove('open'));
-        });
+        console.log('🎯 POS Settings: Initializing notifications...');
+        
+        // Initialize NotificationManager after script loads - let it handle all notification functionality
+        setTimeout(() => {
+            console.log('🔍 Checking for NotificationManager...', typeof NotificationManager);
+            if (typeof NotificationManager !== 'undefined') {
+                console.log('✅ NotificationManager found, initializing...');
+                window.notificationManager = new NotificationManager();
+                window.notificationManager.init().catch(error => {
+                    console.error('❌ NotificationManager init failed:', error);
+                });
+            } else {
+                console.log('⏳ NotificationManager not ready, retrying...');
+                // Retry after a short delay
+                setTimeout(() => {
+                    console.log('🔍 Retry: Checking for NotificationManager...', typeof NotificationManager);
+                    if (typeof NotificationManager !== 'undefined') {
+                        console.log('✅ NotificationManager found on retry, initializing...');
+                        window.notificationManager = new NotificationManager();
+                        window.notificationManager.init().catch(error => {
+                            console.error('❌ NotificationManager init failed on retry:', error);
+                        });
+                    } else {
+                        // Fallback: basic dropdown toggle if NotificationManager fails to load
+                        console.warn('⚠️ NotificationManager not found after retry, using fallback dropdown');
+                        const wrappers = document.querySelectorAll('.notification-wrapper');
+                        console.log('🔍 Found notification wrappers:', wrappers.length);
+                        wrappers.forEach(wrapper => {
+                            const bell = wrapper.querySelector('.notification-bell');
+                            if(!bell) return;
+                            bell.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                console.log('🔔 Fallback: Bell clicked, toggling dropdown');
+                                wrapper.classList.toggle('open');
+                            });
+                        });
+                        document.addEventListener('click', () => {
+                            document.querySelectorAll('.notification-wrapper.open').forEach(w => {
+                                console.log('🚪 Fallback: Closing dropdown on outside click');
+                                w.classList.remove('open');
+                            });
+                        });
+                    }
+                }, 500);
+            }
+        }, 200);
     }
 
     // --- Section loading & slow entry animation (visual only) for settings ---
@@ -466,6 +691,7 @@
         else document.querySelectorAll('.settings-panel, .settings-card, .settings-tabs').forEach(playSection);
     })();
     </script>
+    <script src="{{ asset('js/notifications.js') }}"></script>
     @include('partials.mobile-blocker')
 </body>
 </html>

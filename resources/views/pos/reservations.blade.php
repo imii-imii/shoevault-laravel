@@ -1573,18 +1573,52 @@
 
         // ===== Header notifications wiring =====
         function initNotifications() {
-            const wrappers = document.querySelectorAll('.notification-wrapper');
-            wrappers.forEach(wrapper => {
-                const bell = wrapper.querySelector('.notification-bell');
-                if (!bell) return;
-                bell.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    wrapper.classList.toggle('open');
-                });
-            });
-            document.addEventListener('click', () => {
-                document.querySelectorAll('.notification-wrapper.open').forEach(w => w.classList.remove('open'));
-            });
+            console.log('🎯 POS Reservations: Initializing notifications...');
+            
+            // Initialize NotificationManager after script loads - let it handle all notification functionality
+            setTimeout(() => {
+                console.log('🔍 Checking for NotificationManager...', typeof NotificationManager);
+                if (typeof NotificationManager !== 'undefined') {
+                    console.log('✅ NotificationManager found, initializing...');
+                    window.notificationManager = new NotificationManager();
+                    window.notificationManager.init().catch(error => {
+                        console.error('❌ NotificationManager init failed:', error);
+                    });
+                } else {
+                    console.log('⏳ NotificationManager not ready, retrying...');
+                    // Retry after a short delay
+                    setTimeout(() => {
+                        console.log('🔍 Retry: Checking for NotificationManager...', typeof NotificationManager);
+                        if (typeof NotificationManager !== 'undefined') {
+                            console.log('✅ NotificationManager found on retry, initializing...');
+                            window.notificationManager = new NotificationManager();
+                            window.notificationManager.init().catch(error => {
+                                console.error('❌ NotificationManager init failed on retry:', error);
+                            });
+                        } else {
+                            // Fallback: basic dropdown toggle if NotificationManager fails to load
+                            console.warn('⚠️ NotificationManager not found after retry, using fallback dropdown');
+                            const wrappers = document.querySelectorAll('.notification-wrapper');
+                            console.log('🔍 Found notification wrappers:', wrappers.length);
+                            wrappers.forEach(wrapper => {
+                                const bell = wrapper.querySelector('.notification-bell');
+                                if (!bell) return;
+                                bell.addEventListener('click', (e) => {
+                                    e.stopPropagation();
+                                    console.log('🔔 Fallback: Bell clicked, toggling dropdown');
+                                    wrapper.classList.toggle('open');
+                                });
+                            });
+                            document.addEventListener('click', () => {
+                                document.querySelectorAll('.notification-wrapper.open').forEach(w => {
+                                    console.log('🚪 Fallback: Closing dropdown on outside click');
+                                    w.classList.remove('open');
+                                });
+                            });
+                        }
+                    }, 500);
+                }
+            }, 200);
         }
 
         // --- Section loading & slow entry animation (visual only) ---
@@ -1627,6 +1661,7 @@
             else document.querySelectorAll('.reservation-section, .reservation-cards, .reservation-table-wrapper').forEach(playSection);
         })();
     </script>
+    <script src="{{ asset('js/notifications.js') }}"></script>
     @include('partials.mobile-blocker')
 </body>
 </html>

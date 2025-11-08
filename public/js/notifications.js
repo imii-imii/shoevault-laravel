@@ -16,6 +16,8 @@ class NotificationManager {
     async init() {
         try {
             console.log('🔔 Initializing notification system...');
+            console.log('CSRF Token:', this.csrfToken);
+            console.log('Current URL:', window.location.href);
             await this.loadNotifications();
             this.bindEvents();
             this.startPolling();
@@ -35,6 +37,7 @@ class NotificationManager {
             if (unreadOnly) {
                 url.searchParams.set('unread_only', 'true');
             }
+            console.log('🌐 Request URL:', url.toString());
 
             const response = await fetch(url, {
                 headers: {
@@ -43,7 +46,11 @@ class NotificationManager {
                 }
             });
 
+            console.log('📡 Response status:', response.status, response.statusText);
+            
             if (!response.ok) {
+                const errorText = await response.text();
+                console.error('❌ Response error body:', errorText);
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 

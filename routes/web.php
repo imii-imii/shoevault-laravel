@@ -69,7 +69,7 @@ Route::middleware(['auth'])->prefix('api/notifications')->name('notifications.')
     Route::post('/{id}/read', [NotificationController::class, 'markAsRead'])->name('mark-read');
     Route::post('/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('mark-all-read');
     
-    // Admin-only notification routes
+    // Owner/Manager-only notification routes
     Route::middleware(['role:owner,manager'])->group(function () {
         Route::post('/', [NotificationController::class, 'create'])->name('create');
         Route::delete('/{id}', [NotificationController::class, 'destroy'])->name('destroy');
@@ -80,6 +80,13 @@ Route::middleware(['auth'])->prefix('api/notifications')->name('notifications.')
         Route::post('/trigger-checks', [NotificationController::class, 'triggerChecks'])->name('trigger-checks');
         Route::post('/cleanup', [NotificationController::class, 'cleanup'])->name('cleanup');
     });
+});
+
+// Test notification endpoint (temporary)
+Route::middleware(['auth'])->get('/test-notifications', function() {
+    $user = Auth::user();
+    $controller = new App\Http\Controllers\NotificationController(new App\Services\NotificationService());
+    return $controller->index(request());
 });
 
 // Customer authentication routes
@@ -95,8 +102,8 @@ Route::prefix('customer')->name('customer.')->group(function () {
     Route::post('/send-password-reset-code', [CustomerAuthController::class, 'sendPasswordResetCode'])->name('send-password-reset-code');
 });
 
-// POS routes (for cashiers and admin)
-Route::middleware(['auth', 'role:cashier,admin'])->prefix('pos')->name('pos.')->group(function () {
+// POS routes (for cashiers only)
+Route::middleware(['auth', 'role:cashier'])->prefix('pos')->name('pos.')->group(function () {
     Route::get('/dashboard', [PosController::class, 'dashboard'])->name('dashboard');
     Route::get('/reservations', [PosController::class, 'reservations'])->name('reservations');
     Route::get('/settings', [PosController::class, 'settings'])->name('settings');
@@ -112,8 +119,8 @@ Route::middleware(['auth', 'role:cashier,admin'])->prefix('pos')->name('pos.')->
     Route::get('/api/reservations/{id}', [InventoryController::class, 'getReservationDetails'])->name('api.reservations.show');
 });
 
-// Inventory routes (for managers and admin)
-Route::middleware(['auth', 'role:manager,admin'])->prefix('inventory')->name('inventory.')->group(function () {
+// Inventory routes (for managers only)
+Route::middleware(['auth', 'role:manager'])->prefix('inventory')->name('inventory.')->group(function () {
     Route::get('/dashboard', [InventoryController::class, 'dashboard'])->name('dashboard');
     Route::get('/enhanced', function() {
         // Hard-coded products data for UI testing
@@ -263,6 +270,7 @@ Route::middleware(['auth', 'role:manager,admin'])->prefix('inventory')->name('in
     Route::put('/products/{id}', [InventoryController::class, 'updateProduct'])->name('products.update');
     Route::delete('/products/{id}', [InventoryController::class, 'deleteProduct'])->name('products.destroy');
     Route::get('/sizes/{category}', [InventoryController::class, 'getSizesByCategory'])->name('sizes.by-category');
+    Route::get('/predefined-sizes', [InventoryController::class, 'getPredefinedSizes'])->name('predefined-sizes');
     
     // Reservation management routes
     Route::post('/reservations/{id}/status', [InventoryController::class, 'updateReservationStatus'])->name('reservations.update-status');
@@ -270,8 +278,8 @@ Route::middleware(['auth', 'role:manager,admin'])->prefix('inventory')->name('in
     Route::get('/api/reservations/{id}', [InventoryController::class, 'getReservationDetails'])->name('api.reservations.show');
 });
 
-// Owner routes (for owners and admin)
-Route::middleware(['auth', 'role:owner,admin'])->prefix('owner')->name('owner.')->group(function () {
+// Owner routes (for owners only)
+Route::middleware(['auth', 'role:owner'])->prefix('owner')->name('owner.')->group(function () {
     Route::get('/dashboard', [OwnerController::class, 'dashboard'])->name('dashboard');
     Route::get('/reports', [OwnerController::class, 'reports'])->name('reports');
     Route::get('/sales-history', [OwnerController::class, 'salesHistory'])->name('sales-history');
@@ -294,8 +302,8 @@ Route::middleware(['auth', 'role:owner,admin'])->prefix('owner')->name('owner.')
     Route::post('/customers/toggle', [OwnerUsersController::class, 'customersToggle'])->name('customers.toggle');
 });
 
-// Analytics routes (for owners and admin) - Future implementation  
-Route::middleware(['auth', 'role:owner,admin'])->prefix('analytics')->name('analytics.')->group(function () {
+// Analytics routes (for owners only) - Future implementation  
+Route::middleware(['auth', 'role:owner'])->prefix('analytics')->name('analytics.')->group(function () {
     Route::get('/dashboard', function () {
         return view('analytics.dashboard');
     })->name('dashboard');

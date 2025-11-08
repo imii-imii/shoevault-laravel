@@ -369,16 +369,16 @@
                 
                 @foreach($products as $product)
                 <div class="product-card" 
-                    data-id="{{ $product->id }}"
+                    data-id="{{ $product->product_id }}"
                     data-name="{{ $product->name }}" 
                     data-brand="{{ $product->brand }}" 
                     data-category="{{ $product->category }}" 
                     data-price="{{ $product->price }}" 
                     data-stock="{{ $product->sizes->sum('stock') }}" 
-                    data-sizes="{{ $product->sizes->pluck('size')->implode(', ') }}" 
+                    data-sizes="{{ $product->sizes->where('stock', '>', 0)->pluck('size')->implode(', ') }}" 
                     data-color="{{ $product->color }}"
                     data-image="{{ $product->image_url }}"
-                    style="position:relative;min-width:220px;max-width:240px;height:340px;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(67,56,202,0.08);padding:0px 18px 18px 18px;cursor:pointer;" onclick="openProductDetailsModal('{{ $product->id }}')">
+                    style="position:relative;min-width:220px;max-width:240px;height:340px;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(67,56,202,0.08);padding:0px 18px 18px 18px;cursor:pointer;" onclick="openProductDetailsModal('{{ $product->product_id }}')">
 
                     <!-- Category tag top-right -->
                     @php $cat = strtolower($product->category ?? ''); @endphp
@@ -401,10 +401,10 @@
                         <div class="pd-category" style="display:none;">{{ ucfirst($product->category) }}</div>
                         <span class="pd-price" style="font-size:0.95rem;font-weight:800;color:#111827;margin-top:6px;">₱ {{ number_format((float)$product->price, 0, '.', ',') }}</span>
                         <span class="pd-stock" style="font-size:0.78rem;color:#2a6aff;font-weight:600;margin-top:-18px;align-self:flex-end;">{{ $product->sizes->sum('stock') }} in stock</span>
-                        <div class="pd-sizes" style="font-size:0.78rem;color:#374151;margin-top:6px;">Sizes: {{ $product->sizes->pluck('size')->implode(', ') }}</div>
+                        <div class="pd-sizes" style="font-size:0.78rem;color:#374151;margin-top:6px;">Sizes: {{ $product->sizes->where('stock', '>', 0)->pluck('size')->implode(', ') }}</div>
                     </div>
                     
-                    <button type="button" class="btn btn-primary browse-btn" style="display:flex;align-items:center;justify-content:center;width:calc(100% + 36px);height:32px;border-radius:0 0 16px 16px;font-size:0.85rem;margin:8px -18px -18px -18px;padding:0;" onclick="event.stopPropagation(); openEditProductModal('{{ $product->id }}')">Update</button>
+                    <button type="button" class="btn btn-primary browse-btn" style="display:flex;align-items:center;justify-content:center;width:calc(100% + 36px);height:32px;border-radius:0 0 16px 16px;font-size:0.85rem;margin:8px -18px -18px -18px;padding:0;" onclick="event.stopPropagation(); openEditProductModal('{{ $product->product_id }}')">Update</button>
                 </div>
                 @endforeach
             </div>
@@ -580,19 +580,19 @@
                     <label for="product-price">Price</label>
                     <input type="number" id="product-price" name="price" min="0" step="0.01" placeholder="Please enter item price" required style="font-size: 1rem;">
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="product-sizes-section">
                     <label for="product-size-stock-container">Sizes & Stock</label>
                     <div id="product-size-stock-container" style="border:1px solid #e2e8f0;border-radius:6px;background:#f7fafc;padding:12px;margin-bottom:6px;">
-                        <div id="product-size-stock-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
-                        <div style="position:relative;display:flex;align-items:center;gap:8px;width:100%;">
-                            <input type="number" id="product-size-input" placeholder="Size" min="1" max="50" style="width:100px;font-size:0.9rem;">
-                            <input type="number" id="product-stock-input" placeholder="Stock" min="0" style="width:100px;font-size:0.9rem;">
-                            <button type="button" id="product-size-stock-add" style="background:#2a6aff;color:white;border:none;border-radius:4px;padding:6px 12px;cursor:pointer;font-size:0.9rem;">
-                                Add Size
-                            </button>
+                        <div id="product-predefined-sizes">
+                            <!-- Size selector and controls will be at the top -->
+                            <!-- Added sizes list will be at the bottom -->
                         </div>
                         <div id="total-stock-display" style="margin-top:8px;font-weight:600;color:#2a6aff;font-size:0.9rem;">Total Stock: 0</div>
                     </div>
+                </div>
+                <div class="form-group" id="product-stock-section" style="display:none;">
+                    <label for="product-stock-input-simple">Stock Quantity</label>
+                    <input type="number" id="product-stock-input-simple" min="0" placeholder="Enter stock quantity" style="font-size: 1rem;">
                 </div>
                 <div class="form-group">
                     <label for="product-color">Color</label>
@@ -665,19 +665,19 @@
                     <label for="edit-product-price">Price</label>
                     <input type="number" id="edit-product-price" name="price" min="0" step="0.01" placeholder="Please enter item price" required style="font-size: 1rem;">
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="edit-product-sizes-section">
                     <label for="edit-product-size-stock-container">Sizes & Stock</label>
                     <div id="edit-product-size-stock-container" style="border:1px solid #e2e8f0;border-radius:6px;background:#f7fafc;padding:12px;margin-bottom:6px;">
-                        <div id="edit-product-size-stock-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
-                        <div style="position:relative;display:flex;align-items:center;gap:8px;width:100%;">
-                            <input type="number" id="edit-product-size-input" placeholder="Size" min="1" max="50" style="width:100px;font-size:0.9rem;">
-                            <input type="number" id="edit-product-stock-input" placeholder="Stock" min="0" style="width:100px;font-size:0.9rem;">
-                            <button type="button" id="edit-product-size-stock-add" style="background:#2a6aff;color:white;border:none;border-radius:4px;padding:12px 15px;cursor:pointer;font-size:0.9rem;">
-                                Add Size
-                            </button>
+                        <div id="edit-product-predefined-sizes">
+                            <!-- Size selector and controls will be at the top -->
+                            <!-- Added sizes list will be at the bottom -->
                         </div>
                         <div id="edit-total-stock-display" style="margin-top:8px;font-weight:600;color:#2a6aff;font-size:0.9rem;">Total Stock: 0</div>
                     </div>
+                </div>
+                <div class="form-group" id="edit-product-stock-section" style="display:none;">
+                    <label for="edit-product-stock-input-simple">Stock Quantity</label>
+                    <input type="number" id="edit-product-stock-input-simple" min="0" placeholder="Enter stock quantity" style="font-size: 1rem;">
                 </div>
                 <div class="form-group">
                     <label for="edit-product-color">Color</label>
@@ -1602,160 +1602,373 @@ function removeImage(event) {
     if (addUploadBox) addUploadBox.classList.remove('has-image');
 }
 
-// Size and Stock Management Functionality
-let sizeStockArray = [];
-let editSizeStockArray = [];
+// Predefined Size and Stock Management Functionality
+let predefinedSizes = [];
+let sizeStockData = {}; // Store stock for each size
+let editSizeStockData = {}; // Store stock for each size in edit mode
 
-function addSizeStock(size, stock) {
-    const existingIndex = sizeStockArray.findIndex(item => item.size === size);
-    if (existingIndex >= 0) {
-        // Update existing size stock
-        sizeStockArray[existingIndex].stock = stock;
-    } else {
-        // Add new size and stock
-        sizeStockArray.push({ size: size, stock: parseInt(stock) });
+// Load predefined sizes from backend
+async function loadPredefinedSizes() {
+    try {
+        const response = await fetch('/inventory/predefined-sizes');
+        const data = await response.json();
+        if (data.success) {
+            predefinedSizes = data.sizes;
+            renderPredefinedSizes();
+            renderEditPredefinedSizes();
+        }
+    } catch (error) {
+        console.error('Error loading predefined sizes:', error);
+        // Fallback to hardcoded sizes
+        predefinedSizes = ['4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10', '10.5', '11', '11.5', '12', '12.5', '13', '13.5', '14'];
+        renderPredefinedSizes();
+        renderEditPredefinedSizes();
     }
-    renderSizeStockList();
-    updateTotalStock();
 }
 
-function removeSizeStock(size) {
-    sizeStockArray = sizeStockArray.filter(item => item.size !== size);
-    renderSizeStockList();
-    updateTotalStock();
-}
-
-function renderSizeStockList() {
-    const container = document.getElementById('product-size-stock-list');
-    container.innerHTML = sizeStockArray.map(item => `
-        <div style="display:flex;align-items:center;justify-content:space-between;background:white;padding:8px 12px;border-radius:4px;border:1px solid #e2e8f0;">
-            <span style="font-weight:600;">Size ${item.size}</span>
-            <div style="display:flex;align-items:center;gap:8px;">
-                <span style="color:#666;">Stock: ${item.stock}</span>
-                <button type="button" onclick="removeSizeStock('${item.size}')" style="background:#ef4444;color:white;border:none;border-radius:2px;padding:2px 6px;cursor:pointer;font-size:0.8rem;">&times;</button>
-            </div>
+// Render predefined sizes for add modal
+function renderPredefinedSizes() {
+    const container = document.getElementById('product-predefined-sizes');
+    
+    // Create size selector at top and added sizes list at bottom
+    container.innerHTML = `
+        <div style="margin-bottom:12px;font-size:0.9rem;color:#6b7280;">Select sizes and set stock quantities:</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:8px;background:white;border-radius:4px;border:1px solid #e2e8f0;">
+            <select id="size-selector" style="padding:6px;border:1px solid #d1d5db;border-radius:4px;font-size:0.9rem;flex:1;">
+                <option value="">Select a size to add</option>
+                ${predefinedSizes.map(size => `<option value="${size}">Size ${size}</option>`).join('')}
+            </select>
+            <input type="number" id="size-stock-input" placeholder="Stock" min="0" style="width:80px;padding:6px;border:1px solid #d1d5db;border-radius:4px;font-size:0.9rem;">
+            <button type="button" onclick="addSizeFromSelector()" style="background:#2a6aff;color:white;border:none;border-radius:4px;padding:6px 12px;cursor:pointer;font-size:0.9rem;">Add Size</button>
         </div>
-    `).join('');
+        <div id="added-sizes-list" style="display:flex;flex-direction:column;gap:8px;">
+            <!-- Added sizes will appear here -->
+        </div>
+    `;
+    
+    // Add event listeners for keyboard support
+    const stockInput = document.getElementById('size-stock-input');
+    const sizeSelector = document.getElementById('size-selector');
+    
+    if (stockInput) {
+        stockInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addSizeFromSelector();
+            }
+        });
+    }
+    
+    if (sizeSelector) {
+        sizeSelector.addEventListener('change', function() {
+            if (this.value) {
+                stockInput.focus();
+            }
+        });
+    }
+    
+    updateAddedSizesList();
 }
 
+// Render predefined sizes for edit modal
+function renderEditPredefinedSizes() {
+    const container = document.getElementById('edit-product-predefined-sizes');
+    
+    // Create size selector at top and added sizes list at bottom
+    container.innerHTML = `
+        <div style="margin-bottom:12px;font-size:0.9rem;color:#6b7280;">Select sizes and set stock quantities:</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:8px;background:white;border-radius:4px;border:1px solid #e2e8f0;">
+            <select id="edit-size-selector" style="padding:6px;border:1px solid #d1d5db;border-radius:4px;font-size:0.9rem;flex:1;">
+                <option value="">Select a size to add</option>
+                ${predefinedSizes.map(size => `<option value="${size}">Size ${size}</option>`).join('')}
+            </select>
+            <input type="number" id="edit-size-stock-input" placeholder="Stock" min="0" style="width:80px;padding:6px;border:1px solid #d1d5db;border-radius:4px;font-size:0.9rem;">
+            <button type="button" onclick="addEditSizeFromSelector()" style="background:#2a6aff;color:white;border:none;border-radius:4px;padding:6px 12px;cursor:pointer;font-size:0.9rem;">Add Size</button>
+        </div>
+        <div id="edit-added-sizes-list" style="display:flex;flex-direction:column;gap:8px;">
+            <!-- Added sizes will appear here -->
+        </div>
+    `;
+    
+    // Add event listeners for keyboard support
+    const stockInput = document.getElementById('edit-size-stock-input');
+    const sizeSelector = document.getElementById('edit-size-selector');
+    
+    if (stockInput) {
+        stockInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addEditSizeFromSelector();
+            }
+        });
+    }
+    
+    if (sizeSelector) {
+        sizeSelector.addEventListener('change', function() {
+            if (this.value) {
+                stockInput.focus();
+            }
+        });
+    }
+    
+    updateEditAddedSizesList();
+}
+
+// Add size from selector (add modal)
+function addSizeFromSelector() {
+    const sizeSelector = document.getElementById('size-selector');
+    const stockInput = document.getElementById('size-stock-input');
+    
+    const size = sizeSelector.value;
+    const stock = parseInt(stockInput.value) || 0;
+    
+    if (!size) {
+        alert('Please select a size');
+        return;
+    }
+    
+    if (sizeStockData[size] !== undefined) {
+        alert('This size has already been added');
+        return;
+    }
+    
+    // Add the size with stock
+    sizeStockData[size] = stock;
+    
+    // Reset inputs
+    sizeSelector.value = '';
+    stockInput.value = '';
+    
+    // Update display
+    updateAddedSizesList();
+    updateTotalStock();
+    updateSizeSelector();
+}
+
+// Add size from selector (edit modal)  
+function addEditSizeFromSelector() {
+    const sizeSelector = document.getElementById('edit-size-selector');
+    const stockInput = document.getElementById('edit-size-stock-input');
+    
+    const size = sizeSelector.value;
+    const stock = parseInt(stockInput.value) || 0;
+    
+    if (!size) {
+        alert('Please select a size');
+        return;
+    }
+    
+    if (editSizeStockData[size] !== undefined) {
+        alert('This size has already been added');
+        return;
+    }
+    
+    // Add the size with stock
+    editSizeStockData[size] = stock;
+    
+    // Reset inputs
+    sizeSelector.value = '';
+    stockInput.value = '';
+    
+    // Update display
+    updateEditAddedSizesList();
+    updateEditTotalStock();
+    updateEditSizeSelector();
+}
+
+// Update size stock (add modal)
+function updateSizeStock(size, stock) {
+    const stockValue = parseInt(stock) || 0;
+    sizeStockData[size] = stockValue;
+    updateTotalStock();
+}
+
+// Update size stock (edit modal)
+function updateEditSizeStock(size, stock) {
+    const stockValue = parseInt(stock) || 0;
+    editSizeStockData[size] = stockValue;
+    updateEditTotalStock();
+}
+
+// Remove size (add modal)
+function removeSizeStock(size) {
+    delete sizeStockData[size];
+    updateAddedSizesList();
+    updateTotalStock();
+    updateSizeSelector();
+}
+
+// Remove size (edit modal)
+function removeEditSizeStock(size) {
+    delete editSizeStockData[size];
+    updateEditAddedSizesList();
+    updateEditTotalStock();
+    updateEditSizeSelector();
+}
+
+// Update total stock display (add modal)
 function updateTotalStock() {
-    const total = sizeStockArray.reduce((sum, item) => sum + item.stock, 0);
+    const total = Object.values(sizeStockData).reduce((sum, stock) => sum + stock, 0);
     document.getElementById('total-stock-display').textContent = `Total Stock: ${total}`;
 }
 
-// Edit modal size/stock functions
-function addEditSizeStock(size, stock) {
-    const existingIndex = editSizeStockArray.findIndex(item => item.size === size);
-    if (existingIndex >= 0) {
-        // Update existing size stock
-        editSizeStockArray[existingIndex].stock = stock;
-    } else {
-        // Add new size and stock
-        editSizeStockArray.push({ size: size, stock: parseInt(stock) });
+// Update total stock display (edit modal)
+function updateEditTotalStock() {
+    const total = Object.values(editSizeStockData).reduce((sum, stock) => sum + stock, 0);
+    document.getElementById('edit-total-stock-display').textContent = `Total Stock: ${total}`;
+}
+
+// Get sizes array for form submission (add modal)
+function getSizesForSubmission() {
+    return Object.entries(sizeStockData)
+        .map(([size, stock]) => ({ size, stock: parseInt(stock) || 0 }));
+}
+
+// Get sizes array for form submission (edit modal)
+function getEditSizesForSubmission() {
+    // Return all predefined sizes with their stock values (0 for unchecked sizes)
+    return predefinedSizes.map(size => ({
+        size,
+        stock: editSizeStockData[size] || 0
+    }));
+}
+
+// Update added sizes list (add modal)
+function updateAddedSizesList() {
+    const container = document.getElementById('added-sizes-list');
+    const addedSizes = Object.entries(sizeStockData);
+    
+    if (addedSizes.length === 0) {
+        container.innerHTML = '<div style="color:#6b7280;font-style:italic;padding:8px;">No sizes added yet</div>';
+        return;
     }
-    renderEditSizeStockList();
-    updateEditTotalStock();
-}
-
-function removeEditSizeStock(size) {
-    editSizeStockArray = editSizeStockArray.filter(item => item.size !== size);
-    renderEditSizeStockList();
-    updateEditTotalStock();
-}
-
-function renderEditSizeStockList() {
-    const container = document.getElementById('edit-product-size-stock-list');
-    container.innerHTML = editSizeStockArray.map(item => `
+    
+    container.innerHTML = addedSizes.map(([size, stock]) => `
         <div style="display:flex;align-items:center;justify-content:space-between;background:white;padding:8px 12px;border-radius:4px;border:1px solid #e2e8f0;">
-            <span style="font-weight:600;">Size ${item.size}</span>
+            <span style="font-weight:600;">Size ${size}</span>
             <div style="display:flex;align-items:center;gap:8px;">
-                <span style="color:#666;">Stock: ${item.stock}</span>
-                <button type="button" onclick="removeEditSizeStock('${item.size}')" style="background:#ef4444;color:white;border:none;border-radius:2px;padding:2px 6px;cursor:pointer;font-size:0.8rem;">&times;</button>
+                <input type="number" value="${stock}" min="0" 
+                       style="width:80px;padding:4px;border:1px solid #d1d5db;border-radius:4px;font-size:0.85rem;" 
+                       onchange="updateSizeStock('${size}', this.value)">
+                <button type="button" onclick="removeSizeStock('${size}')" 
+                        style="background:#ef4444;color:white;border:none;border-radius:2px;padding:2px 6px;cursor:pointer;font-size:0.8rem;">&times;</button>
             </div>
         </div>
     `).join('');
 }
 
-function updateEditTotalStock() {
-    const total = editSizeStockArray.reduce((sum, item) => sum + item.stock, 0);
-    document.getElementById('edit-total-stock-display').textContent = `Total Stock: ${total}`;
+// Update added sizes list (edit modal)
+function updateEditAddedSizesList() {
+    const container = document.getElementById('edit-added-sizes-list');
+    const addedSizes = Object.entries(editSizeStockData);
+    
+    if (addedSizes.length === 0) {
+        container.innerHTML = '<div style="color:#6b7280;font-style:italic;padding:8px;">No sizes added yet</div>';
+        return;
+    }
+    
+    container.innerHTML = addedSizes.map(([size, stock]) => `
+        <div style="display:flex;align-items:center;justify-content:space-between;background:white;padding:8px 12px;border-radius:4px;border:1px solid #e2e8f0;">
+            <span style="font-weight:600;">Size ${size}</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <input type="number" value="${stock}" min="0" 
+                       style="width:80px;padding:4px;border:1px solid #d1d5db;border-radius:4px;font-size:0.85rem;" 
+                       onchange="updateEditSizeStock('${size}', this.value)">
+                <button type="button" onclick="removeEditSizeStock('${size}')" 
+                        style="background:#ef4444;color:white;border:none;border-radius:2px;padding:2px 6px;cursor:pointer;font-size:0.8rem;">&times;</button>
+            </div>
+        </div>
+    `).join('');
 }
 
-// Add event listeners for size/stock inputs
-document.addEventListener('DOMContentLoaded', function() {
-    // Size/Stock input functionality (Add Modal)
-    const sizeInput = document.getElementById('product-size-input');
-    const stockInput = document.getElementById('product-stock-input');
-    const addBtn = document.getElementById('product-size-stock-add');
+// Update size selector options (add modal)
+function updateSizeSelector() {
+    const selector = document.getElementById('size-selector');
+    const addedSizes = Object.keys(sizeStockData);
     
-    function addSizeStockFromInput() {
-        const size = sizeInput.value.trim();
-        const stock = stockInput.value.trim();
-        
-        if (size && stock && parseInt(stock) >= 0) {
-            addSizeStock(size, stock);
-            sizeInput.value = '';
-            stockInput.value = '';
-        } else {
-            alert('Please enter valid size and stock values');
-        }
-    }
-    
-    addBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        addSizeStockFromInput();
-    });
-    
-    sizeInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            stockInput.focus();
-        }
-    });
-    
-    stockInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            addSizeStockFromInput();
-        }
-    });
+    selector.innerHTML = '<option value="">Select a size to add</option>' + 
+        predefinedSizes
+            .filter(size => !addedSizes.includes(size))
+            .map(size => `<option value="${size}">Size ${size}</option>`)
+            .join('');
+}
 
-    // Size/Stock input functionality (Edit Modal)
-    const editSizeInput = document.getElementById('edit-product-size-input');
-    const editStockInput = document.getElementById('edit-product-stock-input');
-    const editAddBtn = document.getElementById('edit-product-size-stock-add');
+// Update size selector options (edit modal)
+function updateEditSizeSelector() {
+    const selector = document.getElementById('edit-size-selector');
+    const addedSizes = Object.keys(editSizeStockData);
     
-    function addEditSizeStockFromInput() {
-        const size = editSizeInput.value.trim();
-        const stock = editStockInput.value.trim();
-        
-        if (size && stock && parseInt(stock) >= 0) {
-            addEditSizeStock(size, stock);
-            editSizeInput.value = '';
-            editStockInput.value = '';
-        } else {
-            alert('Please enter valid size and stock values');
-        }
+    selector.innerHTML = '<option value="">Select a size to add</option>' + 
+        predefinedSizes
+            .filter(size => !addedSizes.includes(size))
+            .map(size => `<option value="${size}">Size ${size}</option>`)
+            .join('');
+}
+
+// Handle category changes to show/hide size sections
+function handleCategoryChange(isEdit = false) {
+    const categorySelect = document.getElementById(isEdit ? 'edit-product-category' : 'product-category');
+    const sizesSection = document.getElementById(isEdit ? 'edit-product-sizes-section' : 'product-sizes-section');
+    const stockSection = document.getElementById(isEdit ? 'edit-product-stock-section' : 'product-stock-section');
+    
+    const category = categorySelect.value;
+    
+    if (category === 'accessories') {
+        // Hide sizes section, show simple stock input
+        sizesSection.style.display = 'none';
+        stockSection.style.display = 'block';
+    } else {
+        // Show sizes section, hide simple stock input
+        sizesSection.style.display = 'block';
+        stockSection.style.display = 'none';
+    }
+}
+
+// Get sizes for submission based on category
+function getSizesForSubmissionByCategory() {
+    const category = document.getElementById('product-category').value;
+    
+    if (category === 'accessories') {
+        const stock = parseInt(document.getElementById('product-stock-input-simple').value) || 0;
+        return [{ size: 'One Size', stock: stock }];
+    } else {
+        return getSizesForSubmission();
+    }
+}
+
+// Get edit sizes for submission based on category
+function getEditSizesForSubmissionByCategory() {
+    const category = document.getElementById('edit-product-category').value;
+    
+    if (category === 'accessories') {
+        const stock = parseInt(document.getElementById('edit-product-stock-input-simple').value) || 0;
+        // Return all predefined sizes with 0 stock, plus "One Size" with actual stock
+        return predefinedSizes.map(size => ({ size, stock: 0 }))
+               .concat([{ size: 'One Size', stock: stock }]);
+    } else {
+        return getEditSizesForSubmission();
+    }
+}
+
+// Initialize predefined sizes system
+document.addEventListener('DOMContentLoaded', function() {
+    // Load predefined sizes when page loads
+    loadPredefinedSizes();
+    
+    // Add category change listeners
+    const categorySelect = document.getElementById('product-category');
+    const editCategorySelect = document.getElementById('edit-product-category');
+    
+    if (categorySelect) {
+        categorySelect.addEventListener('change', () => handleCategoryChange(false));
+        // Initial check
+        handleCategoryChange(false);
     }
     
-    editAddBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        addEditSizeStockFromInput();
-    });
-    
-    editSizeInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            editStockInput.focus();
-        }
-    });
-    
-    editStockInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            addEditSizeStockFromInput();
-        }
-    });
+    if (editCategorySelect) {
+        editCategorySelect.addEventListener('change', () => handleCategoryChange(true));
+        // Initial check will be done when modal opens
+    }
 });
 
 // Enhanced modal functions
@@ -1788,10 +2001,17 @@ function closeAddProductModal() {
     if (addUploadBox) addUploadBox.classList.remove('has-image');
     document.getElementById('preview-img').src = '';
     
-    // Reset size/stock arrays
-    sizeStockArray = [];
-    renderSizeStockList();
+    // Reset size/stock data
+    sizeStockData = {};
+    updateAddedSizesList();
     updateTotalStock();
+    updateSizeSelector();
+    
+    // Reset simple stock input
+    document.getElementById('product-stock-input-simple').value = '';
+    
+    // Reset category UI
+    handleCategoryChange(false);
 }
 
 // Edit Product Modal Functions
@@ -1812,6 +2032,9 @@ function openEditProductModal(productId) {
                 document.getElementById('edit-product-price').value = product.price;
                 document.getElementById('edit-product-color').value = product.color || '';
                 
+                // Handle category-specific UI
+                handleCategoryChange(true);
+                
                 // Set image preview
                 const editUploadBox = document.querySelector('#edit-product-form .upload-box');
                 if (product.image_url) {
@@ -1823,18 +2046,27 @@ function openEditProductModal(productId) {
                     if (editUploadBox) editUploadBox.classList.remove('has-image');
                 }
                 
-                // Set sizes and stock
-                editSizeStockArray = [];
-                if (product.sizes && product.sizes.length > 0) {
-                    product.sizes.forEach(sizeData => {
-                        editSizeStockArray.push({
-                            size: sizeData.size,
-                            stock: sizeData.stock
+                // Set sizes and stock based on category
+                editSizeStockData = {};
+                
+                if (product.category === 'accessories') {
+                    // For accessories, find the "One Size" entry or total stock
+                    const oneSizeEntry = product.sizes?.find(s => s.size === 'One Size');
+                    const totalStock = oneSizeEntry ? oneSizeEntry.stock : (product.sizes?.reduce((sum, s) => sum + s.stock, 0) || 0);
+                    document.getElementById('edit-product-stock-input-simple').value = totalStock;
+                } else {
+                    // For shoes, set existing sizes and stock (only show sizes with stock > 0)
+                    if (product.sizes && product.sizes.length > 0) {
+                        product.sizes.forEach(sizeData => {
+                            if (sizeData.stock > 0 && sizeData.size !== 'One Size') {
+                                editSizeStockData[sizeData.size] = sizeData.stock;
+                            }
                         });
-                    });
+                    }
+                    updateEditAddedSizesList();
+                    updateEditTotalStock();
+                    updateEditSizeSelector();
                 }
-                renderEditSizeStockList();
-                updateEditTotalStock();
                 
                 // Show the modal
                 const modal = document.getElementById('edit-product-modal');
@@ -1871,10 +2103,14 @@ function closeEditProductModal() {
     if (editUploadBox) editUploadBox.classList.remove('has-image');
     document.getElementById('edit-preview-img').src = '';
     
-    // Reset size/stock arrays
-    editSizeStockArray = [];
-    renderEditSizeStockList();
+    // Reset size/stock data
+    editSizeStockData = {};
+    updateEditAddedSizesList();
     updateEditTotalStock();
+    updateEditSizeSelector();
+    
+    // Reset simple stock input
+    document.getElementById('edit-product-stock-input-simple').value = '';
 }
 
 // Enhanced remove image function for edit modal
@@ -1933,18 +2169,21 @@ function openProductDetailsModal(productId) {
                             </div>
                         </div>
                         
-                        ${product.sizes && product.sizes.length > 0 ? `
-                            <div>
-                                <label style="font-size: 0.9rem; color: #374151; font-weight: 600; margin-bottom: 8px; display: block;">Available Sizes:</label>
-                                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                                    ${product.sizes.map(size => `
-                                        <span style="background: #f3f4f6; padding: 6px 12px; border-radius: 6px; font-size: 0.9rem; color: #374151; font-weight: 500;">
-                                            ${size.size} (${size.stock} in stock)
-                                        </span>
-                                    `).join('')}
+                        ${(() => {
+                            const availableSizes = product.sizes ? product.sizes.filter(size => size.stock > 0) : [];
+                            return availableSizes.length > 0 ? `
+                                <div>
+                                    <label style="font-size: 0.9rem; color: #374151; font-weight: 600; margin-bottom: 8px; display: block;">Available Sizes:</label>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                        ${availableSizes.map(size => `
+                                            <span style="background: #f3f4f6; padding: 6px 12px; border-radius: 6px; font-size: 0.9rem; color: #374151; font-weight: 500;">
+                                                ${size.size} (${size.stock} in stock)
+                                            </span>
+                                        `).join('')}
+                                    </div>
                                 </div>
-                            </div>
-                        ` : '<p style="color: #6b7280;">No sizes available</p>'}
+                            ` : '<p style="color: #6b7280;">No sizes in stock</p>';
+                        })()}
                         
                         <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
                             <button onclick="closeProductDetailsModal(); openEditProductModal(${product.id})" 
@@ -2032,8 +2271,9 @@ document.getElementById('add-product-form').addEventListener('submit', function(
     }
     
     // Validate that at least one size/stock is entered
-    if (sizeStockArray.length === 0) {
-        alert('Please add at least one size with stock for the product.');
+    const sizesToSubmit = getSizesForSubmissionByCategory();
+    if (sizesToSubmit.length === 0) {
+        alert('Please add at least one size for the product.');
         return;
     }
     
@@ -2060,7 +2300,7 @@ document.getElementById('add-product-form').addEventListener('submit', function(
     formData.append('inventory_type', inventoryType);
     
     // Add sizes with individual stock amounts
-    sizeStockArray.forEach((item, index) => {
+    sizesToSubmit.forEach((item, index) => {
         formData.append(`sizes[${index}][size]`, item.size);
         formData.append(`sizes[${index}][stock]`, item.stock);
         formData.append(`sizes[${index}][price_adjustment]`, 0);
@@ -2130,10 +2370,23 @@ document.getElementById('add-product-form').addEventListener('submit', function(
 document.getElementById('edit-product-form').addEventListener('submit', function(e) {
     e.preventDefault();
     
-    // Validate that at least one size/stock is entered
-    if (editSizeStockArray.length === 0) {
-        alert('Please add at least one size with stock for the product.');
-        return;
+    // Get all sizes for submission (including 0 stock sizes)
+    const sizesToSubmit = getEditSizesForSubmissionByCategory();
+    
+    // Validate based on category
+    const category = document.getElementById('edit-product-category').value;
+    if (category === 'accessories') {
+        const stock = parseInt(document.getElementById('edit-product-stock-input-simple').value) || 0;
+        if (stock <= 0) {
+            alert('Please enter a stock quantity for the accessory.');
+            return;
+        }
+    } else {
+        const addedSizes = Object.keys(editSizeStockData).length;
+        if (addedSizes === 0) {
+            alert('Please add at least one size for the product.');
+            return;
+        }
     }
     
     // Validate that color is entered
@@ -2166,7 +2419,7 @@ document.getElementById('edit-product-form').addEventListener('submit', function
     }
     
     // Add sizes with individual stock amounts
-    editSizeStockArray.forEach((item, index) => {
+    sizesToSubmit.forEach((item, index) => {
         formData.append(`sizes[${index}][size]`, item.size);
         formData.append(`sizes[${index}][stock]`, item.stock);
         formData.append(`sizes[${index}][price_adjustment]`, 0);
@@ -2212,6 +2465,11 @@ document.getElementById('edit-product-form').addEventListener('submit', function
             // Show a more user-friendly success message
             const successMessage = `${data.product.name} has been updated successfully!`;
             showSuccessMessage(successMessage);
+            
+            // Refresh the page after a short delay to show the success message
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
         } else {
             if (data.errors) {
                 let errorMessage = 'Validation errors:\n';

@@ -3,13 +3,6 @@
 // ===== USER CREDENTIALS =====
 const USERS = [
     {
-        username: 'admin',
-        password: 'admin123',
-        role: 'admin',
-        name: 'Administrator',
-        permissions: ['all']
-    },
-    {
         username: 'cashier',
         password: 'cashier123',
         role: 'cashier',

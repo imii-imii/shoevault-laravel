@@ -1540,6 +1540,8 @@ async function loadProducts(category = 'all') {
         
         if (data.success) {
             allProducts = data.products;
+            console.log('Loaded products:', allProducts);
+            console.log('First product ID type:', typeof allProducts[0]?.id, allProducts[0]?.id);
             const filteredProducts = data.products;
             
             if (filteredProducts.length === 0) {
@@ -1559,7 +1561,9 @@ async function loadProducts(category = 'all') {
                 const imageUrl = product.image_url || product.image || '';
                 const sizeButtons = (product.sizes || []).map(sz => {
                     const disabled = !sz.is_available || sz.stock <= 0;
-                    return `<button class="size-btn" ${disabled ? 'disabled' : ''} onclick="addToCartWithSize(${product.id}, '${sz.size}')">${sz.size}</button>`;
+                    console.log(`Creating size button for product ${product.id}, size ${sz.size}, disabled: ${disabled}`);
+                    // Use data attributes instead of onclick for safer event handling
+                    return `<button class="size-btn" ${disabled ? 'disabled' : ''} data-product-id="${product.id}" data-size="${sz.size}">${sz.size}</button>`;
                 }).join('');
 
                 return `
@@ -1630,6 +1634,17 @@ async function loadProducts(category = 'all') {
                     if (tip.classList.contains('open')) hide(); else show(e);
                 });
             });
+
+            // Bind size button events using event delegation
+            grid.querySelectorAll('.size-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const productId = this.getAttribute('data-product-id');
+                    const size = this.getAttribute('data-size');
+                    console.log('Size button clicked:', { productId, size });
+                    addToCartWithSize(productId, size);
+                });
+            });
         } else {
             grid.innerHTML = `
                 <div class="error-products">
@@ -1661,11 +1676,43 @@ document.querySelectorAll('.category-tab').forEach(tab => {
 // Add to cart function
 // Add to cart with selected size
 function addToCartWithSize(productId, size) {
-    const product = allProducts.find(p => p.id === productId);
-    if (!product) { alert('Product not found'); return; }
-    const sizeInfo = (product.sizes || []).find(s => s.size == size);
-    if (!sizeInfo) { alert('Selected size not available for this product'); return; }
-    if (!sizeInfo.is_available || sizeInfo.stock <= 0) { alert('This size is out of stock'); return; }
+    console.log('🛒 addToCartWithSize called with:', { productId, size, productIdType: typeof productId });
+    console.log('📦 allProducts length:', allProducts.length);
+    
+    if (!productId) {
+        console.error('No product ID provided');
+        alert('Invalid product ID');
+        return;
+    }
+    
+    // Convert both to strings for reliable comparison
+    const product = allProducts.find(p => String(p.id) === String(productId));
+    console.log('Found product:', product);
+    console.log('Searching for ID:', String(productId), 'in products with IDs:', allProducts.map(p => String(p.id)));
+    console.log('Available products:', allProducts.map(p => ({ id: p.id, name: p.name, idType: typeof p.id })));
+    
+    if (!product) { 
+        console.error('Product not found with ID:', productId);
+        alert('Product not found'); 
+        return; 
+    }
+    
+    // Convert both to strings for reliable comparison  
+    const sizeInfo = (product.sizes || []).find(s => String(s.size) === String(size));
+    console.log('Found size info:', sizeInfo);
+    console.log('Searching for size:', String(size), 'in sizes:', product.sizes?.map(s => String(s.size)));
+    
+    if (!sizeInfo) { 
+        console.error('Size not found:', size, 'Available sizes:', product.sizes);
+        alert('Selected size not available for this product'); 
+        return; 
+    }
+    
+    if (!sizeInfo.is_available || sizeInfo.stock <= 0) { 
+        console.error('Size out of stock:', sizeInfo);
+        alert('This size is out of stock'); 
+        return; 
+    }
 
     // Find if same product + size already in cart
     const key = `${productId}::${size}`;
@@ -1678,16 +1725,43 @@ function addToCartWithSize(productId, size) {
         item.quantity += 1;
     } else {
         const price = sizeInfo.effective_price ?? parseFloat(product.price);
+        // Product IDs are strings like "SV-MEN-ABC123"
+        let productId = product.id;
+        
+        if (!productId || typeof productId !== 'string') {
+            console.error('Invalid product ID type:', typeof product.id, product.id);
+            alert('Invalid product ID');
+            return;
+        }
+        
+        // Validate string format
+        if (!productId.match(/^[A-Z0-9\-]+$/)) {
+            console.error('Invalid product ID format:', product.id);
+            alert('Invalid product ID format');
+            return;
+        }
+        
+        const productStock = parseInt(sizeInfo.stock, 10);
+        
+        if (!Number.isInteger(productStock) || productStock < 0) {
+            console.error('Invalid stock value:', sizeInfo.stock);
+            alert('Invalid stock information');
+            return;
+        }
+        
         item = {
             key,
-            id: product.id,
+            id: productId, // Already converted to integer
             name: product.name,
             brand: product.brand,
-            size: size,
+            size: String(size), // Ensure size is stored as string
             price: parseFloat(price),
-            stock: sizeInfo.stock,
+            stock: productStock, // Already converted to integer
             quantity: 1
         };
+        
+        console.log('Adding item to cart:', item);
+        console.log('Item ID type:', typeof item.id, 'Value:', item.id);
         cart.push(item);
     }
     updateCartDisplay();
@@ -1737,12 +1811,12 @@ function updateQuantityByKey(key, change) {
     const item = cart.find(ci => ci.key === key);
     if (!item) return;
 
-    const product = allProducts.find(p => p.id === item.id);
-    const sizeInfo = (product?.sizes || []).find(s => s.size == item.size);
+    const product = allProducts.find(p => parseInt(p.id) === parseInt(item.id));
+    const sizeInfo = (product?.sizes || []).find(s => String(s.size) === String(item.size));
 
-    item.quantity += change;
+    item.quantity = parseInt(item.quantity) + parseInt(change);
 
-    const maxStock = sizeInfo ? sizeInfo.stock : item.stock;
+    const maxStock = parseInt(sizeInfo ? sizeInfo.stock : item.stock);
     if (item.quantity > maxStock) {
         alert(`Cannot add more. Only ${maxStock} available in stock${item.size ? ' for size ' + item.size : ''}.`);
         item.quantity = maxStock;
@@ -2016,27 +2090,71 @@ function openReceiptPreview({ summary, paymentAmount }) {
 }
 
 async function processSaleAndPrint(summary, paymentAmount) {
+    // First, validate cart items before processing
+    console.log('Raw cart items before processing:', cart);
+    
+    const processedItems = cart.map((item, index) => {
+        console.log(`Processing cart item ${index}:`, item);
+        
+        // Product IDs are strings like "SV-MEN-ABC123"
+        let itemId = item.id;
+        
+        if (!itemId || typeof itemId !== 'string') {
+            throw new Error(`Invalid product ID at cart item ${index}: ${item.id}`);
+        }
+        
+        // Validate string format (should be alphanumeric with dashes)
+        if (!itemId.match(/^[A-Z0-9\-]+$/)) {
+            throw new Error(`Invalid product ID format at cart item ${index}: ${item.id}`);
+        }
+        
+        // More robust quantity parsing
+        let quantity = item.quantity;
+        if (typeof quantity === 'string') {
+            quantity = parseInt(quantity, 10);
+        }
+        if (!Number.isInteger(quantity) || quantity <= 0) {
+            throw new Error(`Invalid quantity at cart item ${index}: ${item.quantity}`);
+        }
+        
+        // Ensure size is a string
+        let size = String(item.size || '');
+        if (!size.trim()) {
+            throw new Error(`Invalid size at cart item ${index}: ${item.size}`);
+        }
+        
+        return {
+            id: itemId,
+            size: size,
+            quantity: quantity
+        };
+    });
+    
     const saleData = {
-        items: cart.map(item => ({ 
-            id: item.id, 
-            size: item.size || '', 
-            quantity: item.quantity 
-        })),
-        subtotal: summary.subtotal,
-        tax: summary.tax || 0,
+        items: processedItems,
+        subtotal: parseFloat(summary.subtotal),
+        tax: parseFloat(summary.tax || 0),
         // Backend expects 'discount' (numeric) — include it so discount is persisted
-        discount: summary.discountAmount || 0,
+        discount: parseFloat(summary.discountAmount || 0),
         // Keep more detailed fields for extensibility
         discount_type: summary.discountType,
-        discount_value: summary.discountValue,
-        discount_amount: summary.discountAmount,
-        total: summary.total,
-        amount_paid: paymentAmount,
+        discount_value: parseFloat(summary.discountValue || 0),
+        discount_amount: parseFloat(summary.discountAmount || 0),
+        total: parseFloat(summary.total),
+        amount_paid: parseFloat(paymentAmount),
         payment_method: 'cash' // Can be enhanced to allow selection
     };
     
     try {
         console.log('Processing sale with data:', saleData);
+        console.log('Cart items types after processing:', processedItems.map(item => ({
+            id: typeof item.id,
+            idValue: item.id,
+            quantity: typeof item.quantity,
+            quantityValue: item.quantity,
+            size: typeof item.size,
+            sizeValue: item.size
+        })));
         
         const response = await fetch('{{ route("pos.process-sale") }}', {
             method: 'POST',
@@ -2048,11 +2166,27 @@ async function processSaleAndPrint(summary, paymentAmount) {
             body: JSON.stringify(saleData)
         });
         
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('HTTP Error:', response.status, errorText);
+            alert(`HTTP Error ${response.status}: ${errorText}`);
+            return;
+        }
+        
         const result = await response.json();
         console.log('Sale response:', result);
+        console.log('Response status:', response.status);
         
         if (!result.success) { 
-            alert('Error processing sale: ' + result.message); 
+            let errorMessage = 'Error processing sale: ' + result.message;
+            if (result.errors) {
+                errorMessage += '\n\nValidation errors:';
+                for (const [field, messages] of Object.entries(result.errors)) {
+                    errorMessage += `\n- ${field}: ${messages.join(', ')}`;
+                }
+            }
+            console.error('Sale processing failed:', result);
+            alert(errorMessage); 
             return; 
         }
         

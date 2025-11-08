@@ -44,7 +44,7 @@ class ProductSize extends Model
                     if (!$existingNotification) {
                         $product = $productSize->product;
                         Notification::createLowStockNotification([
-                            'product_id' => $product->id,
+                            'product_id' => $product->product_id,
                             'product_size_id' => $productSize->product_size_id,
                             'name' => $product->name,
                             'size' => $productSize->size,
@@ -68,7 +68,7 @@ class ProductSize extends Model
      */
     public function product(): BelongsTo
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(Product::class, 'product_id', 'product_id');
     }
 
     /**

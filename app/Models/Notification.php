@@ -10,6 +10,10 @@ use Carbon\Carbon;
 
 class Notification extends Model
 {
+    protected $primaryKey = 'notification_id';
+    public $incrementing = true;
+    protected $keyType = 'int';
+    
     protected $fillable = [
         'type',
         'title',
@@ -71,12 +75,12 @@ class Notification extends Model
     // Relationships
     public function reads(): HasMany
     {
-        return $this->hasMany(NotificationRead::class);
+        return $this->hasMany(NotificationRead::class, 'notification_id', 'notification_id');
     }
 
     public function readByUsers(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'notification_reads')
+        return $this->belongsToMany(User::class, 'notification_reads', 'notification_id', 'user_id', 'notification_id', 'user_id')
             ->withPivot('read_at')
             ->withTimestamps();
     }
@@ -86,7 +90,7 @@ class Notification extends Model
     {
         // Create a read record if it doesn't exist
         \App\Models\NotificationRead::firstOrCreate([
-            'notification_id' => $this->id,
+            'notification_id' => $this->getKey(),
             'user_id' => $userId
         ], [
             'read_at' => Carbon::now()

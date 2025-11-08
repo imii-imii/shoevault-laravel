@@ -84,19 +84,19 @@
 	</div>
 
 	<ul class="sidebar-nav">
-		<li class="nav-item" data-section="inventory-dashboard">
+		<li class="nav-item">
 			<a href="{{ route('owner.dashboard') }}" class="nav-link">
 				<i class="fas fa-chart-pie"></i>
 				<span>Dashboard</span>
 			</a>
 		</li>
-		<li class="nav-item" data-section="reports">
+		<li class="nav-item">
 			<a href="{{ route('owner.reports') }}" class="nav-link">
 				<i class="fas fa-chart-bar"></i>
 				<span>Reports</span>
 			</a>
 		</li>
-		<li class="nav-item active" data-section="settings">
+		<li class="nav-item active">
 			<a href="{{ route('owner.settings') }}" class="nav-link">
 				<i class="fas fa-cog"></i>
 				<span>Master Controls</span>
@@ -107,10 +107,16 @@
 	<div class="sidebar-footer">
 		<div class="user-info">
 			<div class="user-avatar">
-				<img src="{{ asset('images/profile.png') }}" alt="Owner">
+				@php
+					$currentEmployee = auth()->user()->employee;
+					$sidebarProfilePicture = $currentEmployee && $currentEmployee->profile_picture && file_exists(public_path($currentEmployee->profile_picture)) 
+						? asset($currentEmployee->profile_picture) 
+						: asset('images/profile.png');
+				@endphp
+				<img src="{{ $sidebarProfilePicture }}" alt="Owner">
 			</div>
 			<div class="user-details">
-				<h4>{{ auth()->user()->name ?? 'Owner' }}</h4>
+				<h4>{{ $currentEmployee->fullname ?? auth()->user()->username ?? 'Owner' }}</h4>
 			</div>
 		</div>
 		<form action="{{ route('logout') }}" method="POST" style="display: inline;">
@@ -217,7 +223,13 @@
 									<i class="fas fa-id-card"></i> User Information
 								</div>
 								<div class="avatar-row">
-									<img id="settings-avatar-preview" src="{{ asset('images/profile.png') }}" alt="Avatar" class="avatar-preview">
+									@php
+										$employee = auth()->user()->employee;
+										$profilePicture = $employee && $employee->profile_picture && file_exists(public_path($employee->profile_picture)) 
+											? asset($employee->profile_picture) 
+											: asset('assets/images/profile.png');
+									@endphp
+									<img id="settings-avatar-preview" src="{{ $profilePicture }}" alt="Avatar" class="avatar-preview">
 									<div class="avatar-actions">
 										<input type="file" id="settings-avatar" accept="image/*" hidden>
 										<button class="btn btn-secondary btn-sm" id="settings-avatar-btn">
@@ -231,7 +243,7 @@
 								<div class="form-grid">
 									<div class="form-group">
 										<label for="settings-name">Full Name</label>
-										<input id="settings-name" type="text" placeholder="Your name" value="{{ auth()->user()->name ?? '' }}">
+										<input id="settings-name" type="text" placeholder="Your name" value="{{ $employee->fullname ?? auth()->user()->username }}">
 									</div>
 									<div class="form-group">
 										<label for="settings-username">Username</label>
@@ -239,11 +251,11 @@
 									</div>
 									<div class="form-group">
 										<label for="settings-email">Email</label>
-										<input id="settings-email" type="email" placeholder="name@example.com" value="{{ auth()->user()->email ?? '' }}">
+										<input id="settings-email" type="email" placeholder="name@example.com" value="{{ $employee->email ?? '' }}">
 									</div>
 									<div class="form-group">
 										<label for="settings-phone">Phone</label>
-										<input id="settings-phone" type="tel" placeholder="+63 900 000 0000">
+										<input id="settings-phone" type="tel" placeholder="+63 900 000 0000" value="{{ $employee->phone_number ?? '' }}">
 									</div>
 								</div>
 								<div class="form-actions">
@@ -267,15 +279,15 @@
 									<div class="form-grid">
 										<div class="form-group full">
 											<label for="current-password">Current Password</label>
-											<input id="current-password" type="password" placeholder="Enter current password">
+											<input id="current-password" type="password" placeholder="Enter current password" autocomplete="off">
 										</div>
 										<div class="form-group">
 											<label for="new-password">New Password</label>
-											<input id="new-password" type="password" placeholder="Enter new password">
+											<input id="new-password" type="password" placeholder="Enter new password" autocomplete="new-password">
 										</div>
 										<div class="form-group">
 											<label for="confirm-password">Confirm Password</label>
-											<input id="confirm-password" type="password" placeholder="Confirm new password">
+											<input id="confirm-password" type="password" placeholder="Confirm new password" autocomplete="new-password">
 										</div>
 									</div>
 									<div class="form-actions">
@@ -356,7 +368,9 @@
 		settings: '{{ route('owner.settings') }}',
 		usersIndex: '{{ route('owner.users.index') }}',
 		usersStore: '{{ route('owner.users.store') }}',
-		usersToggle: '{{ route('owner.users.toggle') }}'
+		usersToggle: '{{ route('owner.users.toggle') }}',
+		profileUpdate: '{{ route('owner.profile.update') }}',
+		profilePictureRemove: '{{ route('owner.profile.picture.remove') }}'
 	});
 </script>
 <script src="{{ asset('js/owner.js') }}"></script>
@@ -383,22 +397,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-	<script>
-	// Notifications toggle for settings page
-	(function initNotifications(){
-		document.querySelectorAll('.notification-wrapper').forEach(wrapper => {
-			const bell = wrapper.querySelector('.notification-bell');
-			if (!bell) return;
-			bell.addEventListener('click', (e) => {
-				e.stopPropagation();
-				wrapper.classList.toggle('open');
-			});
-		});
-		document.addEventListener('click', () => {
-			document.querySelectorAll('.notification-wrapper.open').forEach(w => w.classList.remove('open'));
-		});
-	})();
-	</script>
+
 
 	<!-- Add User Modal -->
 	@php 
@@ -888,6 +887,369 @@ document.addEventListener('DOMContentLoaded', function() {
 		});
 	})();
 	</script>
+
+	<script>
+	// Image Compression Function
+	async function compressImageIfNeeded(file) {
+		const maxSize = 2048 * 1024; // 2MB
+		
+		if (file.size <= maxSize) {
+			console.log('File is within size limit, no compression needed');
+			return file;
+		}
+		
+		console.log('File is too large, compressing...');
+		
+		return new Promise((resolve) => {
+			const canvas = document.createElement('canvas');
+			const ctx = canvas.getContext('2d');
+			const img = new Image();
+			
+			img.onload = function() {
+				// Calculate new dimensions to maintain aspect ratio
+				let { width, height } = img;
+				const maxDimension = 1200; // Max width or height
+				
+				if (width > height) {
+					if (width > maxDimension) {
+						height = (height * maxDimension) / width;
+						width = maxDimension;
+					}
+				} else {
+					if (height > maxDimension) {
+						width = (width * maxDimension) / height;
+						height = maxDimension;
+					}
+				}
+				
+				canvas.width = width;
+				canvas.height = height;
+				
+				// Draw and compress
+				ctx.drawImage(img, 0, 0, width, height);
+				
+				// Try different quality levels until we get under 2MB
+				let quality = 0.8;
+				let compressedFile;
+				
+				const tryCompress = (q) => {
+					canvas.toBlob((blob) => {
+						console.log(`Compressed with quality ${q}: ${blob.size} bytes`);
+						
+						if (blob.size <= maxSize || q <= 0.1) {
+							// Create a new File object
+							compressedFile = new File([blob], file.name, {
+								type: 'image/jpeg',
+								lastModified: Date.now()
+							});
+							console.log('Final compressed file size:', compressedFile.size);
+							resolve(compressedFile);
+						} else {
+							// Try with lower quality
+							tryCompress(q - 0.1);
+						}
+					}, 'image/jpeg', q);
+				};
+				
+				tryCompress(quality);
+			};
+			
+			img.src = URL.createObjectURL(file);
+		});
+	}
+
+	// Profile Management Functionality
+	(function initProfileManagement() {
+		const profileForm = document.getElementById('settings-profile-save');
+		const avatarBtn = document.getElementById('settings-avatar-btn');
+		const avatarInput = document.getElementById('settings-avatar');
+		const avatarPreview = document.getElementById('settings-avatar-preview');
+		const avatarRemove = document.getElementById('settings-avatar-remove');
+		
+		// Load current user data when page loads
+		async function loadCurrentProfile() {
+			try {
+				// Get current user info from auth user
+				const nameInput = document.getElementById('settings-name');
+				const usernameInput = document.getElementById('settings-username');
+				const emailInput = document.getElementById('settings-email');
+				const phoneInput = document.getElementById('settings-phone');
+				
+				// Values are already populated from Blade template, but we can refresh them
+				console.log('Profile form loaded');
+				
+			} catch (err) {
+				console.error('Failed to load profile:', err);
+			}
+		}
+		
+		// Avatar upload button handler
+		avatarBtn?.addEventListener('click', () => {
+			avatarInput?.click();
+		});
+		
+		// Avatar file selection handler
+		avatarInput?.addEventListener('change', (e) => {
+			const file = e.target.files[0];
+			if (file) {
+				// Preview the selected image
+				const reader = new FileReader();
+				reader.onload = (e) => {
+					if (avatarPreview) {
+						avatarPreview.src = e.target.result;
+					}
+				};
+				reader.readAsDataURL(file);
+			}
+		});
+		
+		// Avatar remove button handler
+		avatarRemove?.addEventListener('click', async () => {
+			if (!confirm('Remove profile picture?')) return;
+			
+			try {
+				const response = await fetch('{{ route('owner.profile.picture.remove') }}', {
+					method: 'DELETE',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+					}
+				});
+				
+				const result = await response.json();
+				
+				if (result.success) {
+					// Reset to default avatar
+					if (avatarPreview) {
+						avatarPreview.src = '{{ asset('assets/images/profile.png') }}';
+					}
+					alert('Profile picture removed successfully!');
+				} else {
+					alert(result.message || 'Failed to remove profile picture');
+				}
+			} catch (err) {
+				console.error('Error removing profile picture:', err);
+				alert('Failed to remove profile picture');
+			}
+		});
+		
+		// Profile save button handler
+		profileForm?.addEventListener('click', async (e) => {
+			e.preventDefault();
+			
+			const nameInput = document.getElementById('settings-name');
+			const usernameInput = document.getElementById('settings-username');
+			const emailInput = document.getElementById('settings-email');
+			const phoneInput = document.getElementById('settings-phone');
+			
+			if (!nameInput?.value || !usernameInput?.value || !emailInput?.value) {
+				alert('Please fill in all required fields');
+				return;
+			}
+			
+			try {
+				const formData = new FormData();
+				formData.append('name', nameInput.value);
+				formData.append('username', usernameInput.value);
+				formData.append('email', emailInput.value);
+				formData.append('phone', phoneInput.value || '');
+				
+				console.log('Form data before file check:', {
+					name: nameInput.value,
+					username: usernameInput.value,
+					email: emailInput.value,
+					phone: phoneInput.value || ''
+				});
+				
+				// Add profile picture if selected
+				if (avatarInput?.files[0]) {
+					const file = avatarInput.files[0];
+					console.log('Selected file:', {
+						name: file.name,
+						size: file.size,
+						type: file.type
+					});
+					
+					const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'];
+					if (!allowedTypes.includes(file.type)) {
+						alert('Invalid file type. Please select a JPEG, PNG, GIF, or WebP image.');
+						return;
+					}
+					
+					// Compress image if needed
+					const processedFile = await compressImageIfNeeded(file);
+					formData.append('profile_picture', processedFile);
+					console.log('Profile picture added to form data (compressed if needed)');
+				} else {
+					console.log('No file selected for upload');
+				}
+				
+				console.log('About to send request to server...');
+				
+				const response = await fetch('{{ route('owner.profile.update') }}', {
+					method: 'POST',
+					headers: {
+						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+					},
+					body: formData
+				});
+				
+				console.log('Response status:', response.status);
+				console.log('Response headers:', [...response.headers.entries()]);
+				
+				const result = await response.json();
+				console.log('Server response:', result);
+				
+				if (result.success) {
+					alert('Profile updated successfully!');
+					
+					// Refresh the page immediately to show all changes
+					window.location.reload();
+					
+				} else {
+					// Show detailed error message
+					let errorMsg = result.message || 'Failed to update profile';
+					if (result.errors) {
+						console.error('Validation errors:', result.errors);
+						errorMsg += '\n\nDetails:\n';
+						Object.entries(result.errors).forEach(([field, messages]) => {
+							errorMsg += `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}\n`;
+						});
+					}
+					alert(errorMsg);
+				}
+				
+			} catch (err) {
+				console.error('Error updating profile:', err);
+				alert('Failed to update profile: ' + err.message);
+			}
+		});
+		
+		// Initialize profile on page load
+		loadCurrentProfile();
+	})();
+
+	// Password Change Functionality
+	(function initPasswordChange() {
+		const passwordForm = document.getElementById('change-password-form');
+		
+		passwordForm?.addEventListener('submit', async (e) => {
+			e.preventDefault();
+			
+			const currentPassword = document.getElementById('current-password').value;
+			const newPassword = document.getElementById('new-password').value;
+			const confirmPassword = document.getElementById('confirm-password').value;
+			
+			// Validation
+			if (!currentPassword || !newPassword || !confirmPassword) {
+				alert('Please fill in all password fields');
+				return;
+			}
+			
+			if (newPassword !== confirmPassword) {
+				alert('New passwords do not match');
+				return;
+			}
+			
+			if (newPassword.length < 8) {
+				alert('New password must be at least 8 characters long');
+				return;
+			}
+			
+			try {
+				const response = await fetch('{{ route('owner.password.update') }}', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+					},
+					body: JSON.stringify({
+						current_password: currentPassword,
+						password: newPassword,
+						password_confirmation: confirmPassword
+					})
+				});
+				
+				const result = await response.json();
+				console.log('Password update response:', result);
+				
+				if (result.success) {
+					alert('Password updated successfully!');
+					passwordForm.reset();
+				} else {
+					// Show detailed error message
+					let errorMsg = result.message || 'Failed to update password';
+					if (result.errors) {
+						console.error('Password validation errors:', result.errors);
+						errorMsg += '\n\nDetails:\n';
+						Object.entries(result.errors).forEach(([field, messages]) => {
+							errorMsg += `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}\n`;
+						});
+					}
+					alert(errorMsg);
+				}
+				
+			} catch (err) {
+				console.error('Error updating password:', err);
+				alert('Failed to update password: ' + err.message);
+			}
+		});
+	})();
+	</script>
+<script src="{{ asset('js/notifications.js') }}"></script>
+<script>
+// Initialize notifications for settings page
+function initNotifications() {
+    if (window.notificationManager) {
+        console.log('notificationManager found, initializing...');
+        try {
+            window.notificationManager.init();
+            return true;
+        } catch (e) {
+            console.warn('notificationManager init failed:', e);
+        }
+    }
+    
+    // Fallback notification toggle
+    console.log('Using fallback notification system');
+    document.querySelectorAll('.notification-wrapper').forEach(wrapper => {
+        const bell = wrapper.querySelector('.notification-bell');
+        if (bell) {
+            bell.addEventListener('click', (e) => {
+                e.stopPropagation();
+                wrapper.classList.toggle('open');
+            });
+        }
+    });
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.notification-wrapper.open').forEach(w => w.classList.remove('open'));
+    });
+    return false;
+}
+
+// Try to initialize notifications with retries
+document.addEventListener('DOMContentLoaded', function() {
+    let attempts = 0;
+    const maxAttempts = 10;
+    const retryDelay = 100;
+    
+    function tryInit() {
+        attempts++;
+        if (initNotifications()) {
+            console.log('Notifications initialized successfully');
+            return;
+        }
+        
+        if (attempts < maxAttempts) {
+            setTimeout(tryInit, retryDelay);
+        } else {
+            console.log('Max attempts reached, using fallback');
+        }
+    }
+    
+    tryInit();
+});
+</script>
 @include('partials.mobile-blocker')
 
 </body>

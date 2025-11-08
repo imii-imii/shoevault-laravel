@@ -107,6 +107,16 @@ class ReservationController extends Controller
             $query->where('price', '<=', (float)$maxPrice);
         }
 
+        // Handle search filtering
+        $search = $request->get('search');
+        if ($search && !empty(trim($search))) {
+            $searchTerm = trim($search);
+            $query->where(function($q) use ($searchTerm) {
+                $q->where('name', 'LIKE', '%' . $searchTerm . '%')
+                  ->orWhere('brand', 'LIKE', '%' . $searchTerm . '%');
+            });
+        }
+
         // Pagination: 40 items per page
         $perPage = 40;
         $page = $request->get('page', 1);
@@ -170,7 +180,7 @@ class ReservationController extends Controller
         })->values();
 
         return response()->json([
-            'id' => $product->id,
+            'id' => $product->product_id,
             'name' => $product->name,
             'brand' => $product->brand,
             'price' => $product->price,
@@ -263,7 +273,7 @@ class ReservationController extends Controller
                 }],
                 'customer.notes' => 'nullable|string|max:1000',
                 'items' => 'required|array|min:1',
-                'items.*.id' => 'required|integer|exists:products,id',
+                'items.*.id' => 'required|string|exists:products,product_id',
                 // product_sizes primary key is product_size_id (see schema); validate against that column
                 'items.*.sizeId' => 'required|integer|exists:product_sizes,product_size_id',
                 'items.*.qty' => 'required|integer|min:1',

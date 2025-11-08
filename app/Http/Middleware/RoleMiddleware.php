@@ -37,9 +37,9 @@ class RoleMiddleware
             'required_roles' => $roles
         ]);
         
-        // Admin has access to everything
-        if ($user->hasRole('admin')) {
-            Log::info('RoleMiddleware: Admin access granted');
+        // Owner has access to everything (removed admin role)
+        if ($user->hasRole('owner')) {
+            Log::info('RoleMiddleware: Owner access granted');
             return $next($request);
         }
 

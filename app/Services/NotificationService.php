@@ -31,6 +31,11 @@ class NotificationService
             ->orderBy('created_at', 'desc')
             ->limit($limit);
             
+        // For owners, exclude reservation-related notifications
+        if ($role === 'owner') {
+            $query->whereNotIn('type', ['new_reservation', 'reservation_expiring']);
+        }
+            
         if ($unreadOnly) {
             $query->unreadForUser($userId);
         }
@@ -48,15 +53,21 @@ class NotificationService
      */
     public function getUnreadCountForUser(string $userId, string $role): int
     {
-        return Notification::forRole($role)
-            ->unreadForUser($userId)
-            ->count();
+        $query = Notification::forRole($role)
+            ->unreadForUser($userId);
+            
+        // For owners, exclude reservation-related notifications
+        if ($role === 'owner') {
+            $query->whereNotIn('type', ['new_reservation', 'reservation_expiring']);
+        }
+        
+        return $query->count();
     }
 
     /**
      * Mark notification as read by specific user
      */
-    public function markAsReadByUser(int $notificationId, string $userId): bool
+    public function markAsReadByUser($notificationId, string $userId): bool
     {
         $notification = Notification::find($notificationId);
         if ($notification) {
@@ -71,9 +82,15 @@ class NotificationService
      */
     public function markAllAsReadForUser(int $userId, string $role): int
     {
-        $notifications = Notification::forRole($role)
-            ->unreadForUser($userId)
-            ->get();
+        $query = Notification::forRole($role)
+            ->unreadForUser($userId);
+            
+        // For owners, exclude reservation-related notifications
+        if ($role === 'owner') {
+            $query->whereNotIn('type', ['new_reservation', 'reservation_expiring']);
+        }
+        
+        $notifications = $query->get();
 
         $count = 0;
         foreach ($notifications as $notification) {
@@ -89,7 +106,14 @@ class NotificationService
      */
     public function markAllAsReadByUser(string $userId, string $role): int
     {
-        $notifications = Notification::forRole($role)->unreadForUser($userId)->get();
+        $query = Notification::forRole($role)->unreadForUser($userId);
+        
+        // For owners, exclude reservation-related notifications
+        if ($role === 'owner') {
+            $query->whereNotIn('type', ['new_reservation', 'reservation_expiring']);
+        }
+        
+        $notifications = $query->get();
         $count = 0;
 
         foreach ($notifications as $notification) {
@@ -245,6 +269,11 @@ class NotificationService
     public function getNotificationStatsForUser(string $userId, string $role): array
     {
         $query = Notification::forRole($role);
+        
+        // For owners, exclude reservation-related notifications
+        if ($role === 'owner') {
+            $query->whereNotIn('type', ['new_reservation', 'reservation_expiring']);
+        }
 
         return [
             'total' => $query->count(),

@@ -123,13 +123,13 @@
                 <span>Dashboard</span>
             </a>
         </li>
-        <li class="nav-item" data-section="reports">
+        <li class="nav-item">
             <a href="{{ route('owner.reports') }}" class="nav-link">
                 <i class="fas fa-chart-bar"></i>
                 <span>Reports</span>
             </a>
         </li>
-        <li class="nav-item" data-section="settings">
+        <li class="nav-item">
             <a href="{{ route('owner.settings') }}" class="nav-link">
                 <i class="fas fa-cog"></i>
                 <span>Master Controls</span>

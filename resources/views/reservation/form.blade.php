@@ -150,7 +150,7 @@
           <div class="field-group">
             <label for="pickupTime">Pick-Up Time</label>
             <small style="color: #666; font-size: 0.85em; display: block; margin-bottom: 4px;">Business hours: 10:00 AM - 7:00 PM <br> select a time within these hours.</small>
-            <input id="pickupTime" name="pickupTime" type="time" required />
+            <input id="pickupTime" name="pickupTime" type="time" min="10:00" max="19:00" required />
           </div>
         </div>
         <!-- Agreements removed per request -->
@@ -441,7 +441,7 @@
         }
 
         items.push({
-          id: parseInt(item.id),
+          id: String(item.id),  // Keep as string to match backend validation
           sizeId: parseInt(resolvedSizeId),
           qty: parseInt(item.qty),
           name: item.name,

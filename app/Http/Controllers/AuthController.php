@@ -124,8 +124,6 @@ class AuthController extends Controller
                 return redirect()->route('inventory.dashboard');
             case 'owner':
                 return redirect()->route('owner.dashboard');
-            case 'admin':
-                return redirect()->route('pos.dashboard'); // Default to POS for admin
             default:
                 return redirect()->route('login');
         }
@@ -143,8 +141,6 @@ class AuthController extends Controller
                 return route('inventory.dashboard');
             case 'owner':
                 return route('owner.dashboard');
-            case 'admin':
-                return route('pos.dashboard');
             default:
                 return route('login');
         }

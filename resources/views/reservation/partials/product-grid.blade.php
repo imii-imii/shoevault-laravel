@@ -1,7 +1,7 @@
 @forelse($products as $product)
 @php $cat = strtolower($product->category ?? ''); @endphp
 <div class="res-portal-product-card" 
-     data-product-id="{{ $product->id }}"
+     data-product-id="{{ $product->product_id }}"
      data-product-name="{{ $product->name }}"
      data-product-brand="{{ $product->brand }}"
      data-product-price="{{ number_format($product->price, 2) }}"

@@ -141,7 +141,7 @@
         <div class="logo-text"><h2>ShoeVault Batangas</h2></div>
     </div>
     <ul class="sidebar-nav">
-        <li class="nav-item" data-section="inventory-dashboard">
+        <li class="nav-item">
             <a href="{{ route('owner.dashboard') }}" class="nav-link">
                 <i class="fas fa-chart-pie"></i><span>Dashboard</span>
             </a>
@@ -151,7 +151,7 @@
                 <i class="fas fa-chart-bar"></i><span>Reports</span>
             </a>
         </li>
-        <li class="nav-item" data-section="settings">
+        <li class="nav-item">
             <a href="{{ route('owner.settings') }}" class="nav-link">
                 <i class="fas fa-cog"></i><span>Master Controls</span>
             </a>
@@ -440,20 +440,6 @@
         }
         updateDateTime();
         setInterval(updateDateTime, 1000);
-        // Notifications toggle
-        (function initNotifications(){
-            document.querySelectorAll('.notification-wrapper').forEach(wrapper => {
-                const bell = wrapper.querySelector('.notification-bell');
-                if (!bell) return;
-                bell.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    wrapper.classList.toggle('open');
-                });
-            });
-            document.addEventListener('click', () => {
-                document.querySelectorAll('.notification-wrapper.open').forEach(w => w.classList.remove('open'));
-            });
-        })();
 
     // Helper: skeletons/animations
         function injectSkeletonList(el, count = 6) {
@@ -853,6 +839,60 @@
             });
         });
     });
+</script>
+<script src="{{ asset('js/notifications.js') }}"></script>
+<script>
+// Initialize notifications for reports page
+function initNotifications() {
+    if (window.notificationManager) {
+        console.log('notificationManager found, initializing...');
+        try {
+            window.notificationManager.init();
+            return true;
+        } catch (e) {
+            console.warn('notificationManager init failed:', e);
+        }
+    }
+    
+    // Fallback notification toggle
+    console.log('Using fallback notification system');
+    document.querySelectorAll('.notification-wrapper').forEach(wrapper => {
+        const bell = wrapper.querySelector('.notification-bell');
+        if (bell) {
+            bell.addEventListener('click', (e) => {
+                e.stopPropagation();
+                wrapper.classList.toggle('open');
+            });
+        }
+    });
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.notification-wrapper.open').forEach(w => w.classList.remove('open'));
+    });
+    return false;
+}
+
+// Try to initialize notifications with retries
+document.addEventListener('DOMContentLoaded', function() {
+    let attempts = 0;
+    const maxAttempts = 10;
+    const retryDelay = 100;
+    
+    function tryInit() {
+        attempts++;
+        if (initNotifications()) {
+            console.log('Notifications initialized successfully');
+            return;
+        }
+        
+        if (attempts < maxAttempts) {
+            setTimeout(tryInit, retryDelay);
+        } else {
+            console.log('Max attempts reached, using fallback');
+        }
+    }
+    
+    tryInit();
+});
 </script>
 @include('partials.mobile-blocker')
 

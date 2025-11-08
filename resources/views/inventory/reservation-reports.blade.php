@@ -32,6 +32,16 @@
 #reservations-container.animate-entry > .reservation-card:nth-child(6){ animation-delay: 240ms }
 #reservations-container.animate-entry > .reservation-card:nth-child(7){ animation-delay: 280ms }
 #reservations-container.animate-entry > .reservation-card:nth-child(8){ animation-delay: 320ms }
+
+/* Notification Styles - Match Dashboard */
+.notification-wrapper { position: relative; }
+.notification-bell { width:36px; height:36px; display:flex; align-items:center; justify-content:center; background:none; border:none; color:#6b7280; border-radius:10px; cursor:pointer; transition: all .2s ease; }
+.notification-bell:hover { background:#f3f4f6; color:#1f2937; }
+.notification-count { position: absolute; top: 2px; right: 2px; background: rgb(239, 68, 68); color: rgb(255, 255, 255); border-radius: 999px; padding: 2px 6px; font-size: 11px; display: inline-block; }
+.notification-dropdown { position:absolute; top:calc(100% + 8px); right:0; width:280px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,.08); display:none; overflow:hidden; z-index:9999; }
+.notification-wrapper.open .notification-dropdown { display:block; }
+.notification-list { max-height:300px; overflow-y:auto; }
+.notification-empty { padding:12px; color:#6b7280; text-align:center; display:flex; align-items:center; justify-content:center; gap:8px; }
 </style>
 @endpush
 
@@ -45,7 +55,6 @@
     </div>
 
                     <div class=\"receipt-sep\"></div>
-                    <div style=\"text-align:center;color:#6b7280;font-size:11px;\">THANK YOU! — Glad to see you again!</div>
     <ul class="sidebar-nav">
         <li class="nav-item">
             <a href="{{ route('inventory.dashboard') }}" class="nav-link">
@@ -108,16 +117,16 @@
             <div class="date-display" style="display:flex;align-items:center;gap:12px;">
                 <i class="fas fa-calendar"></i>
                 <span id="current-date">Loading...</span>
-                <button id="notif-bell" title="Notifications" style="background:none;border:none;cursor:pointer;position:relative;">
-                    <i class="fas fa-bell" style="font-size:1.5rem;"></i>
-                    <span id="notif-badge" style="position:absolute;top:-4px;right:-8px;background:#ef4444;color:#fff;border-radius:999px;padding:2px 6px;font-size:11px;display:none;">3</span>
-                </button>
-                <div id="notif-dropdown" style="display:none;position:absolute;right:0;top:48px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.08);width:320px;z-index:1000;">
-                    <div style="padding:12px 14px;border-bottom:1px solid #f1f5f9;font-weight:700;">Notifications</div>
-                    <div style="max-height:280px;overflow:auto;">
-                        <div style="padding:10px 14px;border-bottom:1px solid #f8fafc;">Low stock: Nike Air Max 270 size 9</div>
-                        <div style="padding:10px 14px;border-bottom:1px solid #f8fafc;">Reservation REV-DEF456 confirmed</div>
-                        <div style="padding:10px 14px;">New reservation REV-GHI789</div>
+                <!-- Notification System - Dashboard Style -->
+                <div class="notification-wrapper">
+                    <button class="notification-bell" aria-label="Notifications">
+                        <i class="fas fa-bell" style="font-size: 1.5rem;"></i>
+                        <span class="notification-count" style="display:none;">0</span>
+                    </button>
+                    <div class="notification-dropdown">
+                        <div class="notification-list">
+                            <div class="notification-empty"><i class="fas fa-inbox"></i> No new notifications</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -252,6 +261,7 @@
 @endsection
 
 @push('scripts')
+<script src="{{ asset('js/notifications.js') }}"></script>
 <script>
 // Time and date display
 function updateDateTime() {
@@ -704,20 +714,12 @@ document.getElementById('reservation-status-filter').addEventListener('change', 
     });
 });
 
-// Notification bell toggle
-const bell = document.getElementById('notif-bell');
-const dd = document.getElementById('notif-dropdown');
-const badge = document.getElementById('notif-badge');
-if (bell) {
-    bell.addEventListener('click', function(e){
-        e.stopPropagation();
-        dd.style.display = dd.style.display === 'none' || dd.style.display === '' ? 'block' : 'none';
-        badge.style.display = 'none';
-    });
-    document.addEventListener('click', function(){
-        dd.style.display = 'none';
-    });
-    badge.style.display = 'inline-block';
+// Initialize dynamic notification system
+if (typeof NotificationManager !== 'undefined') {
+    const notificationManager = new NotificationManager();
+    notificationManager.init();
+} else {
+    console.warn('NotificationManager not found. Make sure notifications.js is loaded.');
 }
 
 // Ensure View buttons are bound after page load (in case SSR)
@@ -749,4 +751,5 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 @endpush
+
 @include('partials.mobile-blocker')

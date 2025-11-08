@@ -9,10 +9,12 @@ use App\Models\Transaction;
 use App\Models\TransactionItem;
 use App\Models\Reservation;
 use App\Models\User;
+use App\Models\Employee;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
 class OwnerController extends Controller
@@ -247,7 +249,7 @@ class OwnerController extends Controller
             $totalStock = $product->sizes->sum('stock');
 
             return (object) [
-                'id' => $product->id,
+                'id' => $product->product_id,
                 'product_id' => $product->product_id,
                 'name' => $product->name,
                 'brand' => $product->brand,
@@ -275,12 +277,16 @@ class OwnerController extends Controller
      */
     public function settings()
     {
+        $user = Auth::user();
+        $employee = $user->employee;
+        
         return view('owner.settings', [
             'userIndexRoute' => route('owner.users.index'),
             'userStoreRoute' => route('owner.users.store'),
             'userToggleRoute' => route('owner.users.toggle'),
             'customerIndexRoute' => route('owner.customers.index'),
             'customerToggleRoute' => route('owner.customers.toggle'),
+            'employee' => $employee,
         ]);
     }
 
@@ -292,55 +298,174 @@ class OwnerController extends Controller
         try {
             $user = $request->user();
             
-            $validated = $request->validate([
-                'name' => 'required|string|max:255',
-                'username' => 'required|string|max:255|unique:users,username,' . $user->id,
-                'email' => 'required|email|max:255|unique:users,email,' . $user->id,
-                'phone' => 'nullable|string|max:20',
-                'profile_picture' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
+            // Debug: Log the incoming request data
+            Log::info('Profile update request data:', [
+                'all_data' => $request->all(),
+                'hasFile' => $request->hasFile('profile_picture'),
+                'fileSize' => $request->hasFile('profile_picture') ? $request->file('profile_picture')->getSize() : 'N/A',
+                'mimeType' => $request->hasFile('profile_picture') ? $request->file('profile_picture')->getMimeType() : 'N/A',
+                'originalName' => $request->hasFile('profile_picture') ? $request->file('profile_picture')->getClientOriginalName() : 'N/A',
+                'phpUploadMaxFilesize' => ini_get('upload_max_filesize'),
+                'phpPostMaxSize' => ini_get('post_max_size'),
+                'requestContentLength' => $request->header('Content-Length'),
             ]);
+            
+            // Step-by-step validation to isolate the issue
+            $rules = [
+                'name' => 'required|string|max:255',
+                'username' => 'required|string|max:255|unique:users,username,' . $user->user_id . ',user_id',
+                'email' => 'required|email|max:255',
+                'phone' => 'nullable|string|max:20',
+            ];
+            
+            // Only add profile picture validation if file is present
+            if ($request->hasFile('profile_picture')) {
+                $rules['profile_picture'] = 'image|mimes:jpeg,png,jpg,gif,webp|max:2048';
+            }
+            
+            Log::info('Validation rules:', $rules);
+            
+            $validated = $request->validate($rules);
+            
+            Log::info('Validation passed, validated data:', $validated);
+            
+            // Get or create employee record
+            $employee = $user->employee;
+            if (!$employee) {
+                $employee = Employee::create([
+                    'user_id' => $user->user_id,
+                    'fullname' => $validated['name'],
+                    'email' => $validated['email'],
+                    'phone_number' => $validated['phone'],
+                    'position' => $user->role,
+                    'hire_date' => now(),
+                ]);
+            }
             
             // Handle profile picture upload
             if ($request->hasFile('profile_picture')) {
+                Log::info('Processing profile picture upload');
+                
                 // Delete old profile picture if it exists
-                if ($user->profile_picture && file_exists(public_path($user->profile_picture))) {
-                    unlink(public_path($user->profile_picture));
+                if ($employee->profile_picture && file_exists(public_path($employee->profile_picture))) {
+                    unlink(public_path($employee->profile_picture));
+                    Log::info('Deleted old profile picture: ' . $employee->profile_picture);
                 }
                 
-                // Upload new profile picture
-                $file = $request->file('profile_picture');
-                $fileName = 'profile_' . $user->id . '_' . time() . '.' . $file->getClientOriginalExtension();
-                $filePath = 'assets/images/profiles/' . $fileName;
-                
-                // Create directory if it doesn't exist
-                $directory = public_path('assets/images/profiles');
-                if (!file_exists($directory)) {
-                    mkdir($directory, 0755, true);
+                try {
+                    // Upload new profile picture
+                    $file = $request->file('profile_picture');
+                    
+                    // Get file extension, with fallback
+                    $extension = $file->getClientOriginalExtension();
+                    if (empty($extension)) {
+                        // Fallback to guessing extension from MIME type
+                        $mimeType = $file->getMimeType();
+                        switch ($mimeType) {
+                            case 'image/jpeg':
+                                $extension = 'jpg';
+                                break;
+                            case 'image/png':
+                                $extension = 'png';
+                                break;
+                            case 'image/gif':
+                                $extension = 'gif';
+                                break;
+                            case 'image/webp':
+                                $extension = 'webp';
+                                break;
+                            default:
+                                $extension = 'jpg'; // Default fallback
+                        }
+                    }
+                    
+                    $fileName = 'profile_' . $user->user_id . '_' . time() . '.' . $extension;
+                    $relativePath = 'assets/images/profiles/' . $fileName;
+                    
+                    Log::info('File details:', [
+                        'originalName' => $file->getClientOriginalName(),
+                        'extension' => $extension,
+                        'mimeType' => $file->getMimeType(),
+                        'fileName' => $fileName
+                    ]);
+                    
+                    // Create directory if it doesn't exist
+                    $directory = public_path('assets/images/profiles');
+                    if (!is_dir($directory)) {
+                        if (!mkdir($directory, 0755, true)) {
+                            throw new \Exception('Failed to create upload directory');
+                        }
+                        Log::info('Created directory: ' . $directory);
+                    }
+                    
+                    // Move the uploaded file
+                    if (!$file->move($directory, $fileName)) {
+                        throw new \Exception('Failed to move uploaded file');
+                    }
+                    
+                    $fullPath = $directory . DIRECTORY_SEPARATOR . $fileName;
+                    
+                    Log::info('File upload successful:', [
+                        'fileName' => $fileName,
+                        'relativePath' => $relativePath,
+                        'fullPath' => $fullPath,
+                        'fileExists' => file_exists($fullPath),
+                        'fileSize' => file_exists($fullPath) ? filesize($fullPath) : 'N/A'
+                    ]);
+                    
+                    $validated['profile_picture'] = $relativePath;
+                    
+                } catch (\Exception $uploadException) {
+                    Log::error('Profile picture upload failed:', [
+                        'error' => $uploadException->getMessage(),
+                        'file_size' => $file->getSize(),
+                        'file_name' => $file->getClientOriginalName(),
+                        'mime_type' => $file->getMimeType()
+                    ]);
+                    
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Failed to upload profile picture: ' . $uploadException->getMessage()
+                    ], 500);
                 }
-                
-                $file->move($directory, $fileName);
-                $validated['profile_picture'] = $filePath;
             }
 
-            // Update user data
-            $user->update($validated);
+            // Update user username
+            $user->update(['username' => $validated['username']]);
+            
+            // Update employee profile data
+            $updateData = [
+                'fullname' => $validated['name'],
+                'email' => $validated['email'],
+                'phone_number' => $validated['phone'],
+            ];
+            
+            // Only update profile picture if a new one was uploaded
+            if (isset($validated['profile_picture'])) {
+                $updateData['profile_picture'] = $validated['profile_picture'];
+            }
+            
+            $employee->update($updateData);
+            
+            // Refresh the employee model to get updated data
+            $employee->refresh();
 
             return response()->json([
                 'success' => true,
                 'message' => 'Profile updated successfully!',
                 'user' => [
-                    'name' => $user->name,
+                    'name' => $employee->fullname,
                     'username' => $user->username,
-                    'email' => $user->email,
-                    'phone' => $user->phone,
-                    'profile_picture' => $this->getProfilePictureUrl($user)
+                    'email' => $employee->email,
+                    'phone' => $employee->phone_number,
+                    'profile_picture' => $this->getProfilePictureUrl($employee) . '?t=' . time() // Cache busting
                 ]
             ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation failed',
+                'message' => 'Validation failed: ' . collect($e->errors())->flatten()->implode(', '),
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
@@ -358,24 +483,32 @@ class OwnerController extends Controller
     {
         try {
             $user = $request->user();
+            $employee = $user->employee;
             
-            // Delete old profile picture if it exists
-            if ($user->profile_picture && file_exists(public_path($user->profile_picture))) {
-                unlink(public_path($user->profile_picture));
+            if (!$employee) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Employee profile not found!'
+                ], 404);
             }
             
-            // Update user record to remove profile picture
-            $user->update(['profile_picture' => null]);
+            // Delete old profile picture if it exists
+            if ($employee->profile_picture && file_exists(public_path($employee->profile_picture))) {
+                unlink(public_path($employee->profile_picture));
+            }
+            
+            // Update employee record to remove profile picture
+            $employee->update(['profile_picture' => null]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Profile picture removed successfully!',
                 'user' => [
-                    'name' => $user->name,
+                    'name' => $employee->fullname,
                     'username' => $user->username,
-                    'email' => $user->email,
-                    'phone' => $user->phone,
-                    'profile_picture' => $this->getProfilePictureUrl($user)
+                    'email' => $employee->email,
+                    'phone' => $employee->phone_number,
+                    'profile_picture' => $this->getProfilePictureUrl($employee)
                 ]
             ]);
 
@@ -397,8 +530,8 @@ class OwnerController extends Controller
             
             $validated = $request->validate([
                 'current_password' => 'required|string',
-                'new_password' => 'required|string|min:8|confirmed',
-                'new_password_confirmation' => 'required|string'
+                'password' => 'required|string|min:8|confirmed',
+                'password_confirmation' => 'required|string'
             ]);
 
             // Check if current password is correct
@@ -414,7 +547,7 @@ class OwnerController extends Controller
 
             // Update password
             $user->update([
-                'password' => Hash::make($validated['new_password'])
+                'password' => Hash::make($validated['password'])
             ]);
 
             return response()->json([
@@ -442,9 +575,9 @@ class OwnerController extends Controller
     private function getDashboardKPIs()
     {
         $totalProducts = Product::count();
-        $totalStock = Product::join('product_sizes', 'products.id', '=', 'product_sizes.product_id')
+        $totalStock = Product::join('product_sizes', 'products.product_id', '=', 'product_sizes.product_id')
                       ->sum('product_sizes.stock');
-        $lowStockItems = Product::join('product_sizes', 'products.id', '=', 'product_sizes.product_id')
+        $lowStockItems = Product::join('product_sizes', 'products.product_id', '=', 'product_sizes.product_id')
                         ->where('product_sizes.stock', '<=', 10)
                         ->count();
         // Use resilient total calculation depending on current schema
@@ -472,7 +605,7 @@ class OwnerController extends Controller
             'totalQuantitySold' => $totalQuantitySold,
             'completedReservations' => $completedReservations,
             'cancelledReservations' => $cancelledReservations,
-            'totalValue' => Product::join('product_sizes', 'products.id', '=', 'product_sizes.product_id')
+            'totalValue' => Product::join('product_sizes', 'products.product_id', '=', 'product_sizes.product_id')
                           ->sum(DB::raw('products.price * product_sizes.stock')),
             // For the compact dashboard widgets
             'popularProducts' => $popularByCategory,
@@ -501,10 +634,10 @@ class OwnerController extends Controller
                      ->on('sa.product_category', '=', 'p.category');
             })
             ->leftJoinSub($stockAgg, 'st', function ($join) {
-                $join->on('st.product_id', '=', 'p.id');
+                $join->on('st.product_id', '=', 'p.product_id');
             })
             ->where('p.is_active', true)
-            ->select('p.id', 'p.name', 'p.category', DB::raw('COALESCE(sa.total_sold, 0) as sold'), DB::raw('COALESCE(st.total_stock, 0) as stock'))
+            ->select('p.product_id', 'p.name', 'p.category', DB::raw('COALESCE(sa.total_sold, 0) as sold'), DB::raw('COALESCE(st.total_stock, 0) as stock'))
             ->orderByDesc('sold')
             ->orderBy('p.name')
             ->get();
@@ -806,9 +939,9 @@ class OwnerController extends Controller
      */
     private function getPopularReservedProducts()
     {
-        return Product::join('reservations', 'products.id', '=', 'reservations.product_id')
+        return Product::join('reservations', 'products.product_id', '=', 'reservations.product_id')
                      ->select('products.name', DB::raw('COUNT(*) as reservation_count'))
-                     ->groupBy('products.id', 'products.name')
+                     ->groupBy('products.product_id', 'products.name')
                      ->orderBy('reservation_count', 'desc')
                      ->limit(5)
                      ->get();
@@ -918,7 +1051,7 @@ class OwnerController extends Controller
      */
     private function getInventoryValueDistribution()
     {
-        return Product::join('product_sizes', 'products.id', '=', 'product_sizes.product_id')
+        return Product::join('product_sizes', 'products.product_id', '=', 'product_sizes.product_id')
                      ->select(
                          'products.category',
                          DB::raw('SUM(products.price * product_sizes.stock) as total_value')
@@ -966,17 +1099,17 @@ class OwnerController extends Controller
     /**
      * Get profile picture URL with fallback to default
      */
-    private function getProfilePictureUrl($user)
+    private function getProfilePictureUrl($profileObject)
     {
-        if (!$user->profile_picture) {
+        if (!$profileObject->profile_picture) {
             return asset('assets/images/profile.png');
         }
         
-        $profilePicturePath = public_path($user->profile_picture);
+        $profilePicturePath = public_path($profileObject->profile_picture);
         if (!file_exists($profilePicturePath)) {
             return asset('assets/images/profile.png');
         }
         
-        return asset($user->profile_picture);
+        return asset($profileObject->profile_picture);
     }
 }

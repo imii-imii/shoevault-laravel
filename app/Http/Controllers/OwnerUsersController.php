@@ -267,11 +267,11 @@ class OwnerUsersController extends Controller
             ], 422);
         }
 
-        // Protect owner/admin accounts from being toggled via this UI
-        if (in_array($user->role, ['owner', 'admin'])) {
+        // Protect owner accounts from being toggled via this UI
+        if (in_array($user->role, ['owner'])) {
             return response()->json([
                 'success' => false,
-                'message' => 'Cannot change status of owner or admin accounts via this interface.',
+                'message' => 'Cannot change status of owner accounts via this interface.',
             ], 403);
         }
 
@@ -292,7 +292,7 @@ class OwnerUsersController extends Controller
     protected function authorizeOwner(): void
     {
         $user = Auth::user();
-        if (!$user || !in_array($user->role, ['owner','admin'])) {
+        if (!$user || !in_array($user->role, ['owner'])) {
             abort(403);
         }
     }

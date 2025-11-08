@@ -11,6 +11,11 @@ class Product extends Model
 {
     use HasFactory;
 
+    // Define the primary key
+    protected $primaryKey = 'product_id';
+    public $incrementing = false;
+    protected $keyType = 'string';
+
     protected $fillable = [
         'product_id',
         'name',
@@ -34,7 +39,7 @@ class Product extends Model
      */
     public function sizes(): HasMany
     {
-        return $this->hasMany(ProductSize::class);
+        return $this->hasMany(ProductSize::class, 'product_id', 'product_id');
     }
 
     /**
@@ -42,7 +47,7 @@ class Product extends Model
      */
     public function availableSizes(): HasMany
     {
-        return $this->sizes()->where('is_available', true);
+        return $this->hasMany(ProductSize::class, 'product_id', 'product_id')->where('is_available', true);
     }
 
     /**

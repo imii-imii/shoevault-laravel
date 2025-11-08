@@ -28,18 +28,19 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentPage = 1;
     let paginationData = null;
 
-    function buildFilterUrl(category, page = 1) {
+    function buildFilterUrl(category, page = 1, searchTerm = '') {
         const params = new URLSearchParams();
         if (category) params.set('category', category);
         const min = priceMinEl && priceMinEl.value ? parseInt(priceMinEl.value, 10) : '';
         const max = priceMaxEl && priceMaxEl.value ? parseInt(priceMaxEl.value, 10) : '';
         if (!isNaN(min) && min !== '') params.set('minPrice', min);
         if (!isNaN(max) && max !== '') params.set('maxPrice', max);
+        if (searchTerm && searchTerm.trim()) params.set('search', searchTerm.trim());
         if (page > 1) params.set('page', page);
         return `/api/products/filter?${params.toString()}`;
     }
 
-    function loadProducts(category, page = 1) {
+    function loadProducts(category, page = 1, searchTerm = '') {
         currentPage = page;
         
         // Show loading state
@@ -52,7 +53,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Fetch filtered products from Laravel
-        fetch(buildFilterUrl(category, page), {
+        fetch(buildFilterUrl(category, page, searchTerm), {
             method: 'GET',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
@@ -65,7 +66,7 @@ document.addEventListener('DOMContentLoaded', function() {
             paginationData = data.pagination;
             
             // Render pagination controls
-            renderPagination(category);
+            renderPagination(category, searchTerm);
             
             // Re-attach event listeners for new product cards
             attachProductCardListeners();
@@ -76,7 +77,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function renderPagination(category) {
+    function renderPagination(category, searchTerm = '') {
         // Remove existing pagination
         const existingPagination = document.querySelector('.sv-pagination');
         if (existingPagination) existingPagination.remove();
@@ -91,7 +92,7 @@ document.addEventListener('DOMContentLoaded', function() {
         prevBtn.className = 'sv-pagination-btn';
         prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
         prevBtn.disabled = currentPage === 1;
-        prevBtn.onclick = () => loadProducts(category, currentPage - 1);
+        prevBtn.onclick = () => loadProducts(category, currentPage - 1, searchTerm);
         paginationDiv.appendChild(prevBtn);
         
         // Page numbers with smart ellipsis
@@ -102,7 +103,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Always show first page
         if (startPage > 1) {
-            const firstBtn = createPageButton(1, category);
+            const firstBtn = createPageButton(1, category, searchTerm);
             paginationDiv.appendChild(firstBtn);
             if (startPage > 2) {
                 const dots = document.createElement('span');
@@ -114,7 +115,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Page number buttons
         for (let i = startPage; i <= endPage; i++) {
-            const pageBtn = createPageButton(i, category);
+            const pageBtn = createPageButton(i, category, searchTerm);
             paginationDiv.appendChild(pageBtn);
         }
         
@@ -126,7 +127,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 dots.textContent = '...';
                 paginationDiv.appendChild(dots);
             }
-            const lastBtn = createPageButton(totalPages, category);
+            const lastBtn = createPageButton(totalPages, category, searchTerm);
             paginationDiv.appendChild(lastBtn);
         }
         
@@ -135,7 +136,7 @@ document.addEventListener('DOMContentLoaded', function() {
         nextBtn.className = 'sv-pagination-btn';
         nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
         nextBtn.disabled = currentPage === totalPages;
-        nextBtn.onclick = () => loadProducts(category, currentPage + 1);
+        nextBtn.onclick = () => loadProducts(category, currentPage + 1, searchTerm);
         paginationDiv.appendChild(nextBtn);
         
         // Info text
@@ -148,14 +149,14 @@ document.addEventListener('DOMContentLoaded', function() {
         productsGrid.parentNode.insertBefore(paginationDiv, productsGrid.nextSibling);
     }
 
-    function createPageButton(pageNum, category) {
+    function createPageButton(pageNum, category, searchTerm = '') {
         const btn = document.createElement('button');
         btn.className = 'sv-pagination-btn page-num';
         btn.textContent = pageNum;
         if (pageNum === currentPage) {
             btn.classList.add('active');
         }
-        btn.onclick = () => loadProducts(category, pageNum);
+        btn.onclick = () => loadProducts(category, pageNum, searchTerm);
         return btn;
     }
 
@@ -168,16 +169,73 @@ document.addEventListener('DOMContentLoaded', function() {
             // Get category from data attribute
             const category = this.dataset.category;
             
-            // Load products (page 1)
-            loadProducts(category, 1);
+            // Get current search term
+            const searchTerm = (desktopSearchInput?.value || mobileSearchInput?.value || '').trim();
+            
+            // Load products (page 1) with current search term
+            loadProducts(category, 1, searchTerm);
         });
     });
+
+    // ================= SEARCH FUNCTIONALITY =================
+    const desktopSearchInput = document.querySelector('.res-portal-search.desktop-only input');
+    const mobileSearchInput = document.querySelector('.res-portal-search.mobile-only input');
+    let searchTimeout;
+
+    function performSearch() {
+        // Clear previous timeout
+        if (searchTimeout) clearTimeout(searchTimeout);
+        
+        // Debounce search to avoid too many requests
+        searchTimeout = setTimeout(() => {
+            const activeBtn = document.querySelector('.res-portal-category-btn.active');
+            const category = activeBtn ? activeBtn.dataset.category : 'All';
+            const searchTerm = (desktopSearchInput?.value || mobileSearchInput?.value || '').trim();
+            
+            // Load products with search term
+            loadProducts(category, 1, searchTerm);
+        }, 500); // Wait 500ms after user stops typing
+    }
+
+    // Add search event listeners
+    if (desktopSearchInput) {
+        desktopSearchInput.addEventListener('input', performSearch);
+        desktopSearchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(searchTimeout);
+                performSearch();
+            }
+        });
+    }
+
+    if (mobileSearchInput) {
+        mobileSearchInput.addEventListener('input', performSearch);
+        mobileSearchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(searchTimeout);
+                performSearch();
+            }
+        });
+    }
+
+    // Sync search inputs (when user types in one, update the other)
+    if (desktopSearchInput && mobileSearchInput) {
+        desktopSearchInput.addEventListener('input', (e) => {
+            mobileSearchInput.value = e.target.value;
+        });
+        mobileSearchInput.addEventListener('input', (e) => {
+            desktopSearchInput.value = e.target.value;
+        });
+    }
 
     if (priceApplyBtn) {
         const triggerFetch = () => {
             const activeBtn = document.querySelector('.res-portal-category-btn.active');
             const category = activeBtn ? activeBtn.dataset.category : 'All';
-            loadProducts(category, 1); // Reset to page 1 when filtering
+            const searchTerm = (desktopSearchInput?.value || mobileSearchInput?.value || '').trim();
+            loadProducts(category, 1, searchTerm); // Reset to page 1 when filtering
         };
         priceApplyBtn.addEventListener('click', triggerFetch);
         [priceMinEl, priceMaxEl].forEach(el => el && el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); triggerFetch(); }}));

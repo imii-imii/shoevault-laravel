@@ -17,6 +17,16 @@
 .settings-panel .loading-overlay{ position:absolute; inset:0; display:grid; place-items:center; gap:8px; background:linear-gradient(180deg, rgba(255,255,255,0.94), rgba(248,250,252,0.92)); backdrop-filter: blur(6px); z-index:20; border-radius:8px; }
 .settings-panel .loading-overlay i{ font-size:18px; color:#64748b }
 .settings-panel.animate-entry { animation: slideFadeIn 360ms ease both; }
+
+/* Notification Styles - Match Dashboard */
+.notification-wrapper { position: relative; }
+.notification-bell { width:36px; height:36px; display:flex; align-items:center; justify-content:center; background:none; border:none; color:#6b7280; border-radius:10px; cursor:pointer; transition: all .2s ease; }
+.notification-bell:hover { background:#f3f4f6; color:#1f2937; }
+.notification-count { position: absolute; top: 2px; right: 2px; background: rgb(239, 68, 68); color: rgb(255, 255, 255); border-radius: 999px; padding: 2px 6px; font-size: 11px; display: inline-block; }
+.notification-dropdown { position:absolute; top:calc(100% + 8px); right:0; width:280px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,.08); display:none; overflow:hidden; z-index:9999; }
+.notification-wrapper.open .notification-dropdown { display:block; }
+.notification-list { max-height:300px; overflow-y:auto; }
+.notification-empty { padding:12px; color:#6b7280; text-align:center; display:flex; align-items:center; justify-content:center; gap:8px; }
 </style>
 @endpush
 
@@ -59,12 +69,12 @@
     <div class="sidebar-footer">
         <div class="user-info">
             <div class="user-avatar">
-                <img src="{{ auth()->user() && auth()->user()->profile_picture && file_exists(public_path(auth()->user()->profile_picture)) ? asset(auth()->user()->profile_picture) : asset('assets/images/profile.png') }}" 
+                <img src="{{ $employee && $employee->profile_picture && file_exists(public_path($employee->profile_picture)) ? asset($employee->profile_picture) : asset('assets/images/profile.png') }}" 
                      alt="Manager" 
                      class="sidebar-avatar-img">
             </div>
             <div class="user-details">
-                <h4>{{ auth()->user()->name }}</h4>
+                <h4>{{ $employee->fullname ?? auth()->user()->name }}</h4>
                 <span>{{ ucfirst(auth()->user()->role) }}</span>
             </div>
         </div>
@@ -93,16 +103,16 @@
             <div class="date-display" style="display:flex;align-items:center;gap:12px;">
                 <i class="fas fa-calendar"></i>
                 <span id="current-date">Loading...</span>
-                <button id="notif-bell" title="Notifications" style="background:none;border:none;cursor:pointer;position:relative;">
-                    <i class="fas fa-bell" style="font-size:1.5rem;"></i>
-                    <span id="notif-badge" style="position:absolute;top:-4px;right:-8px;background:#ef4444;color:#fff;border-radius:999px;padding:2px 6px;font-size:11px;display:none;">3</span>
-                </button>
-                <div id="notif-dropdown" style="display:none;position:absolute;right:0;top:48px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.08);width:320px;z-index:1000;">
-                    <div style="padding:12px 14px;border-bottom:1px solid #f1f5f9;font-weight:700;">Notifications</div>
-                    <div style="max-height:280px;overflow:auto;">
-                        <div style="padding:10px 14px;border-bottom:1px solid #f8fafc;">Low stock: Nike Air Max 270 size 9</div>
-                        <div style="padding:10px 14px;border-bottom:1px solid #f8fafc;">Reservation REV-ABC123 expiring soon</div>
-                        <div style="padding:10px 14px;">New supplier added: Adidas Distributor</div>
+                <!-- Notification System - Dashboard Style -->
+                <div class="notification-wrapper">
+                    <button class="notification-bell" aria-label="Notifications">
+                        <i class="fas fa-bell" style="font-size: 1.5rem;"></i>
+                        <span class="notification-count" style="display:none;">0</span>
+                    </button>
+                    <div class="notification-dropdown">
+                        <div class="notification-list">
+                            <div class="notification-empty"><i class="fas fa-inbox"></i> No new notifications</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -132,7 +142,7 @@
                                 <div class="card-title"><i class="fas fa-id-card"></i> User Information</div>
                                 <div class="avatar-row">
                                     <img id="settings-avatar-preview" 
-                                         src="{{ auth()->user() && auth()->user()->profile_picture && file_exists(public_path(auth()->user()->profile_picture)) ? asset(auth()->user()->profile_picture) : asset('assets/images/profile.png') }}" 
+                                         src="{{ $employee && $employee->profile_picture && file_exists(public_path($employee->profile_picture)) ? asset($employee->profile_picture) : asset('assets/images/profile.png') }}" 
                                          alt="Avatar" 
                                          class="avatar-preview settings-avatar-img">
                                     <div class="avatar-actions">
@@ -144,19 +154,19 @@
                                 <div class="form-grid">
                                     <div class="form-group">
                                         <label for="settings-name">Full Name</label>
-                                        <input id="settings-name" type="text" placeholder="Your name" value="{{ auth()->user()->name }}">
+                                        <input id="settings-name" type="text" placeholder="Your name" value="{{ $employee->fullname ?? auth()->user()->name ?? '' }}">
                                     </div>
                                     <div class="form-group">
                                         <label for="settings-username">Username</label>
-                                        <input id="settings-username" type="text" placeholder="Username" value="{{ auth()->user()->username }}">
+                                        <input id="settings-username" type="text" placeholder="Username" value="{{ auth()->user()->username ?? '' }}">
                                     </div>
                                     <div class="form-group">
                                         <label for="settings-email">Email</label>
-                                        <input id="settings-email" type="email" placeholder="name@example.com" value="{{ auth()->user()->email }}">
+                                        <input id="settings-email" type="email" placeholder="name@example.com" value="{{ $employee->email ?? auth()->user()->email ?? '' }}">
                                     </div>
                                     <div class="form-group">
                                         <label for="settings-phone">Phone</label>
-                                        <input id="settings-phone" type="tel" placeholder="+63 900 000 0000" value="{{ auth()->user()->phone ?? '' }}">
+                                        <input id="settings-phone" type="tel" placeholder="+63 900 000 0000" value="{{ $employee->phone_number ?? '' }}">
                                     </div>
                                     
                                 </div>
@@ -215,6 +225,7 @@
 @endsection
 
 @push('scripts')
+<script src="{{ asset('js/notifications.js') }}"></script>
 <script>
 // Time and date display
 function updateDateTime() {
@@ -345,30 +356,59 @@ document.getElementById('settings-avatar-remove').addEventListener('click', func
     }
 });
 
+// Image compression function
+async function compressImageIfNeeded(file, maxSizeKB = 2048) {
+    if (file.size <= maxSizeKB * 1024) {
+        return file;
+    }
+
+    return new Promise((resolve) => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        
+        img.onload = function() {
+            const maxWidth = 1200;
+            const maxHeight = 1200;
+            let { width, height } = img;
+            
+            if (width > height) {
+                if (width > maxWidth) {
+                    height = (height * maxWidth) / width;
+                    width = maxWidth;
+                }
+            } else {
+                if (height > maxHeight) {
+                    width = (width * maxHeight) / height;
+                    height = maxHeight;
+                }
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            canvas.toBlob(resolve, 'image/jpeg', 0.8);
+        };
+        
+        img.src = URL.createObjectURL(file);
+    });
+}
+
 // Save functions
-document.getElementById('settings-profile-save').addEventListener('click', function() {
-    const formData = new FormData();
-    
+document.getElementById('settings-profile-save').addEventListener('click', async function() {
     // Get form values
     const name = document.getElementById('settings-name').value;
     const username = document.getElementById('settings-username').value;
     const email = document.getElementById('settings-email').value;
     const phone = document.getElementById('settings-phone').value;
-    const profilePicture = document.getElementById('settings-avatar').files[0];
+    const profilePictureInput = document.getElementById('settings-avatar');
     
     // Validate required fields
     if (!name || !username || !email) {
         showNotification('Please fill in all required fields', 'error');
         return;
-    }
-    
-    // Append data to FormData
-    formData.append('name', name);
-    formData.append('username', username);
-    formData.append('email', email);
-    formData.append('phone', phone);
-    if (profilePicture) {
-        formData.append('profile_picture', profilePicture);
     }
     
     // Show loading state
@@ -377,46 +417,68 @@ document.getElementById('settings-profile-save').addEventListener('click', funct
     saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
     saveBtn.disabled = true;
     
-    // Send request
-    fetch('{{ route("inventory.profile.update") }}', {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-        },
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
+    try {
+        // Prepare form data
+        const formData = new FormData();
+        formData.append('name', name);
+        formData.append('username', username);
+        formData.append('email', email);
+        formData.append('phone', phone);
+        
+        // Handle profile picture if selected
+        if (profilePictureInput.files && profilePictureInput.files[0]) {
+            const originalFile = profilePictureInput.files[0];
+            console.log('Original file size:', originalFile.size, 'bytes');
+            
+            // Compress image if needed
+            const compressedFile = await compressImageIfNeeded(originalFile);
+            console.log('Compressed file size:', compressedFile.size, 'bytes');
+            
+            formData.append('profile_picture', compressedFile);
+        }
+        
+        // Send request
+        const response = await fetch('{{ route("inventory.profile.update") }}', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: formData
+        });
+        
+        const data = await response.json();
+        
         if (data.success) {
             showNotification(data.message, 'success');
             
             // Update UI with new data
-            if (data.user.profile_picture) {
-                const avatarImg = document.getElementById('settings-avatar-preview');
-                avatarImg.src = data.user.profile_picture;
+            if (data.user) {
+                document.getElementById('settings-name').value = data.user.name;
+                document.getElementById('settings-username').value = data.user.username;
+                document.getElementById('settings-email').value = data.user.email;
+                document.getElementById('settings-phone').value = data.user.phone || '';
                 
-                // Update sidebar avatar too
-                const sidebarAvatar = document.querySelector('.sidebar .user-avatar img');
-                if (sidebarAvatar) {
-                    sidebarAvatar.src = data.user.profile_picture;
+                // Update profile picture if changed
+                if (data.user.profile_picture) {
+                    document.getElementById('settings-avatar-preview').src = data.user.profile_picture;
+                    // Update sidebar avatar too
+                    document.querySelector('.sidebar-avatar-img').src = data.user.profile_picture;
                 }
-                
-                // Add error handling to both images
-                [avatarImg, sidebarAvatar].forEach(img => {
-                    if (img) {
-                        img.onerror = function() {
-                            this.src = '{{ asset("assets/images/profile.png") }}';
-                            this.onerror = null; // Prevent infinite loops
-                        };
-                    }
-                });
             }
+            
+            // Clear file input
+            profilePictureInput.value = '';
             
             // Update sidebar user name
             const sidebarName = document.querySelector('.sidebar .user-details h4');
             if (sidebarName) {
                 sidebarName.textContent = data.user.name;
             }
+            
+            // Refresh page after short delay
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
         } else {
             showNotification(data.message, 'error');
             if (data.errors) {
@@ -424,16 +486,14 @@ document.getElementById('settings-profile-save').addEventListener('click', funct
                 showNotification(errorMessages, 'error');
             }
         }
-    })
-    .catch(error => {
+    } catch (error) {
         console.error('Error:', error);
-        showNotification('An error occurred while saving profile', 'error');
-    })
-    .finally(() => {
+        showNotification('An error occurred while updating profile', 'error');
+    } finally {
         // Restore button state
         saveBtn.innerHTML = originalText;
         saveBtn.disabled = false;
-    });
+    }
 });
 
 // Notification function
@@ -543,23 +603,14 @@ document.getElementById('settings-password-save').addEventListener('click', func
     });
 });
 
-// Notifications bell toggle (simple demo)
-const bell = document.getElementById('notif-bell');
-const dd = document.getElementById('notif-dropdown');
-const badge = document.getElementById('notif-badge');
-if (bell) {
-    bell.addEventListener('click', function(e){
-        e.stopPropagation();
-        dd.style.display = dd.style.display === 'none' || dd.style.display === '' ? 'block' : 'none';
-        // Mark as read
-        badge.style.display = 'none';
-    });
-    document.addEventListener('click', function(){
-        dd.style.display = 'none';
-    });
-    // Show a badge if there are notifications
-    badge.style.display = 'inline-block';
+// Initialize dynamic notification system
+if (typeof NotificationManager !== 'undefined') {
+    const notificationManager = new NotificationManager();
+    notificationManager.init();
+} else {
+    console.warn('NotificationManager not found. Make sure notifications.js is loaded.');
 }
 </script>
 @endpush
+
 @include('partials.mobile-blocker')

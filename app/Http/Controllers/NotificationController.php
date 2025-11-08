@@ -7,6 +7,7 @@ use Illuminate\Http\JsonResponse;
 use App\Services\NotificationService;
 use App\Models\Notification;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 class NotificationController extends Controller
@@ -24,7 +25,6 @@ class NotificationController extends Controller
     private function mapUserRole(string $userRole): string
     {
         return match($userRole) {
-            'admin' => 'owner',
             'owner', 'manager', 'cashier' => $userRole,
             default => 'cashier'
         };
@@ -59,7 +59,7 @@ class NotificationController extends Controller
             'success' => true,
             'notifications' => $notifications->map(function ($notification) use ($userId) {
                 return [
-                    'id' => $notification->id,
+                    'id' => $notification->getKey(), // Use getKey() to get the primary key value
                     'type' => $notification->type,
                     'title' => $notification->title,
                     'message' => $notification->message,
@@ -98,26 +98,47 @@ class NotificationController extends Controller
     /**
      * Mark a notification as read
      */
-    public function markAsRead(Request $request, int $id): JsonResponse
+    public function markAsRead(Request $request, $id): JsonResponse
     {
-        $user = Auth::user();
-        if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
+        try {
+            $user = Auth::user();
+            if (!$user) {
+                return response()->json(['error' => 'Unauthorized'], 401);
+            }
 
-        $success = $this->notificationService->markAsReadByUser($id, $this->getUserId($user));
-
-        if ($success) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Notification marked as read'
+            Log::info('NotificationController@markAsRead', [
+                'notification_id' => $id,
+                'user_id' => $this->getUserId($user),
+                'user_role' => $user->role
             ]);
-        }
 
-        return response()->json([
-            'success' => false,
-            'message' => 'Notification not found'
-        ], 404);
+            // Convert id to integer if it's a string
+            $notificationId = is_numeric($id) ? (int)$id : $id;
+            $success = $this->notificationService->markAsReadByUser($notificationId, $this->getUserId($user));
+
+            if ($success) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Notification marked as read'
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Notification not found'
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Error marking notification as read', [
+                'notification_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Internal server error'
+            ], 500);
+        }
     }
 
     /**
@@ -161,7 +182,7 @@ class NotificationController extends Controller
     }
 
     /**
-     * Manually trigger notification checks (admin only)
+     * Manually trigger notification checks (owner only)
      */
     public function triggerChecks(): JsonResponse
     {
@@ -180,7 +201,7 @@ class NotificationController extends Controller
     }
 
     /**
-     * Create a custom notification (admin only)
+     * Create a custom notification (owner only)
      */
     public function create(Request $request): JsonResponse
     {
@@ -215,7 +236,7 @@ class NotificationController extends Controller
     }
 
     /**
-     * Delete a notification (admin only)
+     * Delete a notification (owner only)
      */
     public function destroy(int $id): JsonResponse
     {
@@ -241,7 +262,7 @@ class NotificationController extends Controller
     }
 
     /**
-     * Clean up old notifications (admin only)
+     * Clean up old notifications (owner only)
      */
     public function cleanup(): JsonResponse
     {
