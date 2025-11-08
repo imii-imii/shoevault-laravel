@@ -6,6 +6,10 @@
 <link rel="stylesheet" href="{{ asset('assets/css/login.css') }}">
 @endpush
 
+@push('scripts')
+    @include('partials.mobile-blocker')
+@endpush
+
 @section('content')
 <div class="login-container">
     <!-- Background Pattern -->
