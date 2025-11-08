@@ -13,8 +13,7 @@ return new class extends Migration
     {
         // Create products table
         Schema::create('products', function (Blueprint $table) {
-            $table->id();
-            $table->string('product_id')->unique(); // Unique product identifier (SV-XXX-XXXX format)
+            $table->string('product_id', 20)->primary(); // Primary key - unique product identifier (SV-XXX-XXXX format)
             $table->string('name');
             $table->string('brand');
             $table->enum('category', ['men', 'women', 'accessories']);
@@ -31,12 +30,15 @@ return new class extends Migration
         // Create product_sizes table for size-specific inventory
         Schema::create('product_sizes', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('product_id')->constrained('products')->onDelete('cascade');
+            $table->string('product_id', 20); // Foreign key referencing products.product_id
             $table->string('size'); // Size value (e.g., '7', '8', 'M', 'L', 'One Size')
             $table->integer('stock')->default(0); // Stock quantity for this specific size
             $table->decimal('price_adjustment', 8, 2)->default(0.00); // Optional price adjustment for specific sizes
             $table->boolean('is_available')->default(true); // Whether this size is currently available
             $table->timestamps();
+            
+            // Foreign key constraint
+            $table->foreign('product_id')->references('product_id')->on('products')->onDelete('cascade');
             
             // Ensure unique combination of product and size
             $table->unique(['product_id', 'size']);
