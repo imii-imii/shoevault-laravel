@@ -6,7 +6,7 @@
 <link rel="stylesheet" href="{{ asset('assets/css/inventory.css') }}">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;600;700;800&family=Roboto+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
-<style>
+<style>   
 .logout-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.9rem 1rem;background:linear-gradient(to top right,#112c70 0%,#2a6aff 100%);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:9999px;font-size:.86rem;font-weight:700;cursor:pointer;transition:all .2s ease;text-decoration:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 6px 20px rgba(42,106,255,.35)}
 .logout-btn:hover{background:linear-gradient(135deg,#ef4444,#b91c1c);filter:brightness(1.05);box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 10px 24px rgba(185,28,28,.45)}
 .logout-btn i{font-size:1rem}
@@ -16,6 +16,14 @@
 #reservations-container .loading-overlay{ position:absolute; inset:0; display:grid; place-items:center; gap:10px; background:linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.94)); backdrop-filter: blur(6px); z-index:20; border-radius:8px; }
 #reservations-container .loading-overlay i{ font-size:20px; color:#64748b }
 #reservations-container.animate-entry > .reservation-card { animation: slideFadeIn 420ms ease both; }
+            
+              .receipt-paper{ width:320px; margin:0 auto; border:1px dashed #e5e7eb; padding:12px; border-radius:8px; background:#fff; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+              .receipt-sep{ border-top:1px dotted #9ca3af; margin:8px 0; }
+              .receipt-paper table{ width:100%; border-collapse:collapse; }
+              .receipt-paper th, .receipt-paper td{ font-size:12px; padding:2px 0; }
+              .receipt-paper th:last-child, .receipt-paper td:last-child{text-align:right}
+              .receipt-paper th:nth-child(2), .receipt-paper td:nth-child(2){ text-align:center }
+            
 #reservations-container.animate-entry > .reservation-card:nth-child(1){ animation-delay: 40ms }
 #reservations-container.animate-entry > .reservation-card:nth-child(2){ animation-delay: 80ms }
 #reservations-container.animate-entry > .reservation-card:nth-child(3){ animation-delay: 120ms }
@@ -36,6 +44,8 @@
         </div>
     </div>
 
+                    <div class=\"receipt-sep\"></div>
+                    <div style=\"text-align:center;color:#6b7280;font-size:11px;\">THANK YOU! — Glad to see you again!</div>
     <ul class="sidebar-nav">
         <li class="nav-item">
             <a href="{{ route('inventory.dashboard') }}" class="nav-link">
@@ -568,79 +578,88 @@ if (txClose) txClose.addEventListener('click', closeTransactionModal);
 if (txCancel) txCancel.addEventListener('click', closeTransactionModal);
 if (txOverlay) txOverlay.addEventListener('click', closeTransactionModal);
 
-// Print POS-like receipt and mark as completed
-if (txPay) txPay.addEventListener('click', async function(){
+// Enhanced: receipt preview modal then print & complete
+if (txPay) txPay.addEventListener('click', function(){
     const paidRaw = (txBody.querySelector('#tx-payment')?.value || '').trim();
     const paid = parseFloat(paidRaw || '0');
     if (!(paid >= txContext.total)) return;
 
-    const total = txContext.total;
-    const change = Math.max(0, paid - total);
-
-    // Mark reservation completed with payment data
-    try { 
-        await updateReservationStatus(txContext.reservationId, 'completed', { 
-            reload: false, 
-            amount_paid: paid, 
-            change_given: change 
-        }); 
-    } catch (e) {
-        console.error('Failed to update reservation status:', e);
-        alert('Failed to complete reservation. Please try again.');
-        return;
-    }
-
-    // Build a simple receipt content similar to POS
-    const receiptWin = window.open('', '_blank', 'width=480,height=640');
-    const now = new Date();
-    const stamp = now.toLocaleString();
-    // Use the variables already declared above
-    // const total = txContext.total;
-    // const change = Math.max(0, paid - total);
-
-    // For items, reuse last fetched data in DOM
-    const itemRows = Array.from(txBody.querySelectorAll('[style*="justify-content:space-between"][style*="padding:10px"]'))
-        .map(row => {
-            const name = row.querySelector('div div')?.textContent || 'Item';
-            const meta = row.querySelector('div div + div')?.textContent || '';
-            const qtyPrice = row.querySelector('div:last-child')?.innerHTML || '';
-            return `<tr><td style="padding:4px 0;border-bottom:1px dotted #e5e7eb;">${name}<div style="color:#6b7280;font-size:10px;">${meta}</div></td><td style="text-align:right;white-space:nowrap;">${qtyPrice}</td></tr>`;
-        }).join('');
-
-    receiptWin.document.write(`
-        <html><head><title>Receipt</title>
-        <style>
-            body{font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; padding:16px; color:#111827}
-            .sep{border-top:1px dotted #9ca3af; margin:10px 0}
-            table{width:100%; border-collapse:collapse;}
-            td{font-size:12px}
-        </style></head><body>
-            <div style="text-align:center; margin-bottom:8px;">
-                <h3 style="margin:0; font-size:16px; font-weight:800;">ShoeVault Batangas</h3>
-                <div style="color:#6b7280; font-size:11px;">Reservation Payment Receipt</div>
-                <div style="color:#6b7280; font-size:11px;">${stamp}</div>
-            </div>
-            <div class="sep"></div>
-            <table>${itemRows}</table>
-            <div class="sep"></div>
-            <div style="display:flex; justify-content:space-between; font-size:13px;">
-                <div>Total</div>
-                <div>₱ ${total.toLocaleString()}</div>
-            </div>
-            <div style="display:flex; justify-content:space-between; font-size:13px;">
-                <div>Cash</div>
-                <div>₱ ${paid.toLocaleString()}</div>
-            </div>
-            <div style="display:flex; justify-content:space-between; font-weight:700; font-size:14px;">
-                <div>Change</div>
-                <div>₱ ${change.toLocaleString()}</div>
-            </div>
-            <script>window.onload = function(){ window.print(); setTimeout(()=>window.close(), 300); }<\/script>
-        </body></html>
-    `);
-    receiptWin.document.close();
-    closeTransactionModal();
+    openInventoryReservationReceiptPreview({
+        items: Array.from(txBody.querySelectorAll('[style*="justify-content:space-between"][style*="padding:10px"]')).map(row => ({
+            name: row.querySelector('div div')?.textContent || 'Item',
+            meta: row.querySelector('div div + div')?.textContent || '',
+            quantity: parseInt((row.querySelector('div:last-child')?.textContent || '').match(/x(\d+)/)?.[1] || '1', 10),
+            price: Number((row.querySelector('div:last-child')?.textContent || '').replace(/[^0-9.]/g, '')) || 0
+        })),
+        summary: { subtotal: txContext.total, discountAmount: 0, total: txContext.total },
+        paymentAmount: paid,
+        onConfirm: async () => {
+            const change = Math.max(0, paid - txContext.total);
+            try {
+                await updateReservationStatus(txContext.reservationId, 'completed', { reload: false, amount_paid: paid, change_given: change });
+            } catch (e) {
+                alert('Failed to complete reservation.');
+                return;
+            }
+            const paper = document.getElementById('inv-res-receipt-paper');
+            if (paper) {
+                const w = window.open('', '_blank', 'width=480,height=640');
+                w.document.write('<html><head><title>Receipt</title><style>body{font-family:-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; padding:8px;} .receipt-paper{width:320px;margin:0 auto;border:1px dashed #e5e7eb;padding:12px;border-radius:8px;} .receipt-sep{border-top:1px dotted #9ca3af;margin:8px 0} table{width:100%;border-collapse:collapse} th,td{font-size:12px;text-align:left;padding:2px 0} th:last-child, td:last-child{text-align:right} th:nth-child(2), td:nth-child(2){text-align:center}</style></head><body>' + paper.outerHTML + '<script>window.onload=function(){window.print(); setTimeout(()=>window.close(), 300);}<\/script></body></html>');
+                w.document.close();
+            }
+            const modal = document.getElementById('inv-res-receipt-modal');
+            if (modal) modal.remove();
+            closeTransactionModal();
+            setTimeout(()=> { try { location.reload(); } catch(_) {} }, 600);
+        }
+    });
 });
+
+function openInventoryReservationReceiptPreview({ items = [], summary = { subtotal:0, discountAmount:0, total:0 }, paymentAmount = 0, onConfirm }) {
+    let modal = document.getElementById('inv-res-receipt-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'inv-res-receipt-modal';
+        modal.style.position = 'fixed';
+        modal.style.inset = '0';
+        modal.style.background = 'rgba(0,0,0,0.45)';
+        modal.style.zIndex = '10050';
+        modal.style.display = 'grid';
+        modal.style.placeItems = 'center';
+        modal.innerHTML = `
+            <div style="background:#fff;border-radius:12px;box-shadow:0 20px 40px rgba(0,0,0,.2);width:min(460px,94vw);padding:14px;">
+                <div id="inv-res-receipt-paper" class="receipt-paper">
+                    <div style="text-align:center;margin-bottom:6px;">
+                        <div style="font-weight:800;">SHOE VAULT BATANGAS</div>
+                        <div style="color:#6b7280;font-size:12px;">Manghinao Proper Bauan, Batangas 4201<br>Tel.: +63 936 382 0087</div>
+                        <div style="color:#6b7280;font-size:11px;">${new Date().toLocaleString()}</div>
+                    </div>
+                    <div class="receipt-sep"></div>
+                    <div style="display:flex;justify-content:space-between;font-size:12px;"><span>Cashier</span><span>{{ auth()->user()->name ?? '—' }}</span></div>
+                    <div class="receipt-sep"></div>
+                    <table>
+                        <thead><tr><th>Name</th><th>Qty</th><th>Price</th></tr></thead>
+                        <tbody id="inv-res-receipt-items"></tbody>
+                    </table>
+                    <div class="receipt-sep"></div>
+                    <div style="display:flex;justify-content:space-between;font-size:13px;"><span>Subtotal</span><span>₱ ${Number(summary.subtotal||0).toLocaleString()}</span></div>
+                    ${Number(summary.discountAmount||0) > 0 ? `<div style=\"display:flex;justify-content:space-between;font-size:13px;\"><span>Discount</span><span>- ₱ ${Number(summary.discountAmount).toLocaleString()}</span></div>` : ''}
+                    <div style="display:flex;justify-content:space-between;font-weight:800;font-size:14px;"><span>Total</span><span>₱ ${Number(summary.total||0).toLocaleString()}</span></div>
+                    <div style="display:flex;justify-content:space-between;font-size:13px;"><span>Cash</span><span>₱ ${Number(paymentAmount||0).toLocaleString()}</span></div>
+                    <div style="display:flex;justify-content:space-between;font-size:13px;"><span>Change</span><span>₱ ${Math.max(0, Number(paymentAmount||0) - Number(summary.total||0)).toLocaleString()}</span></div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px;">
+                    <button id="inv-res-receipt-cancel" style="padding:8px 12px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;font-weight:700;">Cancel</button>
+                    <button id="inv-res-receipt-print" style="padding:8px 12px;border-radius:8px;background:#2a6aff;color:#fff;border:none;font-weight:700;">Print</button>
+                </div>
+            </div>`;
+        document.body.appendChild(modal);
+    }
+    const tbody = modal.querySelector('#inv-res-receipt-items');
+    tbody.innerHTML = (items||[]).map(it => `<tr><td>${it.name || ''} ${it.size ? `(Size ${it.size})` : ''}</td><td style=\"text-align:center;\">${Number(it.quantity||1)}</td><td style=\"text-align:right;\">₱ ${(Number(it.price||0)*Number(it.quantity||1)).toLocaleString()}</td></tr>`).join('');
+    modal.querySelector('#inv-res-receipt-cancel').onclick = ()=> modal.remove();
+    modal.querySelector('#inv-res-receipt-print').onclick = ()=> { if (typeof onConfirm === 'function') onConfirm(); };
+}
 
 function closeReservationModal() {
     modalEl.style.display = 'none';

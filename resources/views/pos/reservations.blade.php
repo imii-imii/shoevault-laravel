@@ -40,6 +40,10 @@
             /* Typography */
             --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             --font-secondary: 'Roboto Slab', 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+            /* Enhanced text colors for stronger contrast */
+            --text-base: #1f2937; /* slate-800 */
+            --text-weak: #4b5563; /* slate-600 */
+            --text-strong: #111827; /* slate-900 */
             /* Spacing */
             --spacing-xs: 0.25rem;
             --spacing-sm: 0.5rem;
@@ -81,14 +85,27 @@
 
         body {
             font-family: var(--font-primary);
-            font-weight: 300;
+            font-weight: 400; /* increased from 300 for clearer rendering */
             background: var(--bg-primary);
-            color: var(--gray-800);
-            line-height: 1.6;
+            color: var(--text-base);
+            line-height: 1.55;
             overflow: hidden;
             height: 100vh;
             display: flex;
+            -webkit-font-smoothing: antialiased; /* mac/webkit */
+            -moz-osx-font-smoothing: grayscale;  /* firefox mac */
+            text-rendering: optimizeLegibility;
         }
+
+        /* Generic text clarity helpers */
+        h1,h2,h3,h4,h5,h6 { color: var(--text-strong); font-weight: 700; letter-spacing: -.015em; }
+        
+
+        /* Strengthen key UI label contrast without overpowering */
+        .reservation-card .card-title { color: var(--bg-primary); }
+        .reservation-card .card-value { color: var(--bg-primary); }
+        .header .time-display span, .header .date-display span { color: var(--gray-900); }
+        
 
         /* ===== SIDEBAR STYLES ===== */
         .sidebar {
@@ -1285,71 +1302,113 @@
         if (txCancel) txCancel.addEventListener('click', closeTransactionModal);
         if (txOverlay) txOverlay.addEventListener('click', closeTransactionModal);
 
-        if (txPay) txPay.addEventListener('click', async function(){
+        if (txPay) txPay.addEventListener('click', function(){
             const paidRaw = (txBody.querySelector('#tx-payment')?.value || '').trim();
             const paid = parseFloat(paidRaw || '0');
             if (!(paid >= txContext.total)) return;
 
-            const changeAmount = Math.max(0, paid - txContext.total);
-
-            try { 
-                await updateReservationStatus(txContext.reservationId, 'completed', { 
-                    reload: false,
-                    amount_paid: paid,
-                    change_given: changeAmount
-                }); 
-            } catch (e) {}
-
-            const receiptWin = window.open('', '_blank', 'width=480,height=640');
-            const now = new Date();
-            const stamp = now.toLocaleString();
-            const total = txContext.total;
-            const change = Math.max(0, paid - total);
-
-            const itemRows = Array.from(txBody.querySelectorAll('[style*="justify-content:space-between"][style*="padding:10px"]'))
-                .map(row => {
-                    const name = row.querySelector('div div')?.textContent || 'Item';
-                    const meta = row.querySelector('div div + div')?.textContent || '';
-                    const qtyPrice = row.querySelector('div:last-child')?.innerHTML || '';
-                    return `<tr><td style="padding:4px 0;border-bottom:1px dotted #e5e7eb;">${name}<div style="color:#6b7280;font-size:10px;">${meta}</div></td><td style="text-align:right;white-space:nowrap;">${qtyPrice}</td></tr>`;
-                }).join('');
-
-            receiptWin.document.write(`
-                <html><head><title>Receipt</title>
-                <style>
-                    body{font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; padding:16px; color:#111827}
-                    .sep{border-top:1px dotted #9ca3af; margin:10px 0}
-                    table{width:100%; border-collapse:collapse;}
-                    td{font-size:12px}
-                </style></head><body>
-                    <div style="text-align:center; margin-bottom:8px;">
-                        <h3 style="margin:0; font-size:16px; font-weight:800;">ShoeVault Batangas</h3>
-                        <div style="color:#6b7280; font-size:11px;">Reservation Payment Receipt</div>
-                        <div style="color:#6b7280; font-size:11px;">${stamp}</div>
-                    </div>
-                    <div class="sep"></div>
-                    <table>${itemRows}</table>
-                    <div class="sep"></div>
-                    <div style="display:flex; justify-content:space-between; font-size:13px;">
-                        <div>Total</div>
-                        <div>₱ ${total.toLocaleString()}</div>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; font-size:13px;">
-                        <div>Cash</div>
-                        <div>₱ ${paid.toLocaleString()}</div>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; font-weight:700; font-size:14px;">
-                        <div>Change</div>
-                        <div>₱ ${change.toLocaleString()}</div>
-                    </div>
-                    <script>window.onload = function(){ window.print(); setTimeout(()=>window.close(), 300); }<\/script>
-                </body></html>
-            `);
-            receiptWin.document.close();
-            closeTransactionModal();
-            // Auto-refresh to remove the completed reservation from the list
-            setTimeout(() => { try { location.reload(); } catch(_) {} }, 600);
+            // Build receipt preview similar to POS openReceiptPreview
+            openReservationReceiptPreview({
+                items: Array.isArray(txContext.items) ? txContext.items : Array.from(txBody.querySelectorAll('[style*="justify-content:space-between"][style*="padding:10px"]')).map(row => ({
+                    name: row.querySelector('div div')?.textContent || 'Item',
+                    meta: row.querySelector('div div + div')?.textContent || '',
+                    quantity: parseInt((row.querySelector('div:last-child')?.textContent || '').match(/x(\d+)/)?.[1] || '1', 10),
+                    price: Number((row.querySelector('div:last-child')?.textContent || '').replace(/[^0-9.]/g, '')) || 0
+                })),
+                summary: {
+                    subtotal: (Array.isArray(txContext.items) ? txContext.items : []).reduce((s,i)=> s + (Number(i.price||0) * Number(i.quantity||1)), 0),
+                    discountAmount: 0,
+                    total: txContext.total
+                },
+                paymentAmount: paid,
+                onConfirm: async () => {
+                    const changeAmount = Math.max(0, paid - txContext.total);
+                    try { 
+                        await updateReservationStatus(txContext.reservationId, 'completed', { 
+                            reload: false,
+                            amount_paid: paid,
+                            change_given: changeAmount
+                        }); 
+                    } catch (e) {
+                        alert('Failed to complete reservation. Please try again.');
+                        return;
+                    }
+                    // Print the preview content
+                    const paper = document.getElementById('res-receipt-paper');
+                    if (paper) {
+                        const w = window.open('', '_blank', 'width=480,height=640');
+                        w.document.write('<html><head><title>Receipt</title><style>body{font-family:-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; padding:8px;} .receipt-paper{width:320px;margin:0 auto;border:1px dashed #e5e7eb;padding:12px;border-radius:8px;} .receipt-sep{border-top:1px dotted #9ca3af;margin:8px 0} table{width:100%;border-collapse:collapse} th,td{font-size:12px;text-align:left;padding:2px 0} th:last-child, td:last-child{text-align:right} th:nth-child(2), td:nth-child(2){text-align:center}</style></head><body>' + paper.outerHTML + '<script>window.onload=function(){window.print(); setTimeout(()=>window.close(), 300);}<\/script></body></html>');
+                        w.document.close();
+                    }
+                    // Close modals and refresh
+                    const modal = document.getElementById('res-receipt-modal');
+                    if (modal) modal.remove();
+                    closeTransactionModal();
+                    setTimeout(() => { try { location.reload(); } catch(_) {} }, 600);
+                }
+            });
         });
+
+        // Preview modal builder for reservation receipts
+        function openReservationReceiptPreview({ items = [], summary = { subtotal: 0, discountAmount: 0, total: 0 }, paymentAmount = 0, onConfirm }) {
+            let modal = document.getElementById('res-receipt-modal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'res-receipt-modal';
+                modal.style.position = 'fixed';
+                modal.style.inset = '0';
+                modal.style.background = 'rgba(0,0,0,0.45)';
+                modal.style.zIndex = '10050';
+                modal.style.display = 'grid';
+                modal.style.placeItems = 'center';
+                modal.innerHTML = `
+                    <style>
+                        /* Receipt look & feel */
+                        .receipt-paper{ width:320px; margin:0 auto; border:1px dashed #e5e7eb; padding:12px; border-radius:8px; background:#fff; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+                        .receipt-sep{ border-top:1px dotted #9ca3af; margin:8px 0; }
+                        .receipt-paper table{ width:100%; border-collapse:collapse; }
+                        .receipt-paper th, .receipt-paper td{ font-size:12px; padding:2px 0; }
+                        .receipt-paper th:last-child, .receipt-paper td:last-child{ text-align:right; }
+                        .receipt-paper th:nth-child(2), .receipt-paper td:nth-child(2){ text-align:center; }
+                        .receipt-info-row{ display:flex; justify-content:space-between; font-size:12px; }
+                        .receipt-row{ display:flex; justify-content:space-between; }
+                        .receipt-totals .total{ font-weight:800; }
+                    </style>
+                    <div style="background:#fff;border-radius:12px;box-shadow:0 20px 40px rgba(0,0,0,.2);width:min(460px,94vw);padding:14px;">
+                        <div id="res-receipt-paper" class="receipt-paper">
+                            <div style="text-align:center;margin-bottom:6px;">
+                                <div style="font-weight:800;">SHOE VAULT BATANGAS</div>
+                                <div style="color:#6b7280;font-size:12px;">Manghinao Proper Bauan, Batangas 4201<br>Tel.: +63 936 382 0087</div>
+                                <div style="color:#6b7280;font-size:11px;">${new Date().toLocaleString()}</div>
+                            </div>
+                            <div class="receipt-sep"></div>
+                            <div style="display:flex;justify-content:space-between;font-size:12px;"><span>Cashier</span><span>{{ auth()->user()->name ?? '—' }}</span></div>
+                            <div class="receipt-sep"></div>
+                            <table>
+                                <thead><tr><th>Name</th><th>Qty</th><th>Price</th></tr></thead>
+                                <tbody id="res-receipt-items"></tbody>
+                            </table>
+                            <div class="receipt-sep"></div>
+                            <div style="display:flex;justify-content:space-between;font-size:13px;"><span>Subtotal</span><span>₱ ${Number(summary.subtotal||0).toLocaleString()}</span></div>
+                            ${Number(summary.discountAmount||0) > 0 ? `<div style="display:flex;justify-content:space-between;font-size:13px;"><span>Discount</span><span>- ₱ ${Number(summary.discountAmount).toLocaleString()}</span></div>` : ''}
+                            <div style="display:flex;justify-content:space-between;font-weight:800;font-size:14px;"><span>Total</span><span>₱ ${Number(summary.total||0).toLocaleString()}</span></div>
+                            <div style="display:flex;justify-content:space-between;font-size:13px;"><span>Cash</span><span>₱ ${Number(paymentAmount||0).toLocaleString()}</span></div>
+                            <div style="display:flex;justify-content:space-between;font-size:13px;"><span>Change</span><span>₱ ${Math.max(0, Number(paymentAmount||0) - Number(summary.total||0)).toLocaleString()}</span></div>
+                            <div class="receipt-sep"></div>
+                            <div style="text-align:center;color:#6b7280;font-size:11px;">THANK YOU! — Glad to see you again!</div>
+                        </div>
+                        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px;">
+                            <button id="res-receipt-cancel" style="padding:8px 12px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;font-weight:700;">Cancel</button>
+                            <button id="res-receipt-print" style="padding:8px 12px;border-radius:8px;background:#2a6aff;color:#fff;border:none;font-weight:700;">Print</button>
+                        </div>
+                    </div>`;
+                document.body.appendChild(modal);
+            }
+            const tbody = modal.querySelector('#res-receipt-items');
+            tbody.innerHTML = (items||[]).map(it => `<tr><td>${it.name || ''} ${it.size ? `(Size ${it.size})` : ''}</td><td style="text-align:center;">${Number(it.quantity||1)}</td><td style="text-align:right;">₱ ${(Number(it.price||0)*Number(it.quantity||1)).toLocaleString()}</td></tr>`).join('');
+            modal.querySelector('#res-receipt-cancel').onclick = ()=> modal.remove();
+            modal.querySelector('#res-receipt-print').onclick = ()=> { if (typeof onConfirm === 'function') onConfirm(); };
+        }
 
         function closeReservationModal() {
             hideModal(modalEl, modalOverlayEl);

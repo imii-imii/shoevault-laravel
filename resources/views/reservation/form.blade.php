@@ -532,9 +532,9 @@
     renderItems();
     updateConfirmState();
 
-    // Enforce future date/time minimal
-    // - pickupDate: cannot pick the present date (min = tomorrow, max = 14 days from today)
-    // - pickupTime: restricted to working hours 08:00 - 18:00
+  // Enforce future date/time constraints
+  // - pickupDate: cannot pick the present date (min = tomorrow, max = 14 days from today)
+  // - pickupTime: restricted to updated business hours 10:00 - 19:00
     const dateInput = document.getElementById('pickupDate');
     const timeInput = document.getElementById('pickupTime');
     const now = new Date();

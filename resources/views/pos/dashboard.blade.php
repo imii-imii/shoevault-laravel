@@ -1966,7 +1966,7 @@ function openReceiptPreview({ summary, paymentAmount }) {
             <div class="receipt-paper" id="receipt-paper">
                 <div class="receipt-header">
                     <h3>SHOE VAULT BATANGAS</h3>
-                    <div class="receipt-address">P. Burgos St., Batangas City 4200<br>Tel.: +63 43 700 0000</div>
+                    <div class="receipt-address">Manghinao Proper Bauan, Batangas 4201<br>Tel.: +63 936 382 0087</div>
                     <div class="receipt-meta">{{ date('F d, Y h:i A') }}</div>
                 </div>
                 <div class="receipt-sep"></div>
