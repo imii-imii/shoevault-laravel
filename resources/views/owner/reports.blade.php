@@ -517,7 +517,11 @@
                     </div>`;
                 return;
             }
-            resvListEl.innerHTML = items.map(r => `
+            resvListEl.innerHTML = items.map(r => {
+                const name = r.customer_name || (r.customer && (r.customer.fullname || r.customer.name)) || 'N/A';
+                const email = r.customer_email || (r.customer && r.customer.email) || 'N/A';
+                const phone = r.customer_phone || (r.customer && (r.customer.phone_number || r.customer.phone)) || 'N/A';
+                return `
                 <div class="resv-card" data-res-id="${r.id}" data-status="${r.status}">
                     <div class="resv-grid">
                         <!-- Column 1: Reservation ID + Reservation Date -->
@@ -535,7 +539,7 @@
                         <div class="resv-field">
                             <div>
                                 <div class="resv-label">Customer Name</div>
-                                <div class="resv-value">${r.customer_name || 'N/A'}</div>
+                                <div class="resv-value">${name}</div>
                             </div>
                             <div>
                                 <div class="resv-label">Pickup Date</div>
@@ -546,11 +550,11 @@
                         <div class="resv-field">
                             <div>
                                 <div class="resv-label">Email</div>
-                                <div class="resv-value">${r.customer_email || 'N/A'}</div>
+                                <div class="resv-value">${email}</div>
                             </div>
                             <div>
                                 <div class="resv-label">Phone</div>
-                                <div class="resv-value">${r.customer_phone || 'N/A'}</div>
+                                <div class="resv-value">${phone}</div>
                             </div>
                         </div>
                         <!-- Column 4: Status only (single row) -->
@@ -562,7 +566,8 @@
                         </div>
                     </div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
             animateChildren('#reservation-card-list');
         }
 

@@ -61,6 +61,25 @@
     .lr-btn:active { transform: translateY(1px); }
     .lr-btn.primary { border:1px solid transparent; background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%) padding-box, linear-gradient(135deg, #000e2e 0%, #2343ce 100%) border-box; color:#0b1220; box-shadow: 0 12px 28px -14px rgba(35,67,206,.28); }
     @keyframes lr-zoom { to { transform: scale(1); opacity: 1; } }
+
+    /* Login / Signup Coachmark (guest only) */
+    .user-status-container { position: relative; }
+    .login-coachmark { position: absolute; top: 54px; right: 0; width: min(260px, 70vw); background: #0f172a; color: #fff; padding: 14px 16px 12px 16px; border-radius: 14px; box-shadow: 0 16px 40px -10px rgba(15,23,42,.45); font-size: .85rem; line-height: 1.25rem; display: none; z-index: 4200; border: 1px solid rgba(255,255,255,.08); }
+    .login-coachmark.show { display: block; animation: cm-pop .42s cubic-bezier(.22,1.19,.4,1) forwards; }
+    .login-coachmark h4 { margin: 0 0 6px 0; font-size: .9rem; font-weight: 800; letter-spacing: .3px; display: flex; align-items: center; gap: 6px; }
+    .login-coachmark h4 i { font-size: .9rem; color: #60a5fa; }
+    .login-coachmark p { margin: 0; opacity: .85; }
+    .login-coachmark-actions { margin-top: 10px; display: flex; gap: 8px; }
+    .login-coachmark-btn { flex: 1; height: 34px; border-radius: 10px; font-size: .75rem; font-weight: 700; letter-spacing: .5px; display: inline-flex; align-items: center; justify-content: center; gap:6px; cursor: pointer; border: 1px solid rgba(255,255,255,.14); background: #1e293b; color: #fff; transition: background .15s ease, transform .15s ease; }
+    .login-coachmark-btn.primary { background: linear-gradient(135deg,#3b82f6,#1d4ed8); border: 1px solid #2563eb; }
+    .login-coachmark-btn:hover { background:#334155; }
+    .login-coachmark-btn.primary:hover { filter: brightness(1.05); }
+    .login-coachmark-btn:active { transform: translateY(1px); }
+    .login-coachmark-close { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; border-radius: 8px; background: rgba(255,255,255,.08); color:#fff; display:grid; place-items:center; cursor:pointer; font-size:.75rem; border: 1px solid rgba(255,255,255,.12); transition: background .15s ease; }
+    .login-coachmark-close:hover { background: rgba(255,255,255,.16); }
+    .login-coachmark:before { content:""; position:absolute; top:-10px; right:18px; width:18px; height:18px; background:#0f172a; transform: rotate(45deg); border-radius:4px; border:1px solid rgba(255,255,255,.08); box-shadow: 0 10px 20px -6px rgba(15,23,42,.35); }
+    @keyframes cm-pop { 0% { transform: translateY(-6px) scale(.92); opacity:0; } 60% { transform: translateY(2px) scale(1.02); opacity:1; } 100% { transform: translateY(0) scale(1); opacity:1; } }
+    @media (max-width: 700px) { .login-coachmark { top: 50px; right: 4px; } .login-coachmark:before { right: 34px; } }
   </style>
 </head>
 <body>
@@ -78,8 +97,8 @@
         @if(auth('customer')->check())
           <div class="sv-user">
             <button class="sv-user-btn" type="button" aria-expanded="false" aria-haspopup="menu">
-              <span class="sv-user-avatar">{{ strtoupper(substr((auth('customer')->user()->first_name ?? auth('customer')->user()->name ?? auth('customer')->user()->email), 0, 1)) }}</span>
-              <span class="sv-user-name">{{ auth('customer')->user()->first_name ?? auth('customer')->user()->name ?? 'Customer' }}</span>
+              <span class="sv-user-avatar">{{ strtoupper(substr((auth('customer')->user()->username ?? auth('customer')->user()->fullname ?? auth('customer')->user()->name ?? auth('customer')->user()->email ?? 'C'), 0, 1)) }}</span>
+                <span class="sv-user-name">{{ auth('customer')->user()->username ?? auth('customer')->user()->first_name ?? auth('customer')->user()->name ?? auth('customer')->user()->fullname ?? 'Customer' }}</span>
               <i class="fas fa-chevron-down" style="font-size:0.75rem;"></i>
             </button>
             <div class="sv-user-menu" role="menu">
@@ -100,6 +119,18 @@
           <a href="{{ route('customer.login') }}" class="res-portal-profile-btn login-btn" title="Sign in / Create account" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:999px;border:1px solid rgba(0,0,0,.06);background:#ffffff;box-shadow:0 6px 16px rgba(0,0,0,.08);color:#0f172a;transition:filter .15s ease, transform .05s ease;">
             <i class="fas fa-user"></i>
           </a>
+          <!-- Coachmark tooltip encouraging login/signup -->
+          <div class="login-coachmark" id="loginCoachmark" role="alert" aria-live="polite">
+            <button class="login-coachmark-close" type="button" aria-label="Dismiss" title="Dismiss">&times;</button>
+            <h4><i class="fas fa-user-plus" aria-hidden="true"></i><span>Welcome!</span></h4>
+            <p>Create an account or log in to reserve shoes faster, save sizes, and track your cart.</p>
+            <div class="login-coachmark-actions">
+              <a href="{{ route('customer.login') }}" class="login-coachmark-btn primary" aria-label="Go to login or signup">
+                <i class="fas fa-lock-open"></i> Login / Signup
+              </a>
+              <button type="button" class="login-coachmark-btn" data-coachmark-dismiss>Later</button>
+            </div>
+          </div>
         @endif
       </div>
       <div class="cart-dropdown" id="cartDropdown">
@@ -368,6 +399,39 @@
           cartBtnEl.title = 'Please login to view cart';
           cartBtnEl.style.opacity = '0.6';
           cartBtnEl.style.cursor = 'not-allowed';
+        }
+      }
+
+      // Coachmark: Encourage login/signup by pointing to the profile icon (guests only)
+      if (!window.IS_CUSTOMER_LOGGED_IN) {
+        const coach = document.getElementById('loginCoachmark');
+        const profileBtn = document.querySelector('.res-portal-profile-btn.login-btn');
+        if (coach && profileBtn) {
+          const showCoach = () => {
+            coach.classList.add('show');
+            coach.setAttribute('aria-hidden', 'false');
+          };
+          const dismissCoach = () => {
+            coach.classList.remove('show');
+            coach.setAttribute('aria-hidden', 'true');
+            window.removeEventListener('scroll', onScrollOnce);
+          };
+          const onScrollOnce = () => { if ((window.scrollY || 0) > 60) dismissCoach(); };
+
+          // Wire up events
+          coach.addEventListener('click', (e)=>{
+            // Allow clicks on buttons to proceed normally; dismiss otherwise
+            const isAction = e.target.closest && (e.target.closest('.login-coachmark-btn') || e.target.closest('.login-coachmark-close'));
+            if (!isAction) dismissCoach();
+          });
+          coach.querySelector('[data-coachmark-dismiss]')?.addEventListener('click', dismissCoach);
+          coach.querySelector('.login-coachmark-close')?.addEventListener('click', dismissCoach);
+          profileBtn.addEventListener('click', dismissCoach, { once: true });
+          window.addEventListener('scroll', onScrollOnce, { passive: true });
+          setTimeout(dismissCoach, 10000);
+
+          // Show after a short delay to avoid jank with navbar animation
+          setTimeout(showCoach, 600);
         }
       }
 

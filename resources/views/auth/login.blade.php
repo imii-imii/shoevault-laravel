@@ -100,6 +100,7 @@
 @endsection
 
 @push('scripts')
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
 <script>
 // Password toggle functionality
 function togglePassword() {
@@ -115,30 +116,99 @@ function togglePassword() {
         passwordIcon.classList.remove('fa-eye-slash');
         passwordIcon.classList.add('fa-eye');
     }
+
+    // Animate eye icon
+    if (window.anime && passwordIcon) {
+        anime({ targets: passwordIcon, rotate: [0, 180], duration: 240, easing: 'easeOutCubic' });
+        anime({ targets: '.password-input-container', scale: [1, 1.02, 1], duration: 220, easing: 'easeOutQuad' });
+    }
 }
 
 // Enhanced form submission with loading states
 document.getElementById('login-form').addEventListener('submit', function(e) {
     const submitBtn = document.getElementById('login-btn');
     const loadingOverlay = document.getElementById('loading-overlay');
+    const loginCard = document.querySelector('.login-card');
     
     // Show loading state
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Logging in...</span>';
     loadingOverlay.style.display = 'flex';
+    if (window.anime) {
+        anime.set(loadingOverlay, { opacity: 0 });
+        anime({ targets: loadingOverlay, opacity: [0, 1], duration: 240, easing: 'linear' });
+        if (loginCard) {
+            anime({ targets: loginCard, opacity: [1, 0.9], scale: [1, 0.98], duration: 260, easing: 'easeOutQuad' });
+        }
+    }
 });
 
 // Auto-hide error messages
 document.addEventListener('DOMContentLoaded', function() {
     const errorNotification = document.getElementById('error-notification');
-    if (document.querySelector('.alert-error')) {
-        setTimeout(function() {
-            const alert = document.querySelector('.alert-error');
-            if (alert) {
-                alert.style.opacity = '0';
-                setTimeout(() => alert.remove(), 300);
-            }
+    // Initial entrance animations
+    if (window.anime) {
+        // Subtle floating background
+        const bg = document.querySelector('.background-pattern');
+        if (bg) {
+            anime({ targets: bg, translateY: [0, 6], translateX: [0, 6], direction: 'alternate', easing: 'easeInOutSine', duration: 5000, loop: true, autoplay: true });
+            anime.set(bg, { opacity: 0 });
+            anime({ targets: bg, opacity: [0, 1], duration: 600, easing: 'easeOutCubic' });
+        }
+
+        const timeline = anime.timeline({ autoplay: true });
+        // Prepare initial states
+        anime.set('.login-card', { opacity: 0, translateY: 16 });
+        anime.set('.logo-container', { opacity: 0, scale: 0.9 });
+        anime.set('.brand-info', { opacity: 0, translateY: 10 });
+        anime.set('.form-header', { opacity: 0, translateY: 8 });
+        anime.set('.form-group', { opacity: 0, translateY: 8 });
+        anime.set('.form-options', { opacity: 0, translateY: 8 });
+        anime.set('#login-btn', { opacity: 0, translateY: 8 });
+
+        timeline
+            .add({ targets: '.login-card', opacity: [0,1], translateY: [16, 0], duration: 520, easing: 'easeOutCubic' })
+            .add({ targets: '.logo-container', opacity: [0,1], scale: [0.9, 1], duration: 420, easing: 'easeOutBack' }, '-=360')
+            .add({ targets: '.brand-info', opacity: [0,1], translateY: [10, 0], duration: 420, easing: 'easeOutCubic' }, '-=380')
+            .add({ targets: '.form-header', opacity: [0,1], translateY: [8, 0], duration: 360, easing: 'easeOutCubic' }, '-=320')
+            .add({ targets: '.form-group', opacity: [0,1], translateY: [8, 0], delay: anime.stagger(70), duration: 360, easing: 'easeOutCubic' }, '-=260')
+            .add({ targets: '.form-options', opacity: [0,1], translateY: [8, 0], duration: 320, easing: 'easeOutCubic' }, '-=260')
+            .add({ targets: '#login-btn', opacity: [0,1], translateY: [8, 0], duration: 340, easing: 'easeOutCubic' }, '-=240');
+    }
+
+    // Animate error alert in and auto-hide with anime.js
+    const alertEl = document.querySelector('.alert-error');
+    if (alertEl && window.anime) {
+        anime.set(alertEl, { opacity: 0, translateY: -6 });
+        anime({ targets: alertEl, opacity: [0, 1], translateY: [-6, 0], duration: 380, easing: 'easeOutCubic' });
+        setTimeout(() => {
+            anime({ targets: alertEl, opacity: [1, 0], translateY: [0, -6], duration: 300, easing: 'easeInCubic', complete: () => alertEl.remove() });
         }, 5000);
+    } else if (alertEl) {
+        // Fallback if anime isn't loaded for some reason
+        setTimeout(() => { alertEl.style.opacity = '0'; setTimeout(() => alertEl.remove(), 300); }, 5000);
+    }
+
+    // Input focus micro-interactions
+    const inputs = document.querySelectorAll('#username, #password');
+    inputs.forEach(inp => {
+        inp.addEventListener('focus', () => {
+            if (window.anime) anime({ targets: inp, scale: [1, 1.01], duration: 180, easing: 'easeOutQuad' });
+        });
+        inp.addEventListener('blur', () => {
+            if (window.anime) anime({ targets: inp, scale: 1, duration: 180, easing: 'easeOutQuad' });
+        });
+    });
+
+    // Button hover micro-interactions
+    const loginBtn = document.getElementById('login-btn');
+    if (loginBtn) {
+        loginBtn.addEventListener('mouseenter', () => {
+            if (window.anime) anime({ targets: loginBtn, scale: 1.03, duration: 140, easing: 'easeOutQuad' });
+        });
+        loginBtn.addEventListener('mouseleave', () => {
+            if (window.anime) anime({ targets: loginBtn, scale: 1, duration: 140, easing: 'easeOutQuad' });
+        });
     }
 });
 </script>

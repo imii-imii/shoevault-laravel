@@ -48,10 +48,31 @@
         .odash-product-sales { font-size:12px; color:#60a5fa; font-weight:600; }
         .odash-product-rank { display:inline-block; width:20px; height:20px; line-height:20px; text-align:center; background:linear-gradient(135deg, #3b82f6, #2563eb); color:#fff; border-radius:50%; font-size:10px; font-weight:700; margin-right:8px; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3); }
     /* Compact, trendy forecast controls */
-    .odash-btn { width:28px; height:28px; border-radius:9999px; border:1px solid #e5e7eb; background:#ffffff; color:#1e3a8a; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .2s ease; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+    .odash-btn { padding:14px; width:28px; height:28px; border-radius:9999px; border:1px solid #e5e7eb; background:#ffffff; color:#1e3a8a; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .2s ease; box-shadow:0 1px 2px rgba(0,0,0,.04); }
     .odash-btn:hover { background:linear-gradient(135deg,#eef2ff,#dbeafe); color:#0f172a; border-color:#bfdbfe; box-shadow:0 2px 6px rgba(59,130,246,.15); transform: translateY(-1px); }
     .odash-btn:disabled { opacity:.45; cursor:not-allowed; transform:none; box-shadow:none; }
-    #odash-forecast-window { padding:6px 10px; border-radius:9999px; background:#eff6ff; color:#1e3a8a; border:1px solid #dbeafe; min-width:130px; font-size:12px; }
+    /* Removed internal forecast window pill (#odash-forecast-window) in favor of global filter bar (#dbf-window-text) */
+
+        /* Trendy global filter bar */
+        .odash-filter-bar { 
+            display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+            background: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0.7));
+            border:1px solid rgba(59,130,246,0.18);
+            border-radius:16px; padding:10px 12px;
+            box-shadow: 0 10px 30px -12px rgba(2,6,23,.25), inset 0 1px 0 rgba(255,255,255,.6);
+            backdrop-filter: blur(6px);
+        }
+        .odash-chip {
+            padding:6px 12px; border-radius:9999px; background:#eef2ff; color:#1e3a8a; font-weight:700; border:1px solid #dbeafe; font-size:12px;
+        }
+        .odash-select, .odash-input { 
+            padding:6px 10px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; color:#0f172a; font-size:12px; outline:none;
+        }
+        .odash-select:focus, .odash-input:focus { border-color:#93c5fd; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+        .odash-toggle { display:inline-flex; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; background:#fff; }
+        .odash-toggle button { padding:6px 10px; border:none; background:transparent; cursor:pointer; font-size:12px; color:#1e3a8a; font-weight:700; }
+        .odash-toggle button.active { background:linear-gradient(135deg,#dbeafe,#bfdbfe); color:#0f172a; }
+        .odash-toggle button + button { border-left:1px solid #e5e7eb; }
 
         /* Futuristic gauge styles (refined for semicircular segmented look) */
         .f-gauge { position: relative; display:flex; align-items:center; justify-content:center; }
@@ -82,6 +103,8 @@
     
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Anime.js for richer motion -->
+    <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
 </head>
 <body>
 <!-- Sidebar Navigation -->
@@ -210,6 +233,29 @@
                     </div>
                 </div>
 
+                <!-- Global Dashboard Filter Bar (below KPI cards) -->
+                <div class="odash-filter-row" style="margin-top:12px;">
+                    <div class="odash-filter-bar">
+                        <label for="dbf-range" style="font-size:12px;color:#64748b;font-weight:700;">Range</label>
+                        <select id="dbf-range" class="odash-select" style="min-width:130px;">
+                            <option value="day">Day</option>
+                            <option value="weekly">Week</option>
+                            <option value="monthly">Month</option>
+                        </select>
+                        <!-- Manual pickers (toggle visibility based on Range) -->
+                        <div class="dbf-pickers" style="display:inline-flex; gap:8px; align-items:center;">
+                            <input id="dbf-date" type="date" class="odash-input" style="display:none;" />
+                            <input id="dbf-week" type="week" class="odash-input" style="display:none;" />
+                            <input id="dbf-month" type="month" class="odash-input" style="display:none;" />
+                        </div>
+                        <div class="odash-filter-controls" style="display:flex;align-items:center;gap:8px;margin-left:12px;margin-right:20px;flex:1;justify-content:center;">
+                            <button id="dbf-prev" class="odash-btn" type="button" aria-label="Previous"><i class="fas fa-chevron-left"></i></button>
+                            <div id="dbf-window-text" class="odash-chip" style="min-width:95%; text-align:center; ">Today</div>
+                            <button id="dbf-next" class="odash-btn" type="button" aria-label="Next"><i class="fas fa-chevron-right"></i></button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Sales Forecast and Reservation Gauge -->
                 <div class="odash-row-forecast">
                     <!-- Sales Forecast (Mock) -->
@@ -223,17 +269,9 @@
                                         <option value="sales" selected>Sales</option>
                                         <option value="demand">Demand</option>
                                     </select>
-                                    <select id="odash-forecast-range" class="odash-select">
-                                        <option value="day" selected>Day</option>
-                                        <option value="weekly">Weekly</option>
-                                        <option value="monthly">Monthly</option>
-                                    </select>
+                                    <!-- Removed internal range select (#odash-forecast-range); global #dbf-range now controls forecast -->
                                 </div>
-                                <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-                                    <button id="odash-forecast-prev" class="odash-btn" title="Previous" aria-label="Previous"><i class="fas fa-chevron-left"></i></button>
-                                    <span id="odash-forecast-window" style="text-align:center; font-weight:600; color:#1e3a8a;"></span>
-                                    <button id="odash-forecast-next" class="odash-btn" title="Next" aria-label="Next"><i class="fas fa-chevron-right"></i></button>
-                                </div>
+                                <!-- Removed internal prev/window/next controls (#odash-forecast-prev/#odash-forecast-window/#odash-forecast-next); global filter bar provides navigation -->
                             </div>
                         </div>
                         <div class="odash-chart-shell">
@@ -282,24 +320,7 @@
                     <div class="odash-card">
                         <div class="odash-card-header" style="justify-content:space-between; align-items:center;">
                             <div class="odash-title">Popular Products</div>
-                            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                                <!-- Range selector removed: use month + year only -->
-                                <select id="odash-popular-month" class="odash-select" title="Month">
-                                    <option value="1">Jan</option>
-                                    <option value="2">Feb</option>
-                                    <option value="3">Mar</option>
-                                    <option value="4">Apr</option>
-                                    <option value="5">May</option>
-                                    <option value="6">Jun</option>
-                                    <option value="7">Jul</option>
-                                    <option value="8">Aug</option>
-                                    <option value="9">Sep</option>
-                                    <option value="10">Oct</option>
-                                    <option value="11">Nov</option>
-                                    <option value="12">Dec</option>
-                                </select>
-                                <select id="odash-popular-year" class="odash-select" title="Year"></select>
-                            </div>
+                            <!-- Removed popular products month/year selectors (#odash-popular-month, #odash-popular-year) -->
                         </div>
                         <div class="odash-products-list" id="odash-popular-products">
                             <!-- Populated by JS -->
@@ -308,8 +329,14 @@
 
                     <!-- Stock Levels Bar Chart -->
                     <div class="odash-card">
-                        <div class="odash-card-header" style="justify-content:space-between;">
-                            <div class="odash-title">Stock Levels</div>
+                        <div class="odash-card-header" style="justify-content:space-between; align-items:center; gap:10px;">
+                            <div style="display:flex; gap:10px; align-items:center;">
+                                <div class="odash-title">Stock Levels</div>
+                                <div class="odash-toggle" id="odash-stock-mode" role="group" aria-label="Stock Source">
+                                    <button type="button" data-mode="pos" class="active">POS</button>
+                                    <button type="button" data-mode="reservation">Reservation</button>
+                                </div>
+                            </div>
                             <select id="odash-stock-category" class="odash-select">
                                 <option value="men" selected>Men</option>
                                 <option value="women">Women</option>
@@ -426,6 +453,124 @@ document.addEventListener('DOMContentLoaded', function() {
     initOpeningAnimations();
     // Hide the section loader after initial render (short delay to allow charts to initialize)
     setTimeout(hideSectionLoader, 600);
+    // Light KPI count-up if values are present
+    setTimeout(()=>{ try { animateKpiCounts(); } catch(e){} }, 700);
+
+    // Global filter bar now directly controls forecast (no internal duplicate controls)
+    (function initDynamicFilterPickers(){
+        const rangeSelect = document.getElementById('dbf-range');
+        const dateInput = document.getElementById('dbf-date');
+        const weekInput = document.getElementById('dbf-week');
+        const monthInput = document.getElementById('dbf-month');
+        const prevBtn = document.getElementById('dbf-prev');
+        const nextBtn = document.getElementById('dbf-next');
+        const windowPill = document.getElementById('dbf-window-text');
+        if (!rangeSelect || !prevBtn || !nextBtn || !windowPill) return;
+
+        // Anchor date represents the current window start reference
+        let anchorDate = new Date();
+
+        function setVisibility(range){
+            dateInput.style.display = range === 'day' ? '' : 'none';
+            weekInput.style.display = range === 'weekly' ? '' : 'none';
+            monthInput.style.display = range === 'monthly' ? '' : 'none';
+        }
+
+        function normalizeWeekValue(dt){
+            // ISO week string YYYY-W##
+            const target = new Date(dt.getTime());
+            // Monday based week (ISO) -> find Thursday for ISO algorithm
+            target.setHours(0,0,0,0);
+            // Thursday of current week
+            target.setDate(target.getDate() + 3 - (target.getDay() + 6) % 7);
+            const week1 = new Date(target.getFullYear(),0,4);
+            const week = 1 + Math.round(((target.getTime() - week1.getTime())/86400000 - 3 + (week1.getDay()+6)%7)/7);
+            return `${target.getFullYear()}-W${String(week).padStart(2,'0')}`;
+        }
+
+        function updateInputsFromAnchor(range){
+            if (range === 'day') {
+                dateInput.value = anchorDate.toISOString().slice(0,10);
+            } else if (range === 'weekly') {
+                weekInput.value = normalizeWeekValue(anchorDate);
+            } else if (range === 'monthly') {
+                monthInput.value = `${anchorDate.getFullYear()}-${String(anchorDate.getMonth()+1).padStart(2,'0')}`;
+            }
+        }
+
+        function updateWindowText(range){
+            const d = new Date(anchorDate.getTime());
+            let text = '';
+            if (range === 'day') {
+                const today = new Date(); today.setHours(0,0,0,0);
+                const cmp = d.getTime() - today.getTime();
+                if (cmp === 0) text = 'Today';
+                else if (cmp === 86400000) text = 'Tomorrow';
+                else if (cmp === -86400000) text = 'Yesterday';
+                else text = d.toLocaleDateString('en-US',{month:'short', day:'2-digit', year:'numeric'});
+            } else if (range === 'weekly') {
+                // week start (Sunday) and end (Saturday)
+                const wd = d.getDay();
+                const start = new Date(d.getTime()); start.setDate(d.getDate()-wd);
+                const end = new Date(start.getTime()); end.setDate(start.getDate()+6);
+                const today = new Date();
+                const sameWeek = (normalizeWeekValue(today) === normalizeWeekValue(d));
+                if (sameWeek) text = 'This Week';
+                else text = `${start.toLocaleDateString('en-US',{month:'short',day:'2-digit'})} – ${end.toLocaleDateString('en-US',{month:'short',day:'2-digit'})}`;
+            } else if (range === 'monthly') {
+                const today = new Date();
+                const sameMonth = today.getFullYear()===d.getFullYear() && today.getMonth()===d.getMonth();
+                if (sameMonth) text = 'This Month';
+                else text = d.toLocaleDateString('en-US',{month:'long', year:'numeric'});
+            }
+            windowPill.textContent = text;
+        }
+
+        function shiftAnchor(range, dir){
+            if (range === 'day') anchorDate.setDate(anchorDate.getDate() + dir);
+            else if (range === 'weekly') anchorDate.setDate(anchorDate.getDate() + dir*7);
+            else if (range === 'monthly') anchorDate.setMonth(anchorDate.getMonth() + dir);
+            updateInputsFromAnchor(range);
+            updateWindowText(range);
+            // trigger forecast refresh (rangeSelect change already wired in forecast initializer)
+            document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range, anchorDate }}));
+        }
+
+        rangeSelect.addEventListener('change', ()=>{
+            const r = rangeSelect.value;
+            setVisibility(r);
+            // reset anchorDate to today when switching range
+            anchorDate = new Date(); anchorDate.setHours(0,0,0,0);
+            updateInputsFromAnchor(r);
+            updateWindowText(r);
+            document.dispatchEvent(new CustomEvent('odash:filter-range-changed',{ detail:{ range:r, anchorDate }}));
+        });
+        prevBtn.addEventListener('click', ()=> shiftAnchor(rangeSelect.value, -1));
+        nextBtn.addEventListener('click', ()=> shiftAnchor(rangeSelect.value, 1));
+
+        // Manual input listeners
+        dateInput.addEventListener('change', ()=>{
+            if (!dateInput.value) return; anchorDate = new Date(dateInput.value+'T00:00:00'); updateWindowText('day'); document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:'day', anchorDate }}));
+        });
+        weekInput.addEventListener('change', ()=>{
+            if (!weekInput.value) return; // format YYYY-W##
+            const [y, w] = weekInput.value.split('-W');
+            // ISO week -> Thursday of week then back to Monday
+            const simple = new Date(Number(y),0,4);
+            const dayOfWeek = (simple.getDay()+6)%7; // 0..6 Monday=0
+            simple.setDate(simple.getDate() - dayOfWeek + (Number(w)-1)*7);
+            anchorDate = simple; updateWindowText('weekly'); document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:'weekly', anchorDate }}));
+        });
+        monthInput.addEventListener('change', ()=>{
+            if (!monthInput.value) return; // YYYY-MM
+            const [y,m] = monthInput.value.split('-'); anchorDate = new Date(Number(y), Number(m)-1, 1); updateWindowText('monthly'); document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:'monthly', anchorDate }}));
+        });
+
+        // Initialize default
+        setVisibility(rangeSelect.value);
+        updateInputsFromAnchor(rangeSelect.value);
+        updateWindowText(rangeSelect.value);
+    })();
 });
 
 function updateDateTime() {
@@ -450,15 +595,20 @@ function initOwnerForecastCharts() {
         let scrim = forecastShell.querySelector('.loading-scrim');
         if (!scrim) { scrim = document.createElement('div'); scrim.className = 'loading-scrim'; scrim.innerHTML = '<div class="loader"></div>'; forecastShell.style.position='relative'; forecastShell.appendChild(scrim); }
     }
-    const rangeSelect = document.getElementById('odash-forecast-range');
+    // Use global range select & navigation + manual pickers
+    const rangeSelect = document.getElementById('dbf-range');
+    const dateInput = document.getElementById('dbf-date');
+    const weekInput = document.getElementById('dbf-week');
+    const monthInput = document.getElementById('dbf-month');
     const typeSelect = document.getElementById('odash-forecast-type');
     const legendBox = document.getElementById('odash-forecast-legend');
-    const prevBtn = document.getElementById('odash-forecast-prev');
-    const nextBtn = document.getElementById('odash-forecast-next');
-    const windowText = document.getElementById('odash-forecast-window');
+    const prevBtn = document.getElementById('dbf-prev');
+    const nextBtn = document.getElementById('dbf-next');
+    const windowText = document.getElementById('dbf-window-text');
     let forecastChart;
     let currentMode = (typeSelect && typeSelect.value) ? typeSelect.value : 'sales';
-    let offset = 0; // 0 = current window, -1 = previous, +1 = next
+    let offset = 0; // relative adjustment from anchor
+    let anchorDate = new Date(); // set by filter pickers
 
     function getForecastData(range, mode, offset = 0) {
         if (mode === 'demand') {
@@ -592,11 +742,42 @@ function initOwnerForecastCharts() {
 
     function updateWindowText(range, offset) {
         if (!windowText) return;
-        windowText.textContent = getWindowRange(range, offset);
+        // Derive label from anchorDate + offset
+        const base = new Date(anchorDate.getTime());
+        if (range === 'monthly') base.setMonth(base.getMonth()+offset);
+        else if (range === 'weekly') base.setDate(base.getDate()+offset*7);
+        else base.setDate(base.getDate()+offset);
+        // Build text similar to previous behavior
+        const today = new Date(); today.setHours(0,0,0,0);
+        if (range === 'monthly') {
+            const t = (today.getFullYear()===base.getFullYear() && today.getMonth()===base.getMonth());
+            windowText.textContent = t ? 'This Month' : base.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+        } else if (range === 'weekly') {
+            const iso = (d)=>{ const c=new Date(d.getTime()); c.setDate(c.getDate()+3-((c.getDay()+6)%7)); const w1=new Date(c.getFullYear(),0,4); return 1+Math.round(((c-w1)/86400000-3+((w1.getDay()+6)%7))/7); };
+            const sameWeek = iso(today)===iso(base) && today.getFullYear()===base.getFullYear();
+            if (sameWeek) { windowText.textContent = 'This Week'; }
+            else {
+                const wd = base.getDay(); const start=new Date(base.getTime()); start.setDate(base.getDate()-wd); const end=new Date(start.getTime()); end.setDate(start.getDate()+6);
+                windowText.textContent = `${start.toLocaleDateString('en-US',{month:'short',day:'2-digit'})} – ${end.toLocaleDateString('en-US',{month:'short',day:'2-digit'})}`;
+            }
+        } else {
+            const diffDays = Math.round((base.getTime()-today.getTime())/86400000);
+            windowText.textContent = diffDays===0 ? 'Today' : (diffDays===1 ? 'Tomorrow' : (diffDays===-1 ? 'Yesterday' : base.toLocaleDateString('en-US',{month:'short',day:'2-digit',year:'numeric'})));
+        }
     }
 
     function updateNavButtons(range, offset) {
-        if (nextBtn) nextBtn.disabled = offset >= 1; // limit to just 1 window into the future
+        if (!nextBtn) return;
+        const probe = new Date(anchorDate.getTime());
+        if (range === 'monthly') probe.setMonth(probe.getMonth()+offset);
+        else if (range === 'weekly') probe.setDate(probe.getDate()+offset*7);
+        else probe.setDate(probe.getDate()+offset);
+        const today = new Date(); today.setHours(0,0,0,0);
+        let disable = false;
+        if (range === 'monthly') disable = (probe.getFullYear()>today.getFullYear()) || (probe.getFullYear()===today.getFullYear() && probe.getMonth()>=today.getMonth()+1);
+        else if (range === 'weekly') disable = (probe.getTime() - today.getTime())/86400000 >= 7; // next whole week ahead
+        else disable = (probe.getTime() - today.getTime())/86400000 >= 1; // next day ahead
+        nextBtn.disabled = disable;
     }
 
     function updateForecast(range, mode) {
@@ -792,8 +973,17 @@ function initOwnerForecastCharts() {
         }
     }
 
-    // Initialize with current select value or 'day'
+    // Initialize with current select value or 'day'; also derive anchor from pickers if set
     const initialRange = rangeSelect && rangeSelect.value ? rangeSelect.value : 'day';
+    // Read anchor from pickers
+    try {
+        if (initialRange==='day' && dateInput && dateInput.value) anchorDate = new Date(dateInput.value+'T00:00:00');
+        else if (initialRange==='weekly' && weekInput && weekInput.value) {
+            const [y,w] = weekInput.value.split('-W'); const d=new Date(Number(y),0,4); const dow=(d.getDay()+6)%7; d.setDate(d.getDate()-dow+(Number(w)-1)*7); anchorDate = d;
+        } else if (initialRange==='monthly' && monthInput && monthInput.value) {
+            const [y,m]=monthInput.value.split('-'); anchorDate = new Date(Number(y), Number(m)-1, 1);
+        }
+    } catch(e){}
     setLegend(currentMode);
     updateForecast(initialRange, currentMode);
     updateWindowText(initialRange, offset);
@@ -839,6 +1029,45 @@ function initOwnerForecastCharts() {
             updateNavButtons(r, offset);
         });
     }
+
+    // React to manual picker changes from the global filter bar
+    document.addEventListener('odash:filter-window-updated', (ev)=>{
+        const detail = ev.detail||{}; if (!detail.range) return;
+        anchorDate = detail.anchorDate ? new Date(detail.anchorDate) : new Date();
+        if (rangeSelect && rangeSelect.value !== detail.range) rangeSelect.value = detail.range;
+        offset = 0; // reset
+        updateForecast(rangeSelect ? rangeSelect.value : 'day', currentMode);
+        updateWindowText(rangeSelect ? rangeSelect.value : 'day', offset);
+        updateNavButtons(rangeSelect ? rangeSelect.value : 'day', offset);
+            // Animate window pill feedback
+            if (window.anime) {
+                anime({
+                    targets: '#dbf-window-text',
+                    scale: [1,1.085,1],
+                    backgroundColor: ['#eef2ff','#dbeafe','#eef2ff'],
+                    duration: 520,
+                    easing: 'easeOutQuad'
+                });
+            }
+    });
+
+    document.addEventListener('odash:filter-range-changed', (ev)=>{
+        const detail = ev.detail||{}; if (!detail.range) return;
+        anchorDate = detail.anchorDate ? new Date(detail.anchorDate) : new Date();
+        offset = 0;
+        updateForecast(detail.range, currentMode);
+        updateWindowText(detail.range, offset);
+        updateNavButtons(detail.range, offset);
+            if (window.anime) {
+                anime({
+                    targets: '#dbf-window-text',
+                    scale: [1,1.095,1],
+                    backgroundColor: ['#eef2ff','#bfdbfe','#eef2ff'],
+                    duration: 560,
+                    easing: 'easeOutQuad'
+                });
+            }
+    });
 
     // Reservation gauge (live values) - Futuristic SVG
     const resvContainer = document.getElementById('odash-resv-gauge');
@@ -983,12 +1212,53 @@ function polarToCartesian(cx, cy, r, angleInDegrees) {
 // ===== Opening animations for dashboard cards =====
 function initOpeningAnimations() {
     const cards = document.querySelectorAll('#inventory-dashboard .odash-card');
-    cards.forEach((card, i) => {
-        card.classList.add('reveal');
-        const delay = 80 * i; // ms
-        setTimeout(() => {
-            card.classList.add('in');
-        }, delay);
+    cards.forEach(c=> c.classList.add('reveal'));
+    if (window.anime) {
+        anime({
+            targets: '#inventory-dashboard .odash-card.reveal',
+            opacity: [0,1],
+            translateY: [14,0],
+            scale: [0.97,1],
+            easing: 'easeOutQuad',
+            duration: 640,
+            delay: anime.stagger(95, { start: 100 }),
+            complete: () => cards.forEach(c=> c.classList.add('in'))
+        });
+    } else {
+        // Fallback to simple stagger if anime.js failed to load
+        cards.forEach((card,i)=>{
+            const delay = 90*i;
+            setTimeout(()=> card.classList.add('in'), delay);
+        });
+    }
+}
+
+// Subtle KPI count-up using anime.js (only if target values > 0)
+function animateKpiCounts(){
+    if (!window.anime) return;
+    const fmtCurrency = (n)=> `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const fmtInt = (n)=> `${Math.round(n).toLocaleString('en-PH')}`;
+    const items = [
+        { id: 'odash-kpi-revenue', type: 'currency' },
+        { id: 'odash-kpi-sold', type: 'int' },
+        { id: 'odash-kpi-resv-completed', type: 'int' },
+        { id: 'odash-kpi-resv-cancelled', type: 'int' }
+    ];
+    items.forEach(({id,type})=>{
+        const el = document.getElementById(id); if (!el) return;
+        const raw = el.textContent || '';
+        const num = type==='currency' ? parseFloat(raw.replace(/[^0-9.]/g,''))||0 : parseInt(raw.replace(/[^0-9]/g,''))||0;
+        if (num <= 0) return;
+        anime({
+            targets: { val: 0 },
+            val: num,
+            duration: 900,
+            easing: 'easeOutCubic',
+            update: (a)=>{
+                const v = a.animations[0].currentValue;
+                el.textContent = type==='currency' ? fmtCurrency(v) : fmtInt(v);
+            }
+        });
     });
 }
 
@@ -1021,9 +1291,8 @@ function getTopIndices(arr, k) {
 function initPopularProducts() {
     const container = document.getElementById('odash-popular-products');
     // rangeSelect removed; default to monthly behavior
-    const rangeSelect = null;
-    const monthSelect = document.getElementById('odash-popular-month');
-    const yearSelect = document.getElementById('odash-popular-year');
+    const monthSelect = null; // removed
+    const yearSelect = null; // removed
     if (!container) return;
     // initial skeleton items
     container.innerHTML = Array.from({length:8}).map(()=> '<div class="skeleton" style="height:36px; border-radius:8px; margin:8px 0;"></div>').join('');
@@ -1031,19 +1300,7 @@ function initPopularProducts() {
     // Populate year select with a sensible range (current year +/- 4)
     const now = new Date();
     const thisYear = now.getFullYear();
-    if (yearSelect && !yearSelect.options.length) {
-        // Only include the current year down to (currentYear - 4). Do not include next year.
-        for (let y = thisYear; y >= thisYear - 4; y--) {
-            const opt = document.createElement('option');
-            opt.value = String(y);
-            opt.textContent = String(y);
-            if (y === thisYear) opt.selected = true;
-            yearSelect.appendChild(opt);
-        }
-    }
-    if (monthSelect) {
-        monthSelect.value = String(now.getMonth() + 1);
-    }
+    // Month/year selects removed; default to current month/year values (not user-adjustable)
 
     const dd = (window.laravelData && window.laravelData.dashboardData) ? window.laravelData.dashboardData : {};
     let currentRange = 'monthly';
@@ -1140,8 +1397,8 @@ function initPopularProducts() {
     }
 
     async function render(range) {
-        const month = monthSelect ? Number(monthSelect.value) : undefined;
-        const year = yearSelect ? Number(yearSelect.value) : undefined;
+    const month = now.getMonth() + 1;
+    const year = thisYear;
         const list = await getPopularList(range, month, year);
         let html = '';
         list.slice(0, 12).forEach((product, index) => {
@@ -1163,8 +1420,7 @@ function initPopularProducts() {
     // Initial render
     render(currentRange);
     // Re-render on changes
-    monthSelect?.addEventListener('change', () => render(currentRange));
-    yearSelect?.addEventListener('change', () => render(currentRange));
+    // No listeners: filters removed
 }
 
 // ===== Stock Levels Horizontal Bar Chart (Mock Data) =====
@@ -1172,12 +1428,14 @@ function initStockLevels() {
     const stockCanvas = document.getElementById('odash-stock-chart');
     const shell = stockCanvas ? stockCanvas.closest('.odash-chart-shell') : null;
     const categorySelect = document.getElementById('odash-stock-category');
+    const modeToggle = document.getElementById('odash-stock-mode');
     let stockChart;
+    let currentMode = 'pos';
 
     async function fetchStockData(category) {
         try {
             const url = new URL(window.laravelData?.routes?.inventoryOverview, window.location.origin);
-            url.searchParams.set('source', 'pos');
+            url.searchParams.set('source', currentMode);
             if (category) url.searchParams.set('category', category);
             const res = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
             const data = await res.json();
@@ -1268,6 +1526,15 @@ function initStockLevels() {
     updateStockChart(initialCategory);
     if (categorySelect) {
         categorySelect.addEventListener('change', () => updateStockChart(categorySelect.value));
+    }
+    if (modeToggle) {
+        modeToggle.addEventListener('click', (e)=>{
+            const btn = e.target.closest('button[data-mode]');
+            if (!btn) return;
+            currentMode = btn.getAttribute('data-mode') || 'pos';
+            Array.from(modeToggle.querySelectorAll('button[data-mode]')).forEach(b=> b.classList.toggle('active', b===btn));
+            updateStockChart(categorySelect ? categorySelect.value : undefined);
+        });
     }
 }
 </script>

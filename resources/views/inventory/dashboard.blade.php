@@ -694,6 +694,8 @@
 @endsection
 
 @push('scripts')
+<!-- Anime.js for trendy motion -->
+<script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
 <script>
 // Navigation functionality
 // Settings tab functionality
@@ -773,10 +775,21 @@ function loadInventoryData() {
 
 // Update KPI cards
 function updateKPIs(stats) {
-    document.getElementById('total-products').textContent = stats.total_products || 0;
-    document.getElementById('low-stock-items').textContent = stats.low_stock_items || 0;
-    document.getElementById('total-categories').textContent = stats.total_categories || 3;
-    document.getElementById('inventory-value').textContent = `₱${(stats.inventory_value || 0).toLocaleString()}`;
+    const setCount = (id, val, opts={})=>{
+        const el = document.getElementById(id); if (!el) return;
+        const parseNum = (txt)=> Number(String(txt).replace(/[^0-9.]/g,''))||0;
+        const from = parseNum(el.textContent||'0');
+        const to = Number(val)||0;
+        if (!window.anime) { el.textContent = opts.currency ? `₱${to.toLocaleString()}` : `${to.toLocaleString()}`; return; }
+        anime({ targets: { v: from }, v: to, duration: 800, easing: 'easeOutCubic', update: (a)=>{
+            const v = a.animations[0].currentValue;
+            el.textContent = opts.currency ? `₱${Math.round(v).toLocaleString()}` : `${Math.round(v).toLocaleString()}`;
+        }});
+    };
+    setCount('total-products', stats.total_products || 0);
+    setCount('low-stock-items', stats.low_stock_items || 0);
+    setCount('total-categories', stats.total_categories ?? 3);
+    setCount('inventory-value', stats.inventory_value || 0, { currency:true });
 }
 
 // Render inventory table
@@ -1487,6 +1500,9 @@ document.addEventListener('DOMContentLoaded', function(){
             this.classList.add('active');
             activeCategory = this.getAttribute('data-category');
             filterProducts();
+            if (window.anime) {
+                anime({ targets: this, scale:[1,1.08,1], duration: 280, easing:'easeOutQuad' });
+            }
         });
     });
 
@@ -1750,6 +1766,12 @@ function openAddProductModal() {
     overlay.classList.add('active');
     overlay.style.display = 'block';
     document.body.style.overflow = 'hidden';
+    if (window.anime) {
+        const content = modal.querySelector('.modal-content');
+        overlay.style.opacity='0'; content.style.opacity='0'; content.style.transform='scale(.96)';
+        anime({ targets: overlay, opacity:[0,1], duration:200, easing:'linear' });
+        anime({ targets: content, opacity:[0,1], scale:[.96,1], duration:300, easing:'easeOutQuad' });
+    }
 }
 
 function closeAddProductModal() {
@@ -1821,6 +1843,12 @@ function openEditProductModal(productId) {
                 overlay.classList.add('active');
                 overlay.style.display = 'block';
                 document.body.style.overflow = 'hidden';
+                if (window.anime) {
+                    const content = modal.querySelector('.modal-content');
+                    overlay.style.opacity='0'; content.style.opacity='0'; content.style.transform='scale(.96)';
+                    anime({ targets: overlay, opacity:[0,1], duration:200, easing:'linear' });
+                    anime({ targets: content, opacity:[0,1], scale:[.96,1], duration:300, easing:'easeOutQuad' });
+                }
             }
         })
         .catch(error => {
@@ -2368,6 +2396,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 closeEditProductModal();
             }
         });
+    }
+    // Stagger entrance for KPI cards and product cards
+    if (window.anime) {
+        anime({ targets: '.kpi-card', opacity:[0,1], translateY:[12,0], scale:[0.96,1], easing:'easeOutQuad', duration:600, delay: anime.stagger(80,{start:100}) });
+        anime({ targets: '.add-inventory-list .product-card', opacity:[0,1], translateY:[14,0], easing:'easeOutQuad', duration:520, delay: anime.stagger(30,{start:180}) });
     }
 });
 

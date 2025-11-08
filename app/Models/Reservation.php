@@ -85,6 +85,15 @@ class Reservation extends Model
     ];
 
     /**
+     * Include computed customer fields in JSON responses
+     */
+    protected $appends = [
+        'customer_name',
+        'customer_email',
+        'customer_phone',
+    ];
+
+    /**
      * Get the customer that owns this reservation
      */
     public function customer(): BelongsTo
