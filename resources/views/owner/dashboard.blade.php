@@ -1538,6 +1538,7 @@ function initStockLevels() {
     }
 }
 </script>
+@include('partials.mobile-blocker')
 
 </body>
 </html>

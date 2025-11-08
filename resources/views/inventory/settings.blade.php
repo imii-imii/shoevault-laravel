@@ -562,3 +562,4 @@ if (bell) {
 }
 </script>
 @endpush
+@include('partials.mobile-blocker')

@@ -466,5 +466,6 @@
         else document.querySelectorAll('.settings-panel, .settings-card, .settings-tabs').forEach(playSection);
     })();
     </script>
+    @include('partials.mobile-blocker')
 </body>
 </html>

@@ -888,6 +888,7 @@ document.addEventListener('DOMContentLoaded', function() {
 		});
 	})();
 	</script>
+@include('partials.mobile-blocker')
 
 </body>
 </html>

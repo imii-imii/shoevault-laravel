@@ -1568,5 +1568,6 @@
             else document.querySelectorAll('.reservation-section, .reservation-cards, .reservation-table-wrapper').forEach(playSection);
         })();
     </script>
+    @include('partials.mobile-blocker')
 </body>
 </html>

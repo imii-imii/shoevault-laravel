@@ -730,3 +730,4 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 @endpush
+@include('partials.mobile-blocker')

@@ -740,3 +740,4 @@ document.addEventListener('submit', async function(ev){
 });
 </script>
 @endpush
+@include('partials.mobile-blocker')

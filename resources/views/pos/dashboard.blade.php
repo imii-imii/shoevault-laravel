@@ -2175,5 +2175,6 @@ async function processSaleAndPrint(summary, paymentAmount) {
 </script>
 
 <script src="{{ asset('js/notifications.js') }}"></script>
+@include('partials.mobile-blocker')
 </body>
 </html>

@@ -2449,3 +2449,4 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <script src="{{ asset('js/notifications.js') }}"></script>
 @endpush
+@include('partials.mobile-blocker')

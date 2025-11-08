@@ -591,7 +591,8 @@ class OwnerController extends Controller
         $query = DB::table('transactions as s')
             ->leftJoin('users as u', function ($join) use ($cashierCol) {
                 if ($cashierCol) {
-                    $join->on('u.id', '=', DB::raw("s.$cashierCol"));
+                    // Join to users using the correct PK 'user_id' (not 'id')
+                    $join->on('u.user_id', '=', DB::raw("s.$cashierCol"));
                 }
             })
             ->leftJoinSub($itemsAgg, 'items_agg', function ($join) {
@@ -600,7 +601,8 @@ class OwnerController extends Controller
             ->select([
                 's.transaction_id',
                 DB::raw("COALESCE(s.sale_type, 'pos') as sale_type"),
-                DB::raw('COALESCE(u.name, "System") as cashier_name'),
+                // Prefer username since users table may not have a 'name' column
+                DB::raw('COALESCE(u.username, "System") as cashier_name'),
                 DB::raw(($discountExists ? 's.discount_amount' : '0') . ' as discount_amount'),
                 DB::raw(($totalCol ? "s.$totalCol" : '0') . ' as total_amount'),
                 's.amount_paid',
@@ -872,7 +874,10 @@ class OwnerController extends Controller
      */
     private function salesAmountExpression(): string
     {
-        // If a native 'total' column exists, prefer it
+        // Prefer modern column names first
+        if (Schema::hasColumn('transactions', 'total_amount')) {
+            return 'total_amount';
+        }
         if (Schema::hasColumn('transactions', 'total')) {
             return 'total';
         }
