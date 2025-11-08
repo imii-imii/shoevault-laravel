@@ -1506,7 +1506,6 @@ body, html { background: linear-gradient(180deg,#f8fafc 0%, #eef2f6 100%); }
     transform: rotate(-25deg) scale(0.8);
     transition: all 1.2s cubic-bezier(0.4, 0, 0.2, 1);
     filter: drop-shadow(0 15px 35px rgba(0, 0, 0, 0.15));
-    animation: float 6s ease-in-out infinite;
 }
 
 .floating-shoe.active {
@@ -1543,14 +1542,7 @@ body, html { background: linear-gradient(180deg,#f8fafc 0%, #eef2f6 100%); }
     opacity: 1;
 }
 
-@keyframes float {
-    0%, 100% {
-        transform: rotate(-25deg) scale(1) translateY(0px);
-    }
-    50% {
-        transform: rotate(-25deg) scale(1) translateY(-15px);
-    }
-}
+
 
 .showcase-bg-pattern {
     position: absolute;
