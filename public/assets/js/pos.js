@@ -930,22 +930,74 @@ function closeReceipt() {
 }
 
 function printReceipt() {
-    const receiptContent = document.querySelector('.receipt-modal').innerHTML;
+    const receiptPaper = document.querySelector('.receipt-paper');
+    if (!receiptPaper) return;
+    
+    const receiptContent = receiptPaper.outerHTML;
     const printWindow = window.open('', '_blank');
     
     printWindow.document.write(`
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Receipt - D'Kamp Batangas</title>
+            <title>Receipt - Shoe Vault Batangas</title>
             <style>
-                body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-                .receipt-header { text-align: center; margin-bottom: 20px; }
-                .receipt-item { display: flex; justify-content: space-between; margin: 5px 0; }
-                .receipt-summary { border-top: 1px solid #ccc; margin-top: 20px; padding-top: 10px; }
-                .receipt-row { display: flex; justify-content: space-between; margin: 5px 0; }
-                .total { font-weight: bold; font-size: 1.1em; }
-                @media print { body { font-size: 12px; } }
+                * { 
+                    margin: 0; 
+                    padding: 0; 
+                    box-sizing: border-box; 
+                }
+                body { 
+                    font-family: 'Courier New', monospace; 
+                    background: transparent;
+                    margin: 0;
+                    padding: 8px;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                }
+                .receipt-paper {
+                    width: 280px;
+                    margin: 0;
+                    color: #111827;
+                    font-size: 11px;
+                    font-weight: 400;
+                    line-height: 1.5;
+                    background: white;
+                    border: 1px solid #ddd;
+                    padding: 8px;
+                }
+                .receipt-header { text-align: center; margin-bottom: 10px; }
+                .receipt-header h3 { margin: 0; font-size: 15px; letter-spacing: 0.5px; font-weight: 700; }
+                .receipt-address { text-align: center; color: #374151; font-size: 10px; line-height: 1.5; font-weight: 400; margin-top: 4px; }
+                .receipt-meta { text-align: center; color: #6b7280; font-size: 10px; margin: 6px 0; font-weight: 300; }
+                .receipt-sep { border-top: 1px dotted #9ca3af; margin: 10px 0; }
+                .receipt-info-row { display: flex; justify-content: space-between; font-size: 10px; color: #374151; margin: 4px 0; font-weight: 400; }
+                .receipt-items { width: 100%; border-collapse: collapse; margin: 8px 0; }
+                .receipt-items th, .receipt-items td { padding: 5px 0; border-bottom: 1px dotted #e5e7eb; font-weight: 400; }
+                .receipt-items th { text-align: left; color: #374151; font-weight: 600; font-size: 10px; }
+                .receipt-items td { font-size: 10px; color: #374151; }
+                .receipt-items td:last-child { text-align: right; }
+                .receipt-totals { margin-top: 8px; }
+                .receipt-row { display: flex; justify-content: space-between; margin: 4px 0; font-weight: 400; }
+                .receipt-row.total { font-weight: 700; font-size: 12px; }
+                .receipt-footer { text-align: center; margin-top: 12px; color: #6b7280; font-size: 10px; line-height: 1.6; }
+                .receipt-barcode { height: 44px; background: repeating-linear-gradient(90deg, #000, #000 2px, #fff 2px, #fff 4px); margin-top: 12px; }
+                
+                /* Hide action buttons */
+                .receipt-actions { display: none !important; }
+                
+                @media print {
+                    body { 
+                        margin: 0 !important; 
+                        padding: 0 !important; 
+                        background: transparent !important;
+                    }
+                    .receipt-paper {
+                        margin: 0 !important;
+                        border: none !important;
+                        padding: 8px !important;
+                    }
+                }
             </style>
         </head>
         <body>

@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>Complete Your Reservation</title>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
@@ -72,10 +73,10 @@
     .receipt-summary strong { color:#14283e; }
     .receipt-actions { margin-top:26px; display:flex; gap:12px; flex-wrap:wrap; }
     .receipt-actions button { flex:1 1 0; cursor:pointer; border:none; border-radius:12px; font-weight:600; font-size:.7rem; letter-spacing:.5px; padding:12px 16px; }
-    .btn-download { background:linear-gradient(135deg,#2a6aff,#4aa3ff); color:#fff; }
+    .btn-email { background:linear-gradient(135deg,#10b981,#34d399); color:#fff; }
     .btn-close { background:#dde6f1; color:#1b2735; }
     .btn-close:hover { filter:brightness(1.05); }
-    .btn-download:hover { filter:brightness(1.08); }
+    .btn-email:hover { filter:brightness(1.08); }
     .receipt-footer-note { margin-top:18px; font-size:.55rem; text-align:center; letter-spacing:.5px; text-transform:uppercase; opacity:.6; }
     .receipt-badge { position:absolute; top:-14px; right:18px; background:linear-gradient(135deg,#2a6aff,#6fb8ff); color:#fff; padding:6px 14px 8px; font-size:.55rem; font-weight:600; border-radius:0 0 12px 12px; letter-spacing:.9px; box-shadow:0 6px 16px -6px rgba(42,106,255,.55); }
     .receipt-logo { font-size:1rem; font-weight:700; letter-spacing:.5px; margin-bottom:2px; background:linear-gradient(135deg,#2a6aff,#6fb8ff); -webkit-background-clip:text; background-clip:text; color:transparent; }
@@ -253,7 +254,7 @@
         .receipt-panel * { -webkit-print-color-adjust: exact; color-adjust: exact; }
 
         /* Hide interactive elements in printed/PDF output */
-        .receipt-actions, .btn-download, .btn-close, .receipt-footer-note, .receipt-badge { display: none !important; }
+        .receipt-actions, .btn-email, .btn-close, .receipt-footer-note, .receipt-badge { display: none !important; }
 
         /* Compact table and typography for print */
         .receipt-items { width:100%; border-collapse:collapse; table-layout: fixed; font-size:11px; }
@@ -590,13 +591,13 @@
       </table>
       <div class="receipt-summary" id="receiptSummary"></div>
       <div class="receipt-actions">
-        <button class="btn-download" id="downloadReceiptBtn" type="button">Download PDF</button>
+        <button class="btn-email" id="sendEmailBtn" type="button">Send to Email</button>
         <button class="btn-close" id="closeReceiptBtn" type="button">Close</button>
       </div>
       <div class="receipt-footer-note">Thank you for reserving with us!</div>
     </div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha256-eRhlJ74VwHFVg5K9Wf5puhhH4d0vCPQvapu8YQ+7aoM=" crossorigin="anonymous"></script>
+
   <script>
     // Receipt generation & export
     const receiptModal = document.getElementById('receiptModal');
@@ -606,7 +607,7 @@
     const receiptItemsTbody = document.querySelector('#receiptItemsTable tbody');
     const receiptTotalEl = document.getElementById('receiptTotal');
     const receiptSummaryEl = document.getElementById('receiptSummary');
-    const downloadBtn = document.getElementById('downloadReceiptBtn');
+    const sendEmailBtn = document.getElementById('sendEmailBtn');
     const closeReceiptBtn = document.getElementById('closeReceiptBtn');
 
     function generateReceiptNumber(){
@@ -616,7 +617,13 @@
 
     function openReceipt(payload){
       // payload: { customer, items, total }
-      receiptIdEl.textContent = 'Receipt #' + generateReceiptNumber();
+      const receiptNumber = generateReceiptNumber();
+      receiptIdEl.textContent = 'Receipt #' + receiptNumber;
+      
+      // Store data for email sending
+      currentReservationData = payload;
+      currentReceiptNumber = receiptNumber;
+      
       const now = new Date();
       const dateStr = now.toLocaleDateString('en-PH',{year:'numeric',month:'short',day:'2-digit'});
       const timeStr = now.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'});
@@ -650,45 +657,54 @@
       }, 300); // Small delay for smooth modal close animation
     }
 
-    // Print-based PDF export: opens a print window containing the receipt and calls print
-    downloadBtn.addEventListener('click', async () => {
-      downloadBtn.disabled = true;
-      downloadBtn.textContent = 'Preparing PDF...';
+    // Store current reservation data for email sending
+    let currentReservationData = null;
+    let currentReceiptNumber = null;
+
+    // Email sending functionality
+    sendEmailBtn.addEventListener('click', async () => {
+      if (!currentReservationData) {
+        alert('No reservation data available to send.');
+        return;
+      }
+
+      // Use the customer's email from the reservation data
+      const email = currentReservationData.customer.email;
+      if (!email) {
+        alert('No email address found in reservation data.');
+        return;
+      }
+
+      sendEmailBtn.disabled = true;
+      sendEmailBtn.textContent = 'Sending...';
+
       try {
-        // Wait for fonts to be available
-        try { await document.fonts.ready; } catch(e){}
-
-        // Gather current page styles (stylesheets + inline styles)
-        const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style')).map(n => n.outerHTML).join('\n');
-
-        // Clone the receipt panel HTML
-        const content = receiptPanel.cloneNode(true);
-
-        // Open a new window and write the receipt HTML into it. The user will choose Print -> Save as PDF.
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) throw new Error('Popup blocked');
-
-  const head = `<meta charset="utf-8"><title>${receiptIdEl.textContent}</title>${styles}<style>${printHelperStyles}</style>`;
-        printWindow.document.open();
-        printWindow.document.write(`<html><head>${head}</head><body>${content.outerHTML}</body></html>`);
-        printWindow.document.close();
-
-        // Wait briefly for resources to load (fonts/images)
-        await new Promise(resolve => {
-          const to = setTimeout(resolve, 1200);
-          printWindow.onload = () => { clearTimeout(to); resolve(); };
+        const response = await fetch('{{ route("api.reservations.send-email") }}', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+          },
+          body: JSON.stringify({
+            email: email,
+            reservationData: currentReservationData,
+            receiptNumber: currentReceiptNumber
+          })
         });
 
-        printWindow.focus();
-        printWindow.print();
+        const result = await response.json();
 
-        // Note: don't auto-close — let user control after printing/saving
+        if (result.success) {
+          alert(`Confirmation email sent successfully to ${email}!`);
+        } else {
+          throw new Error(result.message || 'Failed to send email');
+        }
       } catch (err) {
-        console.error('Print export failed', err);
-        alert('Failed to open print dialog. You can use the browser Print -> Save as PDF as a fallback.');
+        console.error('Email sending failed:', err);
+        alert('Failed to send email. Please try again or contact support.');
       } finally {
-        downloadBtn.disabled = false;
-        downloadBtn.textContent = 'Download PDF';
+        sendEmailBtn.disabled = false;
+        sendEmailBtn.textContent = 'Send to Email';
       }
     });
 

@@ -1219,14 +1219,59 @@
 
         /* Print only receipt */
         @media print {
-            body * { visibility: hidden; }
-            #receipt-modal, #receipt-modal * { visibility: visible; }
-            #receipt-modal { position: fixed; inset: 0; background: transparent !important; }
-            .receipt-container { box-shadow: none; border: none; padding: 0; }
+            * { 
+                visibility: hidden; 
+                box-shadow: none !important;
+                background: transparent !important;
+            }
+            body {
+                margin: 0 !important;
+                padding: 0 !important;
+                background: transparent !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            #receipt-modal, 
+            #receipt-modal *, 
+            .receipt-container,
+            .receipt-container *,
+            .receipt-paper,
+            .receipt-paper * { 
+                visibility: visible !important; 
+                background: transparent !important;
+            }
+            #receipt-modal { 
+                position: static !important; 
+                background: transparent !important;
+                display: block !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .receipt-container { 
+                box-shadow: none !important; 
+                border: none !important; 
+                padding: 0 !important;
+                margin: 0 !important;
+                background: transparent !important;
+                display: block !important;
+                align-items: flex-start !important;
+                justify-content: flex-start !important;
+            }
+            .receipt-paper {
+                margin: 0 !important;
+                padding: 8px !important;
+                background: white !important;
+                border: 1px solid #ddd !important;
+                width: 280px !important;
+                max-width: 280px !important;
+            }
             /* Hide action buttons when printing */
             .receipt-actions,
             #receipt-print,
-            #receipt-close { display: none !important; visibility: hidden !important; }
+            #receipt-close { 
+                display: none !important; 
+                visibility: hidden !important; 
+            }
         }
 
         /* Responsive Design */
@@ -2193,8 +2238,12 @@ async function processSaleAndPrint(summary, paymentAmount) {
         // Show success message with transaction details
         alert(`Sale processed successfully!\nTransaction ID: ${result.transaction_id}`);
         
-        // Print the receipt
-        window.print();
+        // Print the receipt using our custom print function
+        if (typeof printReceipt === 'function') {
+            printReceipt();
+        } else {
+            window.print();
+        }
         
         // After print: clear cart and close modal
         cart = [];

@@ -480,6 +480,42 @@ class ReservationController extends Controller
     }
 
     /**
+     * Send reservation confirmation email
+     */
+    public function sendConfirmationEmail(Request $request)
+    {
+        try {
+            $request->validate([
+                'email' => 'required|email',
+                'reservationData' => 'required|array',
+                'receiptNumber' => 'required|string'
+            ]);
+
+            $email = $request->input('email');
+            $reservationData = $request->input('reservationData');
+            $receiptNumber = $request->input('receiptNumber');
+
+            // Send the email
+            \Illuminate\Support\Facades\Mail::to($email)->send(
+                new \App\Mail\ReservationConfirmationMail($reservationData, $receiptNumber)
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Confirmation email sent successfully!'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to send reservation confirmation email: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send email. Please try again.'
+            ], 500);
+        }
+    }
+
+    /**
      * Generate a unique reservation ID (legacy method, kept for compatibility)
      */
     private function generateUniqueReservationId()

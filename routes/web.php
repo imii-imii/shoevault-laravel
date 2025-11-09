@@ -56,6 +56,9 @@ Route::post('/api/check-pending-reservations', [ReservationController::class, 'c
 // Reservation submission endpoint - protected by customer auth
 Route::post('/api/reservations', [ReservationController::class, 'store'])->middleware('customer.auth')->name('api.reservations.store');
 
+// Send reservation confirmation email
+Route::post('/api/send-reservation-email', [ReservationController::class, 'sendConfirmationEmail'])->name('api.reservations.send-email');
+
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
