@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Customer;
 use App\Models\User;
 use App\Mail\VerificationCodeMail;
+use App\Mail\PasswordResetCodeMail;
 
 class CustomerAuthController extends Controller
 {
@@ -386,7 +387,7 @@ class CustomerAuthController extends Controller
 
         // Send email
         try {
-            Mail::to($customer->email)->send(new VerificationCodeMail($code, $customer->fullname));
+            Mail::to($customer->email)->send(new PasswordResetCodeMail($code, $customer->fullname));
         } catch (\Exception $e) {
             Log::error('Failed to send password reset email: ' . $e->getMessage());
         }

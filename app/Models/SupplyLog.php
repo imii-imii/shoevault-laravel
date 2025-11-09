@@ -26,4 +26,6 @@ class SupplyLog extends Model
     {
         return $this->belongsTo(Supplier::class);
     }
+
+
 }

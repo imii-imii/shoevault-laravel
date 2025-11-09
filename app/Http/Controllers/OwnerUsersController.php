@@ -20,10 +20,12 @@ class OwnerUsersController extends Controller
 
         $q = trim((string) $request->get('search', ''));
         
-        // Get employees with their user data
+        // Get employees with their user data (exclude owner and customer accounts)
         $employeeQuery = Employee::with(['user' => function($query) {
             $query->select('user_id', 'username', 'role', 'is_active', 'created_at');
-        }])->select(['employee_id', 'fullname', 'email', 'phone_number', 'user_id', 'created_at']);
+        }])->whereHas('user', function($userQuery) {
+            $userQuery->whereNotIn('role', ['owner', 'customer']);
+        })->select(['employee_id', 'fullname', 'email', 'phone_number', 'user_id', 'created_at']);
         
         if ($q !== '') {
             $employeeQuery->where(function($w) use ($q){
@@ -38,9 +40,9 @@ class OwnerUsersController extends Controller
         
         $employeeData = $employeeQuery->orderBy('fullname')->get();
         
-        // Also get users with employee roles that don't have employee records
+        // Also get users with employee roles that don't have employee records (exclude owner and customer)
         $userQuery = User::select(['user_id', 'username', 'role', 'is_active', 'created_at'])
-            ->whereIn('role', ['manager', 'cashier', 'employee'])
+            ->whereNotIn('role', ['owner', 'customer'])
             ->whereNotIn('user_id', $employeeData->pluck('user_id'));
             
         if ($q !== '') {
@@ -186,7 +188,14 @@ class OwnerUsersController extends Controller
             'password' => ['nullable','string','min:8','confirmed'],
         ]);
 
-        $password = $validated['password'] ?? 'password';
+        // Set role-based default password if no password provided
+        $defaultPasswords = [
+            'manager' => 'manager123',
+            'cashier' => 'cashier123',
+            'employee' => 'employee123',
+        ];
+        
+        $password = $validated['password'] ?? ($defaultPasswords[$validated['role']] ?? 'password123');
 
         DB::beginTransaction();
         try {
@@ -211,6 +220,7 @@ class OwnerUsersController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Employee created successfully',
+                'default_password' => $validated['password'] ? null : $password, // Only show if default was used
                 'user' => [
                     'id' => $employee->employee_id,
                     'name' => $employee->fullname,
@@ -434,6 +444,71 @@ class OwnerUsersController extends Controller
         return response()->json([
             'success' => true,
             'message' => $validated['enabled'] ? 'Customer enabled' : 'Customer disabled (will be logged out)',
+        ]);
+    }
+
+    // POST /owner/users/reset-password
+    public function resetPassword(Request $request)
+    {
+        $this->authorizeOwner();
+
+        $validated = $request->validate([
+            'id' => ['required', 'string'], // Employee ID or User ID
+        ]);
+
+        $user = null;
+        $employeeName = '';
+        
+        // Try to find by Employee ID first
+        $employee = Employee::with('user')->where('employee_id', $validated['id'])->first();
+        
+        if ($employee && $employee->user) {
+            $user = $employee->user;
+            $employeeName = $employee->fullname;
+        } else {
+            // Try to find by User ID
+            $user = User::find($validated['id']);
+            if ($user && $user->employee) {
+                $employeeName = $user->employee->fullname;
+            } else {
+                $employeeName = $user->username ?? 'Unknown';
+            }
+        }
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found.'
+            ], 404);
+        }
+
+        // Only allow resetting passwords for employee roles
+        if (!in_array($user->role, ['manager', 'cashier', 'employee'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only employee passwords can be reset.'
+            ], 403);
+        }
+
+        // Set default password based on role
+        $defaultPassword = match($user->role) {
+            'manager' => 'manager123',
+            'cashier' => 'cashier123',
+            'employee' => 'employee123',
+            default => 'password123'
+        };
+
+        // Update the password
+        $user->password = Hash::make($defaultPassword);
+        $user->save();
+
+        // Force logout the user to ensure they must login with new password
+        $this->forceLogoutUserSessions($user);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Password for {$employeeName} has been reset to default. They will need to login again.",
+            'default_password' => $defaultPassword
         ]);
     }
 }

@@ -70,15 +70,6 @@
                     </div>
                 </div>
 
-                <div class="form-options">
-                    <label class="remember-me">
-                        <input type="checkbox" id="remember" name="remember" {{ old('remember') ? 'checked' : '' }}>
-                        <span class="checkmark"></span>
-                        Remember me
-                    </label>
-                    <a href="#" class="forgot-password">Forgot Password?</a>
-                </div>
-
                 <button type="submit" class="login-btn" id="login-btn">
                     <i class="fas fa-sign-in-alt"></i>
                     <span>Login</span>

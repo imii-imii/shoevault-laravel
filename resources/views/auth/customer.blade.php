@@ -258,7 +258,7 @@
                 <input class="input" type="password" id="login-password" placeholder="••••••••" required />
               </div>
               <div class="actions">
-                <a href="#" onclick="showForgotPasswordStep(); return false;" style="color:var(--muted);text-decoration:none; -webkit-tap-highlight-color: transparent;">Forgot password?</a>
+                <button type="button" onclick="showForgotPasswordStep()" style="background:none;border:none;color:var(--muted);text-decoration:none;cursor:pointer;font-size:inherit;padding:0; -webkit-tap-highlight-color: transparent;">Forgot password?</button>
                 <button class="btn btn-primary" type="submit">Login</button>
               </div>
             </form>
@@ -459,7 +459,7 @@
             // Check if password reset is needed
             else if (data.needs_password_reset) {
               showMessage(data.message);
-              showPasswordResetStep(email);
+              window.showPasswordResetStep(email);
             } else {
               showMessage(data.message, 'error');
             }
@@ -473,8 +473,9 @@
         }
       }
 
-      function showForgotPasswordStep() {
+      window.showForgotPasswordStep = function() {
         // Replace login form with forgot password form
+        const panelLogin = document.getElementById('panel-login');
         panelLogin.innerHTML = `
           <form onsubmit="handleForgotPassword(event)">
             <div class="field">
@@ -512,6 +513,7 @@
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json',
+              'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
             },
             body: JSON.stringify({ email }),
           });
@@ -520,7 +522,7 @@
 
           if (data.success) {
             showMessage(data.message);
-            showPasswordUpdateStep(email);
+            window.showPasswordUpdateStep(email);
           } else {
             showMessage(data.message, 'error');
           }
@@ -533,8 +535,9 @@
         }
       }
 
-      function showPasswordResetStep(email) {
+      window.showPasswordResetStep = function(email) {
         // Replace login form with password reset form
+        const panelLogin = document.getElementById('panel-login');
         panelLogin.innerHTML = `
           <form onsubmit="handlePasswordReset(event)">
             <div class="field">
@@ -567,6 +570,7 @@
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json',
+              'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
             },
             body: JSON.stringify({ email }),
           });
@@ -575,7 +579,7 @@
 
           if (data.success) {
             showMessage(data.message);
-            showPasswordUpdateStep(email);
+            window.showPasswordUpdateStep(email);
           } else {
             showMessage(data.message, 'error');
           }
@@ -588,8 +592,9 @@
         }
       }
 
-      function showPasswordUpdateStep(email) {
+      window.showPasswordUpdateStep = function(email) {
         // Replace form with password update form
+        const panelLogin = document.getElementById('panel-login');
         panelLogin.innerHTML = `
           <form onsubmit="handlePasswordUpdate(event)">
             <div class="field">
@@ -649,6 +654,7 @@
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json',
+              'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
             },
             body: JSON.stringify({ 
               email, 

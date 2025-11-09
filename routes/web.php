@@ -61,6 +61,12 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::get('/logout', [AuthController::class, 'logout'])->name('logout.get'); // Alternative logout route
 
+// Force password change routes (for users with default passwords)
+Route::middleware(['auth'])->group(function () {
+    Route::get('/force-password-change', [AuthController::class, 'forcePasswordChange'])->name('force-password-change');
+    Route::post('/force-password-change', [AuthController::class, 'updateForcedPassword'])->name('force-password-change.update');
+});
+
 // Notification routes (available to all authenticated users)
 Route::middleware(['auth'])->prefix('api/notifications')->name('notifications.')->group(function () {
     Route::get('/', [NotificationController::class, 'index'])->name('index');
@@ -103,7 +109,7 @@ Route::prefix('customer')->name('customer.')->group(function () {
 });
 
 // POS routes (for cashiers only)
-Route::middleware(['auth', 'role:cashier'])->prefix('pos')->name('pos.')->group(function () {
+Route::middleware(['auth', 'role:cashier', 'force.password.change'])->prefix('pos')->name('pos.')->group(function () {
     Route::get('/dashboard', [PosController::class, 'dashboard'])->name('dashboard');
     Route::get('/reservations', [PosController::class, 'reservations'])->name('reservations');
     Route::get('/settings', [PosController::class, 'settings'])->name('settings');
@@ -120,7 +126,7 @@ Route::middleware(['auth', 'role:cashier'])->prefix('pos')->name('pos.')->group(
 });
 
 // Inventory routes (for managers only)
-Route::middleware(['auth', 'role:manager'])->prefix('inventory')->name('inventory.')->group(function () {
+Route::middleware(['auth', 'role:manager', 'force.password.change'])->prefix('inventory')->name('inventory.')->group(function () {
     Route::get('/dashboard', [InventoryController::class, 'dashboard'])->name('dashboard');
     Route::get('/enhanced', function() {
         // Hard-coded products data for UI testing
@@ -279,7 +285,7 @@ Route::middleware(['auth', 'role:manager'])->prefix('inventory')->name('inventor
 });
 
 // Owner routes (for owners only)
-Route::middleware(['auth', 'role:owner'])->prefix('owner')->name('owner.')->group(function () {
+Route::middleware(['auth', 'role:owner', 'force.password.change'])->prefix('owner')->name('owner.')->group(function () {
     Route::get('/dashboard', [OwnerController::class, 'dashboard'])->name('dashboard');
     Route::get('/reports', [OwnerController::class, 'reports'])->name('reports');
     Route::get('/sales-history', [OwnerController::class, 'salesHistory'])->name('sales-history');
@@ -291,11 +297,16 @@ Route::middleware(['auth', 'role:owner'])->prefix('owner')->name('owner.')->grou
     Route::post('/profile/update', [OwnerController::class, 'updateProfile'])->name('profile.update');
     Route::delete('/profile/picture', [OwnerController::class, 'removeProfilePicture'])->name('profile.picture.remove');
     Route::post('/password/update', [OwnerController::class, 'updatePassword'])->name('password.update');
+    
+    // API routes for dashboard data
+    Route::post('/api/dashboard-data', [OwnerController::class, 'getDashboardData'])->name('api.dashboard-data');
+    Route::get('/api/stock-levels', [OwnerController::class, 'getStockLevels'])->name('api.stock-levels');
 
     // User management APIs
     Route::get('/users', [OwnerUsersController::class, 'index'])->name('users.index');
     Route::post('/users', [OwnerUsersController::class, 'store'])->name('users.store');
     Route::post('/users/toggle', [OwnerUsersController::class, 'toggle'])->name('users.toggle');
+    Route::post('/users/reset-password', [OwnerUsersController::class, 'resetPassword'])->name('users.reset-password');
     
     // Customer management APIs
     Route::get('/customers', [OwnerUsersController::class, 'customersIndex'])->name('customers.index');

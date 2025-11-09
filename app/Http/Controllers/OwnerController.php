@@ -570,46 +570,335 @@ class OwnerController extends Controller
     }
 
     /**
-     * Get dashboard KPIs
+     * Get dashboard data for specific date range (API endpoint)
+     */
+    public function getDashboardData(Request $request)
+    {
+        try {
+            $startDate = $request->input('start_date');
+            $endDate = $request->input('end_date');
+            $range = $request->input('range', 'day');
+            
+            // Validate dates
+            if (!$startDate || !$endDate) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Start date and end date are required'
+                ], 400);
+            }
+            
+            $data = $this->getDashboardKPIsByDateRange($startDate, $endDate, $range);
+            
+            return response()->json([
+                'success' => true,
+                'data' => $data
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Dashboard data fetch error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch dashboard data'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get dashboard KPIs for default view (today's data)
      */
     private function getDashboardKPIs()
     {
-        $totalProducts = Product::count();
-        $totalStock = Product::join('product_sizes', 'products.product_id', '=', 'product_sizes.product_id')
-                      ->sum('product_sizes.stock');
-        $lowStockItems = Product::join('product_sizes', 'products.product_id', '=', 'product_sizes.product_id')
-                        ->where('product_sizes.stock', '<=', 10)
-                        ->count();
-        // Use resilient total calculation depending on current schema
-        $dateCol = $this->salesDateColumn();
-        $amountExpr = $this->salesAmountExpression();
-        $todaySales = Transaction::whereDate($dateCol, today())
-            ->select(DB::raw("SUM($amountExpr) as total"))
-            ->value('total') ?? 0;
-        $activeReservations = Reservation::where('status', 'pending')->count();
-
-        // KPIs requested: total products sold (units), completed and cancelled reservations (all-time)
-        $totalQuantitySold = (int) (TransactionItem::sum('quantity') ?? 0);
-        $completedReservations = (int) Reservation::where('status', 'completed')->count();
-        $cancelledReservations = (int) Reservation::where('status', 'cancelled')->count();
-
-        // Build popular products by category with sold units and current stock
-        $popularByCategory = $this->getPopularProductsByCategory();
-
+        $rangeData = $this->getDashboardKPIsByDateRange(
+            today()->toDateString(),
+            today()->toDateString(),
+            'day'
+        );
+        
+        // Return data in the format expected by the frontend for initial load
         return [
-            'totalProducts' => $totalProducts,
-            'totalStock' => $totalStock,
-            'lowStockItems' => $lowStockItems,
-            'todaySales' => $todaySales,
-            'activeReservations' => $activeReservations,
-            'totalQuantitySold' => $totalQuantitySold,
-            'completedReservations' => $completedReservations,
-            'cancelledReservations' => $cancelledReservations,
+            'totalProducts' => Product::count(),
+            'totalStock' => Product::join('product_sizes', 'products.product_id', '=', 'product_sizes.product_id')
+                          ->sum('product_sizes.stock'),
+            'lowStockItems' => Product::join('product_sizes', 'products.product_id', '=', 'product_sizes.product_id')
+                            ->where('product_sizes.stock', '<=', 10)
+                            ->count(),
+            'todaySales' => $rangeData['kpis']['revenue'],
+            'activeReservations' => $rangeData['kpis']['pending_reservations'],
+            'totalQuantitySold' => $rangeData['kpis']['products_sold'],
+            'completedReservations' => $rangeData['kpis']['completed_reservations'],
+            'cancelledReservations' => $rangeData['kpis']['cancelled_reservations'],
             'totalValue' => Product::join('product_sizes', 'products.product_id', '=', 'product_sizes.product_id')
                           ->sum(DB::raw('products.price * product_sizes.stock')),
-            // For the compact dashboard widgets
-            'popularProducts' => $popularByCategory,
+            'popularProducts' => $this->getPopularProductsByCategory(),
         ];
+    }
+
+    /**
+     * Get dashboard KPIs for specific date range
+     */
+    private function getDashboardKPIsByDateRange($startDate, $endDate, $range)
+    {
+        $dateCol = $this->salesDateColumn();
+        $amountExpr = $this->salesAmountExpression();
+        
+        // Calculate sales for the date range
+        $sales = Transaction::whereBetween($dateCol, [$startDate, $endDate])
+            ->select(DB::raw("SUM($amountExpr) as total"))
+            ->value('total') ?? 0;
+            
+        // Calculate products sold in the date range
+        $productsSold = TransactionItem::whereHas('transaction', function($query) use ($dateCol, $startDate, $endDate) {
+            $query->whereBetween($dateCol, [$startDate, $endDate]);
+        })->sum('quantity') ?? 0;
+        
+        // Calculate reservations for the date range
+        $completedReservations = Reservation::where('status', 'completed')
+            ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->count();
+            
+        $cancelledReservations = Reservation::where('status', 'cancelled')
+            ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->count();
+            
+        $pendingReservations = Reservation::where('status', 'pending')
+            ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->count();
+        
+        // Generate forecast data based on range
+        $forecast = $this->generateForecastData($startDate, $endDate, $range);
+        
+        // Get popular products for the date range
+        $popularProducts = $this->getPopularProductsForDateRange($startDate, $endDate);
+        
+        return [
+            'kpis' => [
+                'revenue' => (float) $sales,
+                'products_sold' => (int) $productsSold,
+                'completed_reservations' => (int) $completedReservations,
+                'cancelled_reservations' => (int) $cancelledReservations,
+                'pending_reservations' => (int) $pendingReservations,
+            ],
+            'forecast' => $forecast,
+            'popular_products' => $popularProducts,
+            'date_range' => [
+                'start' => $startDate,
+                'end' => $endDate,
+                'range' => $range
+            ]
+        ];
+    }
+
+    /**
+     * Generate forecast data for chart
+     */
+    private function generateForecastData($startDate, $endDate, $range)
+    {
+        $dateCol = $this->salesDateColumn();
+        $amountExpr = $this->salesAmountExpression();
+        
+        $labels = [];
+        $posData = [];
+        $reservationData = [];
+        
+        if ($range === 'day') {
+            // Hourly data for the day
+            for ($hour = 9; $hour <= 20; $hour++) {
+                $hourStart = $startDate . ' ' . sprintf('%02d:00:00', $hour);
+                $hourEnd = $startDate . ' ' . sprintf('%02d:59:59', $hour);
+                
+                // Get POS transactions (sale_type = 'pos' or transactions without reservation_id)
+                $posRevenue = Transaction::whereBetween($dateCol, [$hourStart, $hourEnd])
+                    ->where(function($query) {
+                        $query->where('sale_type', 'pos')
+                              ->orWhereNull('reservation_id');
+                    })
+                    ->select(DB::raw("SUM($amountExpr) as total"))
+                    ->value('total') ?? 0;
+                    
+                // Get reservation transactions (sale_type = 'reservation' or transactions with reservation_id)
+                $resvRevenue = Transaction::whereBetween($dateCol, [$hourStart, $hourEnd])
+                    ->where(function($query) {
+                        $query->where('sale_type', 'reservation')
+                              ->orWhereNotNull('reservation_id');
+                    })
+                    ->select(DB::raw("SUM($amountExpr) as total"))
+                    ->value('total') ?? 0;
+                
+                $labels[] = $hour <= 12 ? $hour . ' AM' : ($hour - 12) . ' PM';
+                $posData[] = (float) $posRevenue;
+                $reservationData[] = (float) $resvRevenue;
+            }
+        } else if ($range === 'weekly') {
+            // Daily data for the week
+            $current = Carbon::parse($startDate);
+            $end = Carbon::parse($endDate);
+            
+            while ($current->lte($end)) {
+                $dayStart = $current->toDateString() . ' 00:00:00';
+                $dayEnd = $current->toDateString() . ' 23:59:59';
+                
+                // Get POS transactions (sale_type = 'pos' or transactions without reservation_id)
+                $posRevenue = Transaction::whereBetween($dateCol, [$dayStart, $dayEnd])
+                    ->where(function($query) {
+                        $query->where('sale_type', 'pos')
+                              ->orWhereNull('reservation_id');
+                    })
+                    ->select(DB::raw("SUM($amountExpr) as total"))
+                    ->value('total') ?? 0;
+                    
+                // Get reservation transactions (sale_type = 'reservation' or transactions with reservation_id)
+                $resvRevenue = Transaction::whereBetween($dateCol, [$dayStart, $dayEnd])
+                    ->where(function($query) {
+                        $query->where('sale_type', 'reservation')
+                              ->orWhereNotNull('reservation_id');
+                    })
+                    ->select(DB::raw("SUM($amountExpr) as total"))
+                    ->value('total') ?? 0;
+                
+                $labels[] = $current->format('M d');
+                $posData[] = (float) $posRevenue;
+                $reservationData[] = (float) $resvRevenue;
+                
+                $current->addDay();
+            }
+        } else {
+            // Weekly data for the month
+            $current = Carbon::parse($startDate)->startOfWeek();
+            $end = Carbon::parse($endDate)->endOfWeek();
+            
+            while ($current->lte($end)) {
+                $weekStart = $current->toDateString() . ' 00:00:00';
+                $weekEnd = $current->copy()->endOfWeek()->toDateString() . ' 23:59:59';
+                
+                // Get POS transactions (sale_type = 'pos' or transactions without reservation_id)
+                $posRevenue = Transaction::whereBetween($dateCol, [$weekStart, $weekEnd])
+                    ->where(function($query) {
+                        $query->where('sale_type', 'pos')
+                              ->orWhereNull('reservation_id');
+                    })
+                    ->select(DB::raw("SUM($amountExpr) as total"))
+                    ->value('total') ?? 0;
+                    
+                // Get reservation transactions (sale_type = 'reservation' or transactions with reservation_id)
+                $resvRevenue = Transaction::whereBetween($dateCol, [$weekStart, $weekEnd])
+                    ->where(function($query) {
+                        $query->where('sale_type', 'reservation')
+                              ->orWhereNotNull('reservation_id');
+                    })
+                    ->select(DB::raw("SUM($amountExpr) as total"))
+                    ->value('total') ?? 0;
+                
+                $labels[] = 'Week ' . $current->week;
+                $posData[] = (float) $posRevenue;
+                $reservationData[] = (float) $resvRevenue;
+                
+                $current->addWeek();
+            }
+        }
+        
+        return [
+            'labels' => $labels,
+            'pos' => $posData,
+            'reservation' => $reservationData
+        ];
+    }
+
+    /**
+     * Get popular products for specific date range
+     */
+    private function getPopularProductsForDateRange($startDate, $endDate)
+    {
+        $dateCol = $this->salesDateColumn();
+        
+        // Get products sold in the date range using product_name directly from transaction_items
+        $popularProducts = DB::table('transaction_items')
+            ->join('transactions', 'transaction_items.transaction_id', '=', 'transactions.transaction_id')
+            ->select('transaction_items.product_name as name', DB::raw('SUM(transaction_items.quantity) as total_sold'))
+            ->whereBetween("transactions.{$dateCol}", [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->groupBy('transaction_items.product_name')
+            ->orderBy('total_sold', 'desc')
+            ->limit(12)
+            ->get();
+
+        return $popularProducts->map(function($product) {
+            return [
+                'name' => $product->name,
+                'sales' => (int) $product->total_sold
+            ];
+        })->toArray();
+    }
+
+    /**
+     * Get current stock levels for all products
+     */
+    public function getStockLevels(Request $request)
+    {
+        try {
+            $source = $request->get('source', 'pos'); // 'pos' or 'reservation'
+            $category = $request->get('category');
+            
+            $query = Product::select([
+                'products.name',
+                'products.brand',
+                'products.color',
+                'products.category',
+                DB::raw('SUM(product_sizes.stock) as total_stock')
+            ])
+            ->join('product_sizes', 'products.product_id', '=', 'product_sizes.product_id');
+            
+            // Filter by inventory type (pos/reservation)
+            if ($source === 'pos') {
+                $query->where('products.inventory_type', 'pos');
+            } else {
+                $query->where('products.inventory_type', 'reservation');
+            }
+            
+            // Filter by category if specified and not "all"
+            if ($category && $category !== 'all') {
+                $query->where('products.category', $category);
+            }
+            
+            $stockLevels = $query->groupBy(
+                'products.product_id', 
+                'products.name', 
+                'products.brand', 
+                'products.color', 
+                'products.category'
+            )
+            ->orderBy('total_stock', 'desc')
+            ->get();
+            
+            return response()->json([
+                'success' => true,
+                'items' => $stockLevels->map(function($item) {
+                    $stock = (int) $item->total_stock;
+                    $status = 'good';
+                    if ($stock <= 5) {
+                        $status = 'critical';
+                    } elseif ($stock <= 15) {
+                        $status = 'low';
+                    } elseif ($stock <= 30) {
+                        $status = 'medium';
+                    }
+                    
+                    return [
+                        'name' => $item->name,
+                        'brand' => $item->brand,
+                        'color' => $item->color,
+                        'category' => $item->category,
+                        'total_stock' => $stock,
+                        'status' => $status
+                    ];
+                })
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Stock levels fetch error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch stock levels'
+            ], 500);
+        }
     }
 
     /**

@@ -1,0 +1,57 @@
+<?php
+
+namespace App\Mail;
+
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Content;
+use Illuminate\Mail\Mailables\Envelope;
+use Illuminate\Queue\SerializesModels;
+
+class PasswordResetCodeMail extends Mailable
+{
+    use Queueable, SerializesModels;
+
+    public $verificationCode;
+    public $customerName;
+
+    /**
+     * Create a new message instance.
+     */
+    public function __construct($verificationCode, $customerName = 'Customer')
+    {
+        $this->verificationCode = $verificationCode;
+        $this->customerName = $customerName;
+    }
+
+    /**
+     * Get the message envelope.
+     */
+    public function envelope(): Envelope
+    {
+        return new Envelope(
+            subject: 'Password Reset Code - ShoeVault',
+        );
+    }
+
+    /**
+     * Get the message content definition.
+     */
+    public function content(): Content
+    {
+        return new Content(
+            html: 'emails.password-reset-code',
+        );
+    }
+
+    /**
+     * Get the attachments for the message.
+     *
+     * @return array<int, \Illuminate\Mail\Mailables\Attachment>
+     */
+    public function attachments(): array
+    {
+        return [];
+    }
+}

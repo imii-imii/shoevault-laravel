@@ -60,6 +60,25 @@ class AuthController extends Controller
                 'authenticated' => Auth::check(),
                 'auth_user_id' => Auth::check() ? Auth::user()->user_id : null
             ]);
+
+            // Check if user has default password
+            $defaultPasswords = [
+                'manager' => 'manager123',
+                'cashier' => 'cashier123',
+                'employee' => 'employee123',
+            ];
+
+            if (isset($defaultPasswords[$user->role]) && Hash::check($defaultPasswords[$user->role], $user->password)) {
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Default password detected. Redirecting to password change.',
+                        'redirect' => route('force-password-change')
+                    ]);
+                }
+                return redirect()->route('force-password-change')
+                    ->with('message', 'You must change your default password before accessing the system.');
+            }
             
             if ($request->expectsJson()) {
                 return response()->json([
@@ -144,5 +163,53 @@ class AuthController extends Controller
             default:
                 return route('login');
         }
+    }
+
+    /**
+     * Show the force password change form
+     */
+    public function forcePasswordChange()
+    {
+        return view('auth.force-password-change');
+    }
+
+    /**
+     * Handle forced password change
+     */
+    public function updateForcedPassword(Request $request)
+    {
+        $request->validate([
+            'current_password' => 'required|string',
+            'new_password' => 'required|string|min:8|confirmed|regex:/^(?=.*[A-Za-z])(?=.*\d)/',
+        ], [
+            'new_password.regex' => 'The new password must contain at least one letter and one number.',
+            'new_password.confirmed' => 'The new password confirmation does not match.',
+        ]);
+
+        $user = Auth::user();
+
+        // Verify current password
+        if (!Hash::check($request->current_password, $user->password)) {
+            return back()->withErrors(['current_password' => 'The current password is incorrect.']);
+        }
+
+        // Ensure new password is different from current
+        if (Hash::check($request->new_password, $user->password)) {
+            return back()->withErrors(['new_password' => 'The new password must be different from your current password.']);
+        }
+
+        // Update password
+        $user->password = Hash::make($request->new_password);
+        $user->save();
+
+        Log::info('User password changed after forced change', [
+            'user_id' => $user->user_id,
+            'username' => $user->username,
+            'role' => $user->role
+        ]);
+
+        // Redirect to appropriate dashboard
+        return redirect($this->getRedirectUrl($user))
+            ->with('success', 'Password changed successfully! Welcome to the system.');
     }
 }

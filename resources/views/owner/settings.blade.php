@@ -70,6 +70,62 @@
 		.skeleton::after { content: ""; position: absolute; inset: 0; background-image: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.6) 40%, rgba(255,255,255,0) 80%); background-size: 1000px 100%; animation: shimmer 1.2s infinite; opacity: .7; }
 		.skeleton.line { height: 12px; margin: 6px 0; }
 		.animate-in { animation: fadeInUp .35s ease both; }
+
+		/* User cards grid layout improvements */
+		#user-list, #customer-list {
+			width: 100%;
+			box-sizing: border-box;
+		}
+
+		/* Settings panel overflow prevention */
+		.settings-panel {
+			width: 100%;
+			max-width: 100%;
+			overflow-x: hidden;
+			box-sizing: border-box;
+		}
+
+		#employee-management, #customer-management {
+			width: 100%;
+			max-width: 100%;
+			overflow-x: hidden;
+			box-sizing: border-box;
+		}
+
+		/* Responsive grid adjustments */
+		@media (max-width: 1400px) {
+			#user-list, #customer-list {
+				grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+			}
+		}
+
+		@media (max-width: 1200px) {
+			#user-list, #customer-list {
+				grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
+			}
+		}
+
+		@media (max-width: 768px) {
+			#user-list, #customer-list {
+				grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) !important;
+				gap: 12px !important;
+			}
+		}
+
+		/* Reset password button styling */
+		.reset-password-btn { 
+			transition: all 0.2s ease; 
+			box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
+		}
+		.reset-password-btn:hover { 
+			background: #d97706 !important; 
+			transform: translateY(-1px);
+			box-shadow: 0 4px 8px rgba(245, 158, 11, 0.3);
+		}
+		.reset-password-btn:active { 
+			transform: translateY(0); 
+			box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
+		}
 	</style>
 </head>
 <body>
@@ -203,7 +259,7 @@
 									<i class="fas fa-user-plus"></i> Add User
 								</button>
 							</div>
-							<div id="user-list" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:16px; align-items:stretch;"></div>
+							<div id="user-list" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px; align-items:stretch; max-width:100%; overflow:hidden;"></div>
 						</div>
 
 						<!-- Customers management -->
@@ -211,7 +267,7 @@
 							<div style="display:flex; gap:12px; align-items:center; margin-bottom:14px;">
 								<input type="text" id="customer-search" placeholder="Search customers..." class="search-input" style="flex:1; min-width:180px;">
 							</div>
-							<div id="customer-list" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:16px; align-items:stretch;"></div>
+							<div id="customer-list" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px; align-items:stretch; max-width:100%; overflow:hidden;"></div>
 						</div>
 					</div>
 
@@ -458,6 +514,7 @@ document.addEventListener('DOMContentLoaded', function() {
 	const apiUrl = @json($userStoreRoute ?? '');
 	const toggleUrl = @json($userToggleRoute ?? '');
 	const indexUrl = @json($userIndexRoute ?? '');
+	const resetPasswordUrl = @json(route('owner.users.reset-password'));
 	const customerIndexUrl = @json($customerIndexRoute ?? '');
 	const customerToggleUrl = @json($customerToggleRoute ?? '');
 
@@ -518,7 +575,7 @@ document.addEventListener('DOMContentLoaded', function() {
 			for (let i=0;i<count;i++){
 				const sk = document.createElement('div');
 				sk.className = 'odash-card skeleton';
-				sk.style.cssText = 'width:200px;height:300px;border-radius:12px;';
+				sk.style.cssText = 'width:100%;max-width:220px;min-width:180px;height:320px;border-radius:12px;';
 				userList.appendChild(sk);
 			}
 		}
@@ -566,8 +623,10 @@ document.addEventListener('DOMContentLoaded', function() {
 			const card = document.createElement('div');
 			card.className = 'odash-list-item odash-card';
 			card.style.cssText = [
-				'width:200px',
-				'height:300px',
+				'width:100%',
+				'max-width:220px',
+				'min-width:180px',
+				'height:320px',
 				'display:flex',
 				'flex-direction:column',
 				'align-items:center',
@@ -594,6 +653,7 @@ document.addEventListener('DOMContentLoaded', function() {
 				<div style="flex:1 1 auto"></div>
 				<div style="flex:0 0 auto;margin-top:8px;display:flex;flex-direction:column;align-items:center;gap:8px;">
 					<span class="odash-badge" style="background:#eef2ff;color:#1e3a8a;padding:6px 12px;border-radius:999px;font-weight:700;font-size:0.75rem;text-transform:capitalize;">${payload.role}</span>
+					<button class="reset-password-btn" data-user-id="${userId}" data-user-name="${payload.name}" style="background:#f59e0b;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:0.75rem;font-weight:600;cursor:pointer;margin-bottom:4px;transition:background 0.2s;"><i class="fas fa-key" style="margin-right:4px;"></i>Reset Password</button>
 					<div style="display:flex;align-items:center;gap:8px;">
 						<label class="odash-switch">
 							<input type="checkbox" class="odash-switch-input" ${enabled ? 'checked' : ''}>
@@ -647,6 +707,40 @@ document.addEventListener('DOMContentLoaded', function() {
 				setDisabledUI(!wantEnabled);
 			});
 
+			// Add reset password functionality
+			const resetPasswordBtn = card.querySelector('.reset-password-btn');
+			resetPasswordBtn?.addEventListener('click', async () => {
+				const userId = resetPasswordBtn.dataset.userId;
+				const userName = resetPasswordBtn.dataset.userName;
+				
+				if (!userId) return;
+
+				// Show confirmation dialog
+				const confirmed = confirm(`Are you sure you want to reset the password for ${userName}?\n\nThis will reset their password to the default password based on their role and they will be logged out immediately.`);
+				if (!confirmed) return;
+
+				try {
+					const resp = await fetch(resetPasswordUrl, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+						body: JSON.stringify({ id: userId })
+					});
+					const result = await resp.json().catch(()=>({}));
+					
+					if (!resp.ok || result.success === false) {
+						alert(result.message || 'Failed to reset password');
+						return;
+					}
+
+					// Show success message with the default password
+					alert(`Password reset successful!\n\nNew password for ${userName}: ${result.default_password}\n\nPlease inform the employee of their new password. They have been logged out and will need to login again.`);
+					
+				} catch (err) {
+					console.error('Password reset error:', err);
+					alert('Unable to reset password right now. Please try again.');
+				}
+			});
+
 			return card;
 		}
 
@@ -659,10 +753,15 @@ document.addEventListener('DOMContentLoaded', function() {
 				username: document.getElementById('au-username').value.trim(),
 				email: document.getElementById('au-email').value.trim(),
 				role: document.getElementById('au-role').value,
-				// Use provided password fields when present; otherwise default to 'password'
-				password: (document.getElementById('au-password') ? document.getElementById('au-password').value : 'password'),
-				password_confirmation: (document.getElementById('au-password-confirm') ? document.getElementById('au-password-confirm').value : 'password')
 			};
+			
+			// Only include password fields if they have values
+			const passwordField = document.getElementById('au-password');
+			const passwordConfirmField = document.getElementById('au-password-confirm');
+			if (passwordField && passwordField.value.trim()) {
+				payload.password = passwordField.value;
+				payload.password_confirmation = passwordConfirmField ? passwordConfirmField.value : passwordField.value;
+			}
 
 			let serverData = null;
 
@@ -680,6 +779,11 @@ document.addEventListener('DOMContentLoaded', function() {
 						const msg = data.message || 'Failed to add user';
 						alert(msg);
 						return;
+					}
+					
+					// Show success message with default password if one was generated
+					if (data.default_password) {
+						alert(`Employee created successfully!\n\nUsername: ${payload.username}\nDefault Password: ${data.default_password}\n\nPlease inform the employee of their login credentials. They will be required to change their password on first login.`);
 					}
 				}catch(err){
 					alert('Unable to add user right now.');
@@ -754,7 +858,7 @@ document.addEventListener('DOMContentLoaded', function() {
 			
 			try {
 				// Show loading skeleton
-				customerListEl.innerHTML = Array.from({length:6}).map(()=>'<div class="odash-card skeleton" style="width:200px;height:300px;border-radius:12px;"></div>').join('');
+				customerListEl.innerHTML = Array.from({length:6}).map(()=>'<div class="odash-card skeleton" style="width:100%;max-width:220px;min-width:180px;height:320px;border-radius:12px;"></div>').join('');
 				
 				const url = new URL(custIndexUrl, window.location.origin);
 				if (search) url.searchParams.set('search', search);
@@ -797,7 +901,7 @@ document.addEventListener('DOMContentLoaded', function() {
 			const badgeText = isBanned ? 'Banned' : (isLocked ? 'Locked' : 'Active');
 			
 			card.style.cssText = [
-				'width:200px','height:300px','display:flex','flex-direction:column','align-items:center','justify-content:flex-start','padding:14px',
+				'width:100%','max-width:220px','min-width:180px','height:320px','display:flex','flex-direction:column','align-items:center','justify-content:flex-start','padding:14px',
 				'border:1px solid #e5e7eb','border-radius:12px','background:#fff','box-shadow:0 2px 8px rgba(0,0,0,0.04)','position:relative'
 			].join(';');
 			

@@ -338,13 +338,28 @@
                                 </div>
                             </div>
                             <select id="odash-stock-category" class="odash-select">
-                                <option value="men" selected>Men</option>
+                                <option value="all" selected>All Categories</option>
+                                <option value="men">Men</option>
                                 <option value="women">Women</option>
                                 <option value="accessories">Accessories</option>
                             </select>
                         </div>
-                        <div class="odash-chart-shell" style="height:360px; max-height:360px;">
-                            <canvas id="odash-stock-chart"></canvas>
+                        <!-- Stock Controls Row -->
+                        <div style="display:flex; gap:8px; align-items:center; padding:8px 16px; border-bottom:1px solid #f3f4f6; background:#f9fafb;">
+                            <div style="flex:1;">
+                                <input type="text" id="odash-stock-search" placeholder="Search products..." 
+                                       style="width:100%; padding:6px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:14px; background:white;">
+                            </div>
+                            <select id="odash-stock-sort" style="padding:6px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:14px; background:white; min-width:140px;">
+                                <option value="name-asc">Name A-Z</option>
+                                <option value="name-desc">Name Z-A</option>
+                                <option value="stock-high">Stock High-Low</option>
+                                <option value="stock-low" selected>Stock Low-High</option>
+                                <option value="status">Status</option>
+                            </select>
+                        </div>
+                        <div class="odash-stock-list" id="odash-stock-list" style="height:360px; max-height:360px; overflow-y:auto; padding:8px;">
+                            <!-- Stock items will be populated here -->
                         </div>
                     </div>
                 </div>
@@ -394,6 +409,8 @@ window.laravelData = {
         supplyLogs: '{{ route("owner.supply-logs") }}',
         inventoryOverview: '{{ route("owner.inventory-overview") }}',
         popularProducts: '{{ route("owner.popular-products") }}',
+        apiDashboardData: '{{ route("owner.api.dashboard-data") }}',
+        apiStockLevels: '{{ route("owner.api.stock-levels") }}',
         settings: '{{ route("owner.settings") }}'
     }
 };
@@ -539,18 +556,36 @@ document.addEventListener('DOMContentLoaded', function() {
         rangeSelect.addEventListener('change', ()=>{
             const r = rangeSelect.value;
             setVisibility(r);
-            // reset anchorDate to today when switching range
-            anchorDate = new Date(); anchorDate.setHours(0,0,0,0);
+            // Set appropriate default dates for each range
+            if (r === 'monthly') {
+                // Default to October 2025 for better demo data
+                anchorDate = new Date(2025, 9, 1); // October 1, 2025
+            } else {
+                // For day and week, use today
+                anchorDate = new Date(); anchorDate.setHours(0,0,0,0);
+            }
             updateInputsFromAnchor(r);
             updateWindowText(r);
             document.dispatchEvent(new CustomEvent('odash:filter-range-changed',{ detail:{ range:r, anchorDate }}));
+            // Refresh dashboard data with new range
+            refreshDashboardData();
         });
-        prevBtn.addEventListener('click', ()=> shiftAnchor(rangeSelect.value, -1));
-        nextBtn.addEventListener('click', ()=> shiftAnchor(rangeSelect.value, 1));
+        prevBtn.addEventListener('click', ()=> {
+            shiftAnchor(rangeSelect.value, -1);
+            refreshDashboardData();
+        });
+        nextBtn.addEventListener('click', ()=> {
+            shiftAnchor(rangeSelect.value, 1);
+            refreshDashboardData();
+        });
 
         // Manual input listeners
         dateInput.addEventListener('change', ()=>{
-            if (!dateInput.value) return; anchorDate = new Date(dateInput.value+'T00:00:00'); updateWindowText('day'); document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:'day', anchorDate }}));
+            if (!dateInput.value) return; 
+            anchorDate = new Date(dateInput.value+'T00:00:00'); 
+            updateWindowText('day'); 
+            document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:'day', anchorDate }}));
+            refreshDashboardData();
         });
         weekInput.addEventListener('change', ()=>{
             if (!weekInput.value) return; // format YYYY-W##
@@ -559,11 +594,18 @@ document.addEventListener('DOMContentLoaded', function() {
             const simple = new Date(Number(y),0,4);
             const dayOfWeek = (simple.getDay()+6)%7; // 0..6 Monday=0
             simple.setDate(simple.getDate() - dayOfWeek + (Number(w)-1)*7);
-            anchorDate = simple; updateWindowText('weekly'); document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:'weekly', anchorDate }}));
+            anchorDate = simple; 
+            updateWindowText('weekly'); 
+            document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:'weekly', anchorDate }}));
+            refreshDashboardData();
         });
         monthInput.addEventListener('change', ()=>{
             if (!monthInput.value) return; // YYYY-MM
-            const [y,m] = monthInput.value.split('-'); anchorDate = new Date(Number(y), Number(m)-1, 1); updateWindowText('monthly'); document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:'monthly', anchorDate }}));
+            const [y,m] = monthInput.value.split('-'); 
+            anchorDate = new Date(Number(y), Number(m)-1, 1); 
+            updateWindowText('monthly'); 
+            document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:'monthly', anchorDate }}));
+            refreshDashboardData();
         });
 
         // Initialize default
@@ -581,6 +623,247 @@ function updateDateTime() {
         year: 'numeric',
         month: 'long',
         day: 'numeric'
+    });
+}
+
+// Function to refresh dashboard data based on current date range
+function refreshDashboardData() {
+    const rangeSelect = document.getElementById('dbf-range');
+    const dateInput = document.getElementById('dbf-date');
+    const weekInput = document.getElementById('dbf-week');
+    const monthInput = document.getElementById('dbf-month');
+    
+    if (!rangeSelect) return;
+    
+    const range = rangeSelect.value;
+    let startDate, endDate;
+    
+    // Calculate date range based on current selection
+    const now = new Date();
+    
+    if (range === 'day') {
+        const selectedDate = dateInput.value ? new Date(dateInput.value) : now;
+        startDate = new Date(selectedDate);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(selectedDate);
+        endDate.setHours(23, 59, 59, 999);
+    } else if (range === 'weekly') {
+        const selectedWeek = weekInput.value;
+        if (selectedWeek) {
+            const [year, week] = selectedWeek.split('-W');
+            startDate = getDateOfISOWeek(parseInt(week), parseInt(year));
+            endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + 6);
+            endDate.setHours(23, 59, 59, 999);
+        } else {
+            // Current week
+            const dayOfWeek = now.getDay();
+            startDate = new Date(now);
+            startDate.setDate(now.getDate() - dayOfWeek);
+            startDate.setHours(0, 0, 0, 0);
+            endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + 6);
+            endDate.setHours(23, 59, 59, 999);
+        }
+    } else if (range === 'monthly') {
+        const selectedMonth = monthInput.value;
+        if (selectedMonth) {
+            const [year, month] = selectedMonth.split('-');
+            startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+            endDate = new Date(parseInt(year), parseInt(month), 0);
+            endDate.setHours(23, 59, 59, 999);
+        } else {
+            // Default to October 2025 for better demo data (since November has very few reservations)
+            startDate = new Date(2025, 9, 1); // October is month 9 (0-indexed)
+            endDate = new Date(2025, 10, 0); // Last day of October
+            endDate.setHours(23, 59, 59, 999);
+        }
+    }
+    
+    // Format dates for API
+    const formatDate = (date) => date.toISOString().split('T')[0];
+    
+    // Show loading state
+    showDashboardLoading();
+    
+    // Debug: Log the date range being requested
+    console.log('Requesting dashboard data:', {
+        start_date: formatDate(startDate),
+        end_date: formatDate(endDate),
+        range: range
+    });
+
+    // Make API call to fetch filtered data
+    fetch(window.laravelData?.routes?.apiDashboardData || '/api/dashboard-data', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: JSON.stringify({
+            start_date: formatDate(startDate),
+            end_date: formatDate(endDate),
+            range: range
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Dashboard API response:', data);
+        if (data.success) {
+            updateDashboardWithData(data.data);
+        } else {
+            console.error('Failed to fetch dashboard data:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error fetching dashboard data:', error);
+    })
+    .finally(() => {
+        hideDashboardLoading();
+    });
+}
+
+// Helper function to get date of ISO week
+function getDateOfISOWeek(w, y) {
+    const simple = new Date(y, 0, 1 + (w - 1) * 7);
+    const dow = simple.getDay();
+    const ISOweekStart = simple;
+    if (dow <= 4)
+        ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
+    else
+        ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
+    return ISOweekStart;
+}
+
+// Show loading state for dashboard
+function showDashboardLoading() {
+    // Add loading state to KPI cards
+    const kpiCards = document.querySelectorAll('.odash-kpi-value');
+    kpiCards.forEach(card => {
+        card.style.opacity = '0.5';
+    });
+    
+    // Add loading overlay to chart
+    const chartShell = document.querySelector('.odash-chart-shell');
+    if (chartShell) {
+        let scrim = chartShell.querySelector('.loading-scrim');
+        if (!scrim) {
+            scrim = document.createElement('div');
+            scrim.className = 'loading-scrim';
+            scrim.innerHTML = '<div class="loader"></div>';
+            chartShell.style.position = 'relative';
+            chartShell.appendChild(scrim);
+        }
+        scrim.style.display = 'flex';
+    }
+}
+
+// Hide loading state for dashboard
+function hideDashboardLoading() {
+    // Remove loading state from KPI cards
+    const kpiCards = document.querySelectorAll('.odash-kpi-value');
+    kpiCards.forEach(card => {
+        card.style.opacity = '1';
+    });
+    
+    // Hide loading overlay from chart
+    const scrim = document.querySelector('.loading-scrim');
+    if (scrim) {
+        scrim.style.display = 'none';
+    }
+}
+
+// Update dashboard with new data
+function updateDashboardWithData(data) {
+    // Update KPI values
+    if (data.kpis) {
+        const kpiRevenue = document.getElementById('odash-kpi-revenue');
+        const kpiSold = document.getElementById('odash-kpi-sold');
+        const kpiCompleted = document.getElementById('odash-kpi-resv-completed');
+        const kpiCancelled = document.getElementById('odash-kpi-resv-cancelled');
+        
+        if (kpiRevenue) kpiRevenue.textContent = '₱' + (data.kpis.revenue || 0).toLocaleString();
+        if (kpiSold) kpiSold.textContent = data.kpis.products_sold || 0;
+        if (kpiCompleted) kpiCompleted.textContent = data.kpis.completed_reservations || 0;
+        if (kpiCancelled) kpiCancelled.textContent = data.kpis.cancelled_reservations || 0;
+    }
+    
+    // Update forecast chart if data is available
+    if (data.forecast && window.forecastChart) {
+        window.forecastChart.data.labels = data.forecast.labels || [];
+        window.forecastChart.data.datasets[0].data = data.forecast.pos || [];
+        window.forecastChart.data.datasets[1].data = data.forecast.reservation || [];
+        window.forecastChart.update();
+    }
+    
+    // Update reservation gauge if data is available
+    if (data.kpis) {
+        const resvContainer = document.getElementById('odash-resv-gauge');
+        if (resvContainer) {
+            const completed = Number(data.kpis.completed_reservations || 0);
+            const cancelled = Number(data.kpis.cancelled_reservations || 0);
+            const pending = Number(data.kpis.pending_reservations || 0);
+            const total = Math.max(0, completed + cancelled + pending);
+            const pct = (n, d) => (d > 0 ? Math.round((n / d) * 100) : 0);
+            
+            // Debug: Log reservation data being applied
+            console.log('Updating reservation gauge:', {
+                completed, cancelled, pending, total,
+                completedPct: pct(completed, total) + '%',
+                cancelledPct: pct(cancelled, total) + '%',
+                pendingPct: pct(pending, total) + '%'
+            });
+            
+            // Update the text elements
+            const totalElement = document.getElementById('odash-resv-total');
+            const completedPctElement = document.getElementById('odash-resv-completed-pct');
+            const cancelledPctElement = document.getElementById('odash-resv-cancelled-pct');
+            const pendingPctElement = document.getElementById('odash-resv-pending-pct');
+            
+            if (totalElement) totalElement.textContent = total;
+            if (completedPctElement) completedPctElement.textContent = pct(completed, total) + '%';
+            if (cancelledPctElement) cancelledPctElement.textContent = pct(cancelled, total) + '%';
+            if (pendingPctElement) pendingPctElement.textContent = pct(pending, total) + '%';
+            
+            // Re-render the gauge with new data
+            renderNeonGauge(resvContainer, { completed, cancelled, pending, total });
+        }
+    }
+    
+    // Update popular products if data is available
+    if (data.popular_products) {
+        updatePopularProducts(data.popular_products);
+    }
+    
+    console.log('Dashboard data updated for date range');
+}
+
+// Function to update popular products list
+function updatePopularProducts(productsData) {
+    const container = document.getElementById('odash-popular-products');
+    if (!container || !Array.isArray(productsData)) return;
+    
+    console.log('Updating popular products:', productsData);
+    
+    let html = '';
+    productsData.slice(0, 12).forEach((product, index) => {
+        const isTop3 = index < 3;
+        const rankBadge = isTop3 ? `<span class="odash-product-rank">${index + 1}</span>` : '';
+        const itemClass = isTop3 ? 'odash-product-item top-product' : 'odash-product-item';
+        html += `
+            <div class="${itemClass}">
+                <span class="odash-product-name">${rankBadge}${product.name}</span>
+                <span class="odash-product-sales">${product.sales} sold</span>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+    
+    // Animate items
+    Array.from(container.children || []).forEach((el, i) => {
+        el.classList.add('reveal', 'in');
+        el.style.transitionDelay = `${i * 30}ms`;
     });
 }
 </script>
@@ -1423,119 +1706,219 @@ function initPopularProducts() {
     // No listeners: filters removed
 }
 
-// ===== Stock Levels Horizontal Bar Chart (Mock Data) =====
+// ===== Stock Levels Scrollable List =====
 function initStockLevels() {
-    const stockCanvas = document.getElementById('odash-stock-chart');
-    const shell = stockCanvas ? stockCanvas.closest('.odash-chart-shell') : null;
+    const stockList = document.getElementById('odash-stock-list');
     const categorySelect = document.getElementById('odash-stock-category');
     const modeToggle = document.getElementById('odash-stock-mode');
-    let stockChart;
+    const searchInput = document.getElementById('odash-stock-search');
+    const sortSelect = document.getElementById('odash-stock-sort');
     let currentMode = 'pos';
+    let currentCategory = 'all';
+    let currentSort = 'stock-low';
+    let currentSearch = '';
+    let allItems = []; // Store all fetched items for client-side filtering
 
-    async function fetchStockData(category) {
+    if (!stockList) return;
+
+    // Show initial loading
+    stockList.innerHTML = Array.from({length: 8}).map(() => 
+        '<div class="stock-item-skeleton" style="height:48px; border-radius:8px; margin:4px 0; background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite;"></div>'
+    ).join('');
+
+    async function fetchStockData(source, category) {
         try {
-            const url = new URL(window.laravelData?.routes?.inventoryOverview, window.location.origin);
-            url.searchParams.set('source', currentMode);
+            const url = new URL(window.laravelData?.routes?.apiStockLevels, window.location.origin);
+            url.searchParams.set('source', source);
             if (category) url.searchParams.set('category', category);
-            const res = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
+            
+            const res = await fetch(url.toString(), { 
+                headers: { 'Accept': 'application/json' } 
+            });
             const data = await res.json();
-            if (!res.ok || data.success === false) throw new Error(data.message || 'Failed');
-            const items = Array.isArray(data.items) ? data.items : [];
-            const labels = items.map(i => i.name || i.product_name || 'Item');
-            const stocks = items.map(i => Number(i.total_stock || 0));
-            const maxVal = stocks.length ? Math.max(...stocks) || 1 : 1;
-            const maxStock = stocks.map(() => maxVal);
-            return { labels, stocks, maxStock };
+            
+            if (!res.ok || data.success === false) {
+                throw new Error(data.message || 'Failed to fetch stock data');
+            }
+            
+            return Array.isArray(data.items) ? data.items : [];
         } catch (e) {
-            return { labels: [], stocks: [], maxStock: [] };
+            console.error('Error fetching stock data:', e);
+            return [];
         }
     }
 
-    async function updateStockChart(category) {
-        if (shell) {
-            let scrim = shell.querySelector('.loading-scrim');
-            if (!scrim) { scrim = document.createElement('div'); scrim.className = 'loading-scrim'; scrim.innerHTML = '<div class="loader"></div>'; shell.style.position='relative'; shell.appendChild(scrim); }
+    function getStatusColor(status) {
+        switch (status) {
+            case 'critical': return '#ef4444'; // red
+            case 'low': return '#f59e0b';      // orange
+            case 'medium': return '#3b82f6';   // blue
+            case 'good': return '#10b981';     // green
+            default: return '#6b7280';         // gray
         }
-        const { labels, stocks, maxStock } = await fetchStockData(category);
-        const backgroundColors = stocks.map((stock, i) => {
-            const pct = maxStock[i] ? (stock / maxStock[i]) * 100 : 0;
-            if (pct < 30) return '#ef4444';
-            if (pct < 60) return '#f59e0b';
-            return '#3b82f6';
+    }
+
+    function getStatusText(status) {
+        switch (status) {
+            case 'critical': return 'Critical';
+            case 'low': return 'Low';
+            case 'medium': return 'Medium';
+            case 'good': return 'Good';
+            default: return 'Unknown';
+        }
+    }
+
+    async function updateStockList() {
+        // Show loading only if we don't have cached data
+        if (allItems.length === 0) {
+            stockList.innerHTML = Array.from({length: 8}).map(() => 
+                '<div class="stock-item-skeleton" style="height:48px; border-radius:8px; margin:4px 0; background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite;"></div>'
+            ).join('');
+
+            const items = await fetchStockData(currentMode, currentCategory);
+            allItems = items;
+        }
+        
+        // Apply search filter
+        let filteredItems = allItems.filter(item => {
+            if (!currentSearch) return true;
+            const searchTerm = currentSearch.toLowerCase();
+            return item.name.toLowerCase().includes(searchTerm) || 
+                   item.category.toLowerCase().includes(searchTerm) ||
+                   (item.brand && item.brand.toLowerCase().includes(searchTerm)) ||
+                   (item.color && item.color.toLowerCase().includes(searchTerm));
         });
 
-        if (!stockChart) {
-            if (!stockCanvas) return;
-            const ctx = stockCanvas.getContext('2d');
-            stockChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels,
-                    datasets: [{
-                        label: 'Current Stock',
-                        data: stocks,
-                        backgroundColor: backgroundColors,
-                        borderRadius: 6,
-                        barThickness: 28
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: '#1e3a8a',
-                            titleColor: '#fff',
-                            bodyColor: '#bfdbfe',
-                            borderColor: '#3b82f6',
-                            borderWidth: 1,
-                            callbacks: {
-                                afterLabel: function(context) {
-                                    const index = context.dataIndex;
-                                    const max = maxStock[index] || 1;
-                                    const pct = Math.round((context.parsed.x / max) * 100);
-                                    return `Max (set): ${max} (${pct}% stocked)`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            beginAtZero: true,
-                            grid: { color: 'rgba(59, 130, 246, 0.08)' },
-                            ticks: { color: '#64748b' }
-                        },
-                        y: {
-                            grid: { display: false },
-                            ticks: { color: '#1e3a8a', font: { weight: 500 } }
-                        }
-                    }
-                }
-            });
-        } else {
-            stockChart.data.labels = labels;
-            stockChart.data.datasets[0].data = stocks;
-            stockChart.data.datasets[0].backgroundColor = backgroundColors;
-            stockChart.update();
+        // Apply sorting
+        filteredItems.sort((a, b) => {
+            switch (currentSort) {
+                case 'name-asc':
+                    return a.name.localeCompare(b.name);
+                case 'name-desc':
+                    return b.name.localeCompare(a.name);
+                case 'stock-high':
+                    return (b.total_stock || 0) - (a.total_stock || 0);
+                case 'stock-low':
+                    return (a.total_stock || 0) - (b.total_stock || 0);
+                case 'status':
+                    const statusOrder = { 'critical': 0, 'low': 1, 'medium': 2, 'good': 3 };
+                    return (statusOrder[a.status] || 4) - (statusOrder[b.status] || 4);
+                default:
+                    return 0;
+            }
+        });
+        
+        if (filteredItems.length === 0) {
+            const message = currentSearch ? 
+                `No items found matching "${currentSearch}"` : 
+                'No items found';
+            stockList.innerHTML = `<div style="text-align:center; padding:40px; color:#6b7280;">${message}</div>`;
+            return;
         }
-        if (shell) { const scrim = shell.querySelector('.loading-scrim'); if (scrim) scrim.remove(); }
+
+        let html = '';
+        filteredItems.forEach(item => {
+            const statusColor = getStatusColor(item.status);
+            const statusText = getStatusText(item.status);
+            
+            // Build brand and color info
+            const brandInfo = item.brand ? item.brand : '';
+            const colorInfo = item.color ? item.color : '';
+            const detailsText = [brandInfo, colorInfo].filter(Boolean).join(' • ');
+            
+            html += `
+                <div class="stock-item" style="display:flex; justify-content:space-between; align-items:center; padding:12px 8px; border-bottom:1px solid #f3f4f6; transition:background-color 0.2s;">
+                    <div style="flex:1;">
+                        <div style="font-weight:500; color:#1f2937; margin-bottom:2px;">${item.name}</div>
+                        ${detailsText ? `<div style="font-size:11px; color:#9ca3af; margin-bottom:2px;">${detailsText}</div>` : ''}
+                        <div style="font-size:12px; color:#6b7280; text-transform:capitalize;">${item.category}</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-weight:600; color:#1f2937; margin-bottom:2px;">${item.total_stock}</div>
+                        <div style="font-size:11px; color:${statusColor}; font-weight:500; text-transform:uppercase;">${statusText}</div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        stockList.innerHTML = html;
+
+        // Add hover effects
+        stockList.querySelectorAll('.stock-item').forEach(item => {
+            item.addEventListener('mouseenter', () => {
+                item.style.backgroundColor = '#f9fafb';
+            });
+            item.addEventListener('mouseleave', () => {
+                item.style.backgroundColor = 'transparent';
+            });
+        });
     }
 
-    const initialCategory = categorySelect && categorySelect.value ? categorySelect.value : 'men';
-    updateStockChart(initialCategory);
-    if (categorySelect) {
-        categorySelect.addEventListener('change', () => updateStockChart(categorySelect.value));
+    // Function to refresh data (clears cache and refetches)
+    async function refreshStockData() {
+        allItems = []; // Clear cache
+        await updateStockList();
     }
+
+    // Event listeners
+    if (categorySelect) {
+        currentCategory = categorySelect.value || 'all';
+        categorySelect.addEventListener('change', () => {
+            currentCategory = categorySelect.value;
+            refreshStockData(); // Refresh data when category changes
+        });
+    }
+
     if (modeToggle) {
-        modeToggle.addEventListener('click', (e)=>{
+        modeToggle.addEventListener('click', (e) => {
             const btn = e.target.closest('button[data-mode]');
             if (!btn) return;
+            
             currentMode = btn.getAttribute('data-mode') || 'pos';
-            Array.from(modeToggle.querySelectorAll('button[data-mode]')).forEach(b=> b.classList.toggle('active', b===btn));
-            updateStockChart(categorySelect ? categorySelect.value : undefined);
+            
+            // Update button states
+            Array.from(modeToggle.querySelectorAll('button[data-mode]')).forEach(b => {
+                b.classList.toggle('active', b === btn);
+            });
+            
+            refreshStockData(); // Refresh data when mode changes
         });
     }
+
+    // Search functionality
+    if (searchInput) {
+        let searchTimeout;
+        searchInput.addEventListener('input', (e) => {
+            currentSearch = e.target.value.trim();
+            
+            // Debounce search to avoid too many updates
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                updateStockList(); // Use cached data for search
+            }, 300);
+        });
+        
+        // Clear search on escape key
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                searchInput.value = '';
+                currentSearch = '';
+                updateStockList();
+            }
+        });
+    }
+
+    // Sort functionality
+    if (sortSelect) {
+        currentSort = sortSelect.value || 'stock-low';
+        sortSelect.addEventListener('change', () => {
+            currentSort = sortSelect.value;
+            updateStockList(); // Use cached data for sorting
+        });
+    }
+
+    // Initial load
+    updateStockList();
 }
 </script>
 @include('partials.mobile-blocker')
