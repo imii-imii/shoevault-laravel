@@ -106,7 +106,7 @@
     <!-- Anime.js for richer motion -->
     <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
 </head>
-<body>
+<body data-user-role="{{ auth()->user()->role ?? 'owner' }}">
 <!-- Sidebar Navigation -->
 <nav class="sidebar">
     <div class="logo">

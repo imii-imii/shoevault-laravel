@@ -9,6 +9,7 @@ class NotificationManager {
         this.eventsInitialized = false; // Track if events are already bound
         this.csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
         this.userRole = null; // Will be set during initialization
+        this.debugMode = false; // Set to true for debugging, false for production
     }
 
     /**
@@ -16,18 +17,79 @@ class NotificationManager {
      */
     async init(userRole = null) {
         try {
-            console.log('🔔 Initializing notification system...');
-            console.log('CSRF Token:', this.csrfToken);
-            console.log('Current URL:', window.location.href);
-            console.log('User Role:', userRole);
+            if (this.debugMode) {
+                console.log('🔔 Initializing notification system...');
+                console.log('CSRF Token:', this.csrfToken);
+                console.log('Current URL:', window.location.href);
+                console.log('User Role:', userRole);
+            }
+            
+            // Check for required elements
+            if (!this.csrfToken) {
+                console.error('❌ CSRF token not found. Make sure meta tag is present.');
+                throw new Error('CSRF token not found');
+            }
             
             this.userRole = userRole;
+            
+            // Ensure critical methods exist
+            this.ensureCriticalMethods();
+            
             await this.loadNotifications();
             this.bindEvents();
             this.startPolling();
             console.log('✅ Notification system initialized successfully');
         } catch (error) {
             console.error('❌ Failed to initialize notification system:', error);
+            console.error('Error details:', error.message);
+            console.error('Error stack:', error.stack);
+            
+            // Try to show a fallback notification system
+            this.initializeFallback();
+        }
+    }
+
+    /**
+     * Ensure critical methods exist
+     */
+    ensureCriticalMethods() {
+        // Add missing handleNotificationClick method if it doesn't exist
+        if (typeof this.handleNotificationClick !== 'function') {
+            console.warn('⚠️ handleNotificationClick method missing, using fallback');
+            this.handleNotificationClick = this.handleNotificationClickFallback;
+        }
+        
+        // Add missing markNotificationAsRead method if it doesn't exist
+        if (typeof this.markNotificationAsRead !== 'function') {
+            console.warn('⚠️ markNotificationAsRead method missing, using markAsRead');
+            this.markNotificationAsRead = this.markAsRead;
+        }
+    }
+
+    /**
+     * Initialize a basic fallback notification system
+     */
+    initializeFallback() {
+        console.log('🔄 Initializing fallback notification system...');
+        try {
+            // Just bind basic dropdown toggle
+            const bell = document.querySelector('.notification-bell');
+            const dropdown = document.querySelector('.notification-dropdown');
+            
+            if (bell && dropdown) {
+                bell.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+                });
+                
+                document.addEventListener('click', () => {
+                    dropdown.style.display = 'none';
+                });
+                
+                console.log('✅ Fallback notification system initialized');
+            }
+        } catch (error) {
+            console.error('❌ Even fallback initialization failed:', error);
         }
     }
 
@@ -37,20 +99,27 @@ class NotificationManager {
     async loadNotifications(unreadOnly = false) {
         try {
             console.log('📡 Loading notifications from server...');
-            const url = new URL('/api/notifications', window.location.origin);
+            
+            // Use relative URL for better compatibility
+            let url = '/api/notifications';
             if (unreadOnly) {
-                url.searchParams.set('unread_only', 'true');
+                url += '?unread_only=true';
             }
-            console.log('🌐 Request URL:', url.toString());
+            console.log('🌐 Request URL:', url);
 
             const response = await fetch(url, {
+                method: 'GET',
                 headers: {
                     'X-CSRF-TOKEN': this.csrfToken,
-                    'Accept': 'application/json'
-                }
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
             });
 
             console.log('📡 Response status:', response.status, response.statusText);
+            console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
             
             if (!response.ok) {
                 const errorText = await response.text();
@@ -110,14 +179,20 @@ class NotificationManager {
      */
     async markAsRead(notificationId) {
         try {
+            console.log('🔄 Marking notification as read:', notificationId);
             const response = await fetch(`/api/notifications/${notificationId}/read`, {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': this.csrfToken,
-                    'Accept': 'application/json'
-                }
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
             });
 
+            console.log('📡 Mark as read response:', response.status, response.statusText);
+            
             if (response.ok) {
                 // Update local cache
                 const notifications = this.cache.get('notifications') || [];
@@ -273,7 +348,12 @@ class NotificationManager {
                     }
                     
                     // Handle notification type-specific actions (with role-based behavior)
-                    this.handleNotificationClick(notificationType, notificationData, notificationId);
+                    if (typeof this.handleNotificationClick === 'function') {
+                        this.handleNotificationClick(notificationType, notificationData, notificationId);
+                    } else {
+                        // Fallback behavior if method is missing
+                        this.handleNotificationClickFallback(notificationType, notificationData, notificationId);
+                    }
                 });
             });
         });
@@ -491,6 +571,45 @@ class NotificationManager {
             toast.style.transform = 'translateX(100%)';
             setTimeout(() => document.body.removeChild(toast), 300);
         }, duration);
+    }
+
+    /**
+     * Fallback method for handling notification clicks when main method is missing
+     */
+    handleNotificationClickFallback(notificationType, notificationData, notificationId = null) {
+        try {
+            const data = notificationData || {};
+            console.log('🔔 Fallback: Handling notification click:', { type: notificationType, data, userRole: this.userRole });
+            
+            // For non-manager users (cashier, owner), just mark as read
+            if (this.userRole && this.userRole !== 'manager') {
+                console.log('👤 Non-manager user clicked notification, marking as read only');
+                if (notificationId) {
+                    this.markAsRead(notificationId);
+                    this.showToast('Notification marked as read', 'success');
+                } else {
+                    this.showToast('Notification acknowledged', 'success');
+                }
+                return;
+            }
+            
+            // Manager users get basic toast (since full navigation might not work without the complete method)
+            console.log('👨‍💼 Manager user clicked notification');
+            switch (notificationType) {
+                case 'low_stock':
+                    this.showToast('Low stock notification clicked - would navigate to inventory', 'info');
+                    break;
+                case 'new_reservation':
+                    this.showToast('Reservation notification clicked - would navigate to reports', 'info');
+                    break;
+                default:
+                    this.showToast('Notification clicked', 'info');
+                    break;
+            }
+        } catch (error) {
+            console.error('Error in fallback notification click handler:', error);
+            this.showToast('Notification acknowledged', 'success');
+        }
     }
 
     /**

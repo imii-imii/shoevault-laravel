@@ -1333,7 +1333,7 @@
     </style>
 </head>
 
-<body>
+<body data-user-role="{{ auth()->user()->role ?? 'guest' }}">
     <!-- Sidebar Navigation -->
     <nav class="sidebar">
         <div class="logo">

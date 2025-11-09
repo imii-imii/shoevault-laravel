@@ -7,7 +7,19 @@
     <link href='https://unpkg.com/boxicons@2.0.7/css/boxicons.min.css' rel='stylesheet'>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" type="text/css" href="{{ asset('css/reservation-home.css') }}">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    
+    <!-- Performance optimization script -->
+    <script src="{{ asset('js/performance-optimizer.js') }}"></script>
+    
+    <!-- Load animations conditionally based on performance -->
+    <script>
+        // Only load heavy animations if device can handle them
+        if (navigator.deviceMemory >= 4 && window.innerWidth > 768 && !/(android|iphone|ipad|ipod|blackberry|iemobile|opera mini)/i.test(navigator.userAgent)) {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js';
+            document.head.appendChild(script);
+        }
+    </script>
 </head>
 
 <body>
@@ -409,7 +421,33 @@
                 menu.querySelectorAll('a').forEach(a=> a.addEventListener('click', ()=>{ if(window.innerWidth<=780){ closeMenu(); }}));
             })();
         </script>
-        <script type="text/javascript" src="{{ asset('js/reservation-animations.js') }}"></script>
+        
+        <!-- Load animations only on high-performance devices -->
+        <script>
+            // Check if device can handle animations
+            const canHandleAnimations = navigator.deviceMemory >= 4 && 
+                                      window.innerWidth > 768 && 
+                                      !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            
+            if (canHandleAnimations) {
+                const script = document.createElement('script');
+                script.src = '{{ asset("js/reservation-animations.js") }}';
+                document.body.appendChild(script);
+            } else {
+                // Add lightweight CSS for shared hosting
+                const style = document.createElement('style');
+                style.textContent = `
+                    /* Shared hosting optimizations */
+                    * { 
+                        animation-duration: 0.2s !important; 
+                        transition-duration: 0.2s !important; 
+                    }
+                    .slide-content { transition: transform 0.3s ease !important; }
+                    [class*="bounce"], [class*="pulse"], [class*="zoom"] { animation: none !important; }
+                `;
+                document.head.appendChild(style);
+            }
+        </script>
 </body>
 
 </html>

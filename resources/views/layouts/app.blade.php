@@ -52,7 +52,7 @@
         }
     </style>
 </head>
-<body>
+<body data-user-role="{{ auth()->user()->role ?? 'guest' }}">
     @yield('content')
     
     <!-- JavaScript -->
