@@ -1489,6 +1489,39 @@ body, html { background: linear-gradient(180deg,#f8fafc 0%, #eef2f6 100%); }
     overflow: hidden;
 }
 
+.shoe-showcase::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: url('../assets/images/physical store.jpg');
+    background-size: cover;
+    height: 100%;
+    background-position: top;
+    background-repeat: no-repeat;
+    opacity: 1;
+    z-index: 0;
+}
+
+/* Dark overlay to make floating shoes pop */
+.shoe-showcase::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        135deg,
+        rgba(0, 0, 0, 0.74) 0%,
+        rgba(0, 0, 0, 0.733) 50%,
+        rgba(0, 0, 0, 0.699) 100%
+    );
+    z-index: 1;
+}
+
 .showcase-container {
     position: relative;
     width: 100%;

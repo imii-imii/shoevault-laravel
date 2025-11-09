@@ -57,7 +57,7 @@
   .input{height:44px;border-radius:12px;border:1px solid #e5e7eb;background:#ffffff;color:#0f172a;padding:0 12px;outline:none;transition:all .15s ease}
   .input:focus{border-color:#93c5fd;box-shadow:0 0 0 3px rgba(147,197,253,.25)}
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    .actions{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
+    .actions{display:flex;align-items:center;justify-content:space-between;margin-top:6px; }
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 16px;border-radius:12px;border:1px solid #e5e7eb;cursor:pointer;font-weight:800;transition:transform .05s ease, filter .15s ease, box-shadow .15s ease}
     .btn:hover{filter:brightness(1.05)}
     .btn:active{transform:translateY(1px)}
@@ -110,7 +110,7 @@
       .row{grid-template-columns:1fr}
       /* Stack action buttons and make them full width to avoid overflow */
       .actions{flex-direction:column;align-items:stretch;gap:10px}
-      .actions .btn{width:100%}
+      .actions .btn{width:100%;}
     }
 
     /* Terms & Conditions Modal */
@@ -258,7 +258,7 @@
                 <input class="input" type="password" id="login-password" placeholder="••••••••" required />
               </div>
               <div class="actions">
-                <a href="#" onclick="showForgotPasswordStep(); return false;" style="color:var(--muted);text-decoration:none">Forgot password?</a>
+                <a href="#" onclick="showForgotPasswordStep(); return false;" style="color:var(--muted);text-decoration:none; -webkit-tap-highlight-color: transparent;">Forgot password?</a>
                 <button class="btn btn-primary" type="submit">Login</button>
               </div>
             </form>
