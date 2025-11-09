@@ -606,7 +606,7 @@ document.getElementById('settings-password-save').addEventListener('click', func
 // Initialize dynamic notification system
 if (typeof NotificationManager !== 'undefined') {
     const notificationManager = new NotificationManager();
-    notificationManager.init();
+    notificationManager.init('{{ auth()->user()->role ?? "manager" }}');
 } else {
     console.warn('NotificationManager not found. Make sure notifications.js is loaded.');
 }

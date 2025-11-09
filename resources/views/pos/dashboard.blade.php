@@ -2014,7 +2014,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize notification system
     if (typeof NotificationManager !== 'undefined') {
         const notificationManager = new NotificationManager();
-        notificationManager.init();
+        notificationManager.init('{{ auth()->user()->role ?? "guest" }}');
         window.notificationManager = notificationManager; // Make it globally accessible
     }
 });

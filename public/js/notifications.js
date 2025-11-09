@@ -8,16 +8,20 @@ class NotificationManager {
         this.isPolling = false;
         this.eventsInitialized = false; // Track if events are already bound
         this.csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        this.userRole = null; // Will be set during initialization
     }
 
     /**
      * Initialize notification system
      */
-    async init() {
+    async init(userRole = null) {
         try {
             console.log('🔔 Initializing notification system...');
             console.log('CSRF Token:', this.csrfToken);
             console.log('Current URL:', window.location.href);
+            console.log('User Role:', userRole);
+            
+            this.userRole = userRole;
             await this.loadNotifications();
             this.bindEvents();
             this.startPolling();
@@ -137,6 +141,13 @@ class NotificationManager {
     }
 
     /**
+     * Mark specific notification as read (alias for markAsRead for clarity)
+     */
+    async markNotificationAsRead(notificationId) {
+        return await this.markAsRead(notificationId);
+    }
+
+    /**
      * Mark all notifications as read
      */
     async markAllAsRead() {
@@ -195,6 +206,9 @@ class NotificationManager {
         console.log('🔄 Updating notification list. Found elements:', listElements.length);
         console.log('📝 Notifications to display:', notifications.length);
         
+        // Store notifications for access in click handlers
+        this.currentNotifications = notifications;
+        
         listElements.forEach(listElement => {
             if (notifications.length === 0) {
                 listElement.innerHTML = `
@@ -206,9 +220,11 @@ class NotificationManager {
                 return;
             }
 
-            const notificationHTML = notifications.map(notification => `
+            const notificationHTML = notifications.map((notification, index) => `
                 <div class="notification-item ${notification.is_read ? 'read' : 'unread'}" 
                      data-id="${notification.id}"
+                     data-type="${notification.type || ''}"
+                     data-notification-index="${index}"
                      style="padding: 12px 14px; border-bottom: 1px solid #f1f5f9; cursor: pointer; ${!notification.is_read ? 'background: #f8fafc;' : ''}">
                     <div style="display: flex; align-items: flex-start; gap: 10px;">
                         <div style="color: ${this.getPriorityColor(notification.priority)}; margin-top: 2px;">
@@ -237,7 +253,15 @@ class NotificationManager {
                 item.addEventListener('click', (e) => {
                     const notificationId = parseInt(item.dataset.id);
                     const isUnread = item.classList.contains('unread');
+                    const notificationType = item.dataset.type;
+                    const notificationIndex = parseInt(item.dataset.notificationIndex);
                     
+                    // Get the notification data from stored array
+                    const notificationData = this.currentNotifications && this.currentNotifications[notificationIndex] 
+                        ? this.currentNotifications[notificationIndex].data 
+                        : {};
+                    
+                    // Mark as read if unread (for manager users, or as part of the click handling)
                     if (isUnread) {
                         this.markAsRead(notificationId);
                         item.classList.remove('unread');
@@ -247,6 +271,9 @@ class NotificationManager {
                         const indicator = item.querySelector('div[style*="background: #3b82f6"]');
                         if (indicator) indicator.remove();
                     }
+                    
+                    // Handle notification type-specific actions (with role-based behavior)
+                    this.handleNotificationClick(notificationType, notificationData, notificationId);
                 });
             });
         });
@@ -464,6 +491,141 @@ class NotificationManager {
             toast.style.transform = 'translateX(100%)';
             setTimeout(() => document.body.removeChild(toast), 300);
         }, duration);
+    }
+
+    /**
+     * Handle notification click based on type and user role
+     */
+    handleNotificationClick(notificationType, notificationData, notificationId = null) {
+        try {
+            const data = notificationData || {};
+            console.log('🔔 Handling notification click:', { type: notificationType, data, userRole: this.userRole });
+            
+            // For non-manager users (cashier, owner), just mark as read
+            if (this.userRole && this.userRole !== 'manager') {
+                console.log('👤 Non-manager user clicked notification, marking as read only');
+                if (notificationId) {
+                    this.markNotificationAsRead(notificationId);
+                    this.showToast('Notification marked as read', 'success');
+                } else {
+                    this.showToast('Notification acknowledged', 'success');
+                }
+                return;
+            }
+            
+            // Manager users get full navigation behavior
+            console.log('👨‍💼 Manager user clicked notification, handling with navigation');
+            switch (notificationType) {
+                case 'low_stock':
+                    this.handleLowStockNotificationClick(data);
+                    break;
+                case 'new_reservation':
+                    this.handleNewReservationNotificationClick(data);
+                    break;
+                default:
+                    console.log('No specific action defined for notification type:', notificationType);
+                    break;
+            }
+        } catch (error) {
+            console.error('Error handling notification click:', error);
+        }
+    }
+
+    /**
+     * Handle low stock notification click - navigate to inventory dashboard and show product modal
+     */
+    handleLowStockNotificationClick(data) {
+        console.log('📦 Handling low stock notification:', data);
+        const productId = data.product_id;
+        
+        if (!productId) {
+            console.warn('No product_id found in low stock notification data:', data);
+            this.showToast('Unable to find product information', 'error');
+            return;
+        }
+
+        console.log('🔍 Product ID:', productId);
+        console.log('🔍 Product ID type:', typeof productId);
+
+        // Check if we're already on the inventory dashboard
+        if (window.location.pathname.includes('/inventory/dashboard')) {
+            console.log('✅ Already on inventory dashboard, showing product modal');
+            // Already on inventory dashboard, just show the product details modal
+            this.showProductDetailsModal(productId);
+        } else {
+            console.log('🚀 Navigating to inventory dashboard');
+            // Navigate to inventory dashboard with product parameter
+            const dashboardUrl = `/inventory/dashboard?show_product=${productId}`;
+            window.location.href = dashboardUrl;
+        }
+    }
+
+    /**
+     * Handle new reservation notification click - navigate to reservation reports and show reservation modal
+     */
+    handleNewReservationNotificationClick(data) {
+        console.log('📅 Handling new reservation notification:', data);
+        const reservationId = data.reservation_id;
+        
+        if (!reservationId) {
+            console.warn('No reservation_id found in new reservation notification data:', data);
+            this.showToast('Unable to find reservation information', 'error');
+            return;
+        }
+
+        console.log('🔍 Reservation ID:', reservationId);
+
+        // Check if we're already on the reservation reports page
+        if (window.location.pathname.includes('/inventory/reservation-reports')) {
+            console.log('✅ Already on reservation reports, showing reservation modal');
+            // Already on reservation reports, just show the reservation details modal
+            this.showReservationDetailsModal(reservationId);
+        } else {
+            console.log('🚀 Navigating to reservation reports');
+            // Navigate to reservation reports with reservation parameter
+            const reportsUrl = `/inventory/reservation-reports?show_reservation=${reservationId}`;
+            window.location.href = reportsUrl;
+        }
+    }
+
+    /**
+     * Show product details modal for a specific product
+     */
+    showProductDetailsModal(productId) {
+        console.log('🔍 Attempting to show product details modal for product:', productId);
+        
+        // Use the existing openProductDetailsModal function if available
+        if (typeof openProductDetailsModal === 'function') {
+            console.log('✅ Found openProductDetailsModal function, calling it');
+            openProductDetailsModal(productId);
+        } else {
+            console.warn('❌ openProductDetailsModal function not available');
+            this.showToast('Product details function not available', 'error');
+        }
+    }
+
+    /**
+     * Show reservation details modal for a specific reservation
+     */
+    showReservationDetailsModal(reservationId) {
+        console.log('🔍 Attempting to show reservation details modal for reservation:', reservationId);
+        
+        // Look for reservation card with this ID and trigger the modal
+        const reservationCard = document.querySelector(`[data-res-id="${reservationId}"]`);
+        if (reservationCard) {
+            console.log('✅ Found reservation card, attempting to open modal');
+            // Use the existing openReservationModalFromCard function if available
+            if (typeof openReservationModalFromCard === 'function') {
+                console.log('✅ Found openReservationModalFromCard function, calling it');
+                openReservationModalFromCard(reservationCard);
+            } else {
+                console.warn('❌ openReservationModalFromCard function not available');
+                this.showToast('Reservation details function not available', 'error');
+            }
+        } else {
+            console.warn(`❌ Reservation card with ID ${reservationId} not found`);
+            this.showToast(`Reservation ${reservationId} not found on this page`, 'error');
+        }
     }
 
     /**

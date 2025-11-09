@@ -8,6 +8,7 @@ use App\Models\ProductSize;
 use App\Models\Supplier;
 use App\Models\SupplyLog;
 use App\Models\Employee;
+use App\Services\NotificationService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -715,6 +716,10 @@ class InventoryController extends Controller
             // Load the product with sizes and format it like the getInventoryData method
             $product = $product->load('sizes');
             
+            // Clean up any existing low stock notifications for this product when stock is added
+            $notificationService = new NotificationService();
+            $notificationService->cleanupLowStockNotifications($product->product_id);
+            
             // Format the product data for frontend
             $formattedProduct = [
                 'id' => $product->product_id, // Use product_id as the identifier
@@ -761,11 +766,24 @@ class InventoryController extends Controller
         try {
             $inventoryType = $request->get('type', 'pos'); // Default to POS
             
-            // Determine which model to use based on inventory type
+            \Log::info('Fetching product', ['id' => $id, 'type' => $inventoryType]);
+            
+            // First try to find the product with the specified inventory type
             if ($inventoryType === 'reservation') {
-                $product = Product::with('sizes')->reservationInventory()->findOrFail($id);
+                $product = Product::with('sizes')->reservationInventory()->find($id);
             } else {
-                $product = Product::with('sizes')->posInventory()->findOrFail($id);
+                $product = Product::with('sizes')->posInventory()->find($id);
+            }
+            
+            // If not found with specified type, try to find it without inventory type filter
+            if (!$product) {
+                \Log::info('Product not found with inventory type filter, trying without filter');
+                $product = Product::with('sizes')->find($id);
+                if (!$product) {
+                    \Log::error('Product not found at all', ['id' => $id]);
+                    throw new \Illuminate\Database\Eloquent\ModelNotFoundException('Product not found');
+                }
+                \Log::info('Product found but with different inventory type', ['product_inventory_type' => $product->inventory_type]);
             }
             
             // Format the product data for frontend
@@ -812,18 +830,27 @@ class InventoryController extends Controller
         try {
             $inventoryType = $request->get('inventory_type', 'pos'); // Default to POS
             
-            // Determine which model to use based on inventory type
+            // First try to find the product with the specified inventory type
             if ($inventoryType === 'reservation') {
-                $product = Product::with('sizes')->reservationInventory()->findOrFail($id);
-                $productModel = Product::class;
-                $sizeModel = ProductSize::class;
-                $relationKey = 'product_id';
+                $product = Product::with('sizes')->reservationInventory()->find($id);
             } else {
-                $product = Product::with('sizes')->posInventory()->findOrFail($id);
-                $productModel = Product::class;
-                $sizeModel = ProductSize::class;
-                $relationKey = 'product_id';
+                $product = Product::with('sizes')->posInventory()->find($id);
             }
+            
+            // If not found with specified type, try to find it without inventory type filter
+            if (!$product) {
+                Log::info('Product not found with inventory type filter during update, trying without filter', ['id' => $id, 'type' => $inventoryType]);
+                $product = Product::with('sizes')->find($id);
+                if (!$product) {
+                    Log::error('Product not found at all during update', ['id' => $id]);
+                    throw new \Illuminate\Database\Eloquent\ModelNotFoundException('Product not found');
+                }
+                Log::info('Product found but with different inventory type during update', ['product_inventory_type' => $product->inventory_type, 'requested_type' => $inventoryType]);
+            }
+            
+            $productModel = Product::class;
+            $sizeModel = ProductSize::class;
+            $relationKey = 'product_id';
             
             $request->validate([
                 'name' => 'required|string|max:255',
@@ -940,6 +967,11 @@ class InventoryController extends Controller
 
             // Reload with sizes and format a consistent response shape
             $product = $product->load('sizes');
+            
+            // Clean up any existing low stock notifications for this product when stock is updated
+            $notificationService = new NotificationService();
+            $notificationService->cleanupLowStockNotifications($product->product_id);
+            
             $formattedProduct = [
                 'id' => $product->product_id, // Use product_id as the identifier
                 'name' => $product->name,
@@ -1097,6 +1129,12 @@ class InventoryController extends Controller
             // Update the reservation status
             $reservation->status = $newStatus;
             $reservation->save();
+
+            // Clean up new reservation notifications when reservation is completed
+            if ($oldStatus !== 'completed' && $newStatus === 'completed') {
+                $notificationService = new NotificationService();
+                $notificationService->cleanupNewReservationNotifications($reservation->reservation_id);
+            }
 
             DB::commit();
 

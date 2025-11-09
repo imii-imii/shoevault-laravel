@@ -1581,7 +1581,7 @@
                 if (typeof NotificationManager !== 'undefined') {
                     console.log('✅ NotificationManager found, initializing...');
                     window.notificationManager = new NotificationManager();
-                    window.notificationManager.init().catch(error => {
+                    window.notificationManager.init('{{ auth()->user()->role ?? "cashier" }}').catch(error => {
                         console.error('❌ NotificationManager init failed:', error);
                     });
                 } else {
@@ -1592,7 +1592,7 @@
                         if (typeof NotificationManager !== 'undefined') {
                             console.log('✅ NotificationManager found on retry, initializing...');
                             window.notificationManager = new NotificationManager();
-                            window.notificationManager.init().catch(error => {
+                            window.notificationManager.init('{{ auth()->user()->role ?? "cashier" }}').catch(error => {
                                 console.error('❌ NotificationManager init failed on retry:', error);
                             });
                         } else {

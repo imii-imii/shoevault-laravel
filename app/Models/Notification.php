@@ -43,6 +43,11 @@ class Notification extends Model
         });
     }
 
+    public function scopeUnread(Builder $query): Builder
+    {
+        return $query->where('is_read', false);
+    }
+
     public function scopeUnreadForUser(Builder $query, string $userId): Builder
     {
         return $query->whereDoesntHave('reads', function ($q) use ($userId) {

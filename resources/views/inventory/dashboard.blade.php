@@ -911,10 +911,10 @@ function addProductToTable(product) {
         </td>
         <td>
             <div class="action-buttons">
-                <button class="btn-icon edit" onclick="editProduct(${product.id})" title="Edit">
+                <button class="btn-icon edit" onclick="editProduct('${product.id}')" title="Edit">
                     <i class="fas fa-edit"></i>
                 </button>
-                <button class="btn-icon delete" onclick="deleteProduct(${product.id})" title="Delete">
+                <button class="btn-icon delete" onclick="deleteProduct('${product.id}')" title="Delete">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
@@ -2123,13 +2123,25 @@ function removeEditImage(event) {
 
 // Product Details Modal Functions
 function openProductDetailsModal(productId) {
+    console.log('🔍 Opening product details modal for product ID:', productId);
+    
     // Get current inventory type
     const inventoryType = document.getElementById('inventory-type-switcher').value || 'pos';
     
+    const url = `{{ url('inventory/products') }}/${productId}?type=${inventoryType}`;
+    console.log('🌐 Fetching product data from:', url);
+    
     // Fetch product data from server
-    fetch(`{{ url('inventory/products') }}/${productId}?type=${inventoryType}`)
-        .then(response => response.json())
+    fetch(url)
+        .then(response => {
+            console.log('📡 Response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
         .then(data => {
+            console.log('📊 Received product data:', data);
             if (data.success) {
                 const product = data.product;
                 
@@ -2186,7 +2198,7 @@ function openProductDetailsModal(productId) {
                         })()}
                         
                         <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
-                            <button onclick="closeProductDetailsModal(); openEditProductModal(${product.id})" 
+                            <button onclick="closeProductDetailsModal(); openEditProductModal('${product.id}')" 
                                     style="background: #2a6aff; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; margin-right: 12px;">
                                 Edit Product
                             </button>
@@ -2208,8 +2220,8 @@ function openProductDetailsModal(productId) {
             }
         })
         .catch(error => {
-            console.error('Error fetching product data:', error);
-            alert('Error loading product data');
+            console.error('❌ Error fetching product data:', error);
+            alert(`Error loading product data: ${error.message}`);
         });
 }
 
@@ -2641,8 +2653,24 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize notification system
     if (typeof NotificationManager !== 'undefined') {
         const notificationManager = new NotificationManager();
-        notificationManager.init();
+        notificationManager.init('{{ auth()->user()->role ?? "guest" }}');
         window.notificationManager = notificationManager; // Make it globally accessible
+    }
+    
+    // Handle URL parameters for notification clicks
+    const urlParams = new URLSearchParams(window.location.search);
+    const showProductId = urlParams.get('show_product');
+    if (showProductId) {
+        // Wait a bit for the page to load completely, then show the product modal
+        setTimeout(() => {
+            if (typeof openProductDetailsModal === 'function') {
+                openProductDetailsModal(showProductId);
+                // Clean up the URL parameter
+                const cleanUrl = new URL(window.location);
+                cleanUrl.searchParams.delete('show_product');
+                window.history.replaceState({}, document.title, cleanUrl);
+            }
+        }, 1000);
     }
     
     // Modal overlay click handler

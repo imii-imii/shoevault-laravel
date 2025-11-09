@@ -8,6 +8,7 @@ use App\Models\ProductSize;
 use App\Models\Reservation;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class NotificationService
@@ -305,5 +306,91 @@ class NotificationService
             'icon' => $data['icon'] ?? 'fas fa-info-circle',
             'priority' => $data['priority'] ?? 'normal'
         ]);
+    }
+
+    /**
+     * Clean up low stock notifications when stock is added to a product
+     */
+    public function cleanupLowStockNotifications(string $productId, ?string $size = null): int
+    {
+        $query = Notification::where('type', 'low_stock')
+            ->where('data->product_id', $productId);
+
+        // If specific size is provided, only clean up notifications for that size
+        if ($size) {
+            $query->where('data->size', $size);
+        }
+
+        $deletedCount = $query->count();
+        $query->delete();
+
+        if ($deletedCount > 0) {
+            Log::info('Cleaned up low stock notifications', [
+                'product_id' => $productId,
+                'size' => $size,
+                'deleted_count' => $deletedCount
+            ]);
+        }
+
+        return $deletedCount;
+    }
+
+    /**
+     * Clean up new reservation notifications when a reservation is completed
+     */
+    public function cleanupNewReservationNotifications(string $reservationId): int
+    {
+        $deletedCount = Notification::where('type', 'new_reservation')
+            ->where('data->reservation_id', $reservationId)
+            ->count();
+
+        Notification::where('type', 'new_reservation')
+            ->where('data->reservation_id', $reservationId)
+            ->delete();
+
+        if ($deletedCount > 0) {
+            Log::info('Cleaned up new reservation notifications', [
+                'reservation_id' => $reservationId,
+                'deleted_count' => $deletedCount
+            ]);
+        }
+
+        return $deletedCount;
+    }
+
+    /**
+     * Clean up all notifications related to a specific product
+     */
+    public function cleanupProductNotifications(string $productId): int
+    {
+        $deletedCount = Notification::where('data->product_id', $productId)->count();
+        Notification::where('data->product_id', $productId)->delete();
+
+        if ($deletedCount > 0) {
+            Log::info('Cleaned up all product notifications', [
+                'product_id' => $productId,
+                'deleted_count' => $deletedCount
+            ]);
+        }
+
+        return $deletedCount;
+    }
+
+    /**
+     * Clean up all notifications related to a specific reservation
+     */
+    public function cleanupReservationNotifications(string $reservationId): int
+    {
+        $deletedCount = Notification::where('data->reservation_id', $reservationId)->count();
+        Notification::where('data->reservation_id', $reservationId)->delete();
+
+        if ($deletedCount > 0) {
+            Log::info('Cleaned up all reservation notifications', [
+                'reservation_id' => $reservationId,
+                'deleted_count' => $deletedCount
+            ]);
+        }
+
+        return $deletedCount;
     }
 }

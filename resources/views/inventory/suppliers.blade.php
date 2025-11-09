@@ -462,7 +462,7 @@ document.addEventListener('DOMContentLoaded', function(){
 // Initialize dynamic notification system
 if (typeof NotificationManager !== 'undefined') {
     const notificationManager = new NotificationManager();
-    notificationManager.init();
+    notificationManager.init('{{ auth()->user()->role ?? "manager" }}');
 } else {
     console.warn('NotificationManager not found. Make sure notifications.js is loaded.');
 }

@@ -717,9 +717,28 @@ document.getElementById('reservation-status-filter').addEventListener('change', 
 // Initialize dynamic notification system
 if (typeof NotificationManager !== 'undefined') {
     const notificationManager = new NotificationManager();
-    notificationManager.init();
+    notificationManager.init('{{ auth()->user()->role ?? "guest" }}');
 } else {
     console.warn('NotificationManager not found. Make sure notifications.js is loaded.');
+}
+
+// Handle URL parameters for notification clicks
+const urlParams = new URLSearchParams(window.location.search);
+const showReservationId = urlParams.get('show_reservation');
+if (showReservationId) {
+    // Wait a bit for the page to load completely, then show the reservation modal
+    setTimeout(() => {
+        const reservationCard = document.querySelector(`[data-res-id="${showReservationId}"]`);
+        if (reservationCard && typeof openReservationModalFromCard === 'function') {
+            openReservationModalFromCard(reservationCard);
+            // Clean up the URL parameter
+            const cleanUrl = new URL(window.location);
+            cleanUrl.searchParams.delete('show_reservation');
+            window.history.replaceState({}, document.title, cleanUrl);
+        } else {
+            console.warn(`Reservation with ID ${showReservationId} not found or modal function not available`);
+        }
+    }, 1000);
 }
 
 // Ensure View buttons are bound after page load (in case SSR)

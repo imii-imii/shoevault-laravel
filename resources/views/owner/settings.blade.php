@@ -1307,7 +1307,7 @@ function initNotifications() {
     if (window.notificationManager) {
         console.log('notificationManager found, initializing...');
         try {
-            window.notificationManager.init();
+            window.notificationManager.init('{{ auth()->user()->role ?? "owner" }}');
             return true;
         } catch (e) {
             console.warn('notificationManager init failed:', e);

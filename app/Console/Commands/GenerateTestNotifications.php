@@ -29,33 +29,45 @@ class GenerateTestNotifications extends Command
     {
         $this->info('Generating test notifications...');
 
-        // Create some sample low stock notifications
-        $lowStockNotifications = [
-            [
-                'product_id' => 1,
-                'product_size_id' => 1,
-                'name' => 'Nike Air Max 270',
-                'size' => '9',
-                'stock' => 3,
-                'category' => 'men'
-            ],
-            [
-                'product_id' => 2,
-                'product_size_id' => 2,
-                'name' => 'Adidas Ultraboost 22',
-                'size' => '8',
-                'stock' => 2,
-                'category' => 'men'
-            ],
-            [
-                'product_id' => 3,
-                'product_size_id' => 3,
-                'name' => 'Converse Chuck Taylor',
-                'size' => '7',
-                'stock' => 1,
-                'category' => 'accessories'
-            ]
-        ];
+        // Get real products from the database for low stock notifications (POS inventory only)
+        $products = \App\Models\Product::with('sizes')->posInventory()->take(3)->get();
+        $lowStockNotifications = [];
+        
+        foreach ($products as $product) {
+            $firstSize = $product->sizes->first();
+            if ($firstSize) {
+                $lowStockNotifications[] = [
+                    'product_id' => $product->product_id,
+                    'product_size_id' => $firstSize->product_size_id,
+                    'name' => $product->name,
+                    'size' => $firstSize->size,
+                    'stock' => 3, // Simulate low stock
+                    'category' => $product->category
+                ];
+            }
+        }
+        
+        // Fallback to mock data if no products exist
+        if (empty($lowStockNotifications)) {
+            $lowStockNotifications = [
+                [
+                    'product_id' => 'SV-TEST-001',
+                    'product_size_id' => 'TEST-SIZE-001',
+                    'name' => 'Test Product 1',
+                    'size' => '9',
+                    'stock' => 3,
+                    'category' => 'men'
+                ],
+                [
+                    'product_id' => 'SV-TEST-002',
+                    'product_size_id' => 'TEST-SIZE-002',
+                    'name' => 'Test Product 2',
+                    'size' => '8',
+                    'stock' => 2,
+                    'category' => 'men'
+                ]
+            ];
+        }
 
         foreach ($lowStockNotifications as $data) {
             Notification::createLowStockNotification($data);

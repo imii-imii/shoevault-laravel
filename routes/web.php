@@ -48,6 +48,107 @@ Route::get('/size-converter', [ReservationController::class, 'sizeConverter'])->
 
 // AJAX routes for dynamic functionality
 Route::get('/api/products/filter', [ReservationController::class, 'getFilteredProducts'])->name('api.products.filter');
+
+// Test routes for notification cleanup
+Route::get('/test-notification-cleanup', function () {
+    $notificationService = app(\App\Services\NotificationService::class);
+    
+    $output = [];
+    $output[] = "=== Testing Notification Cleanup ===";
+    
+    // Check current notifications
+    $totalBefore = \App\Models\Notification::count();
+    $lowStockBefore = \App\Models\Notification::where('type', 'low_stock')->count();
+    $reservationBefore = \App\Models\Notification::where('type', 'new_reservation')->count();
+    
+    $output[] = "Before cleanup:";
+    $output[] = "- Total notifications: {$totalBefore}";
+    $output[] = "- Low stock notifications: {$lowStockBefore}";
+    $output[] = "- New reservation notifications: {$reservationBefore}";
+    
+    // Test low stock cleanup
+    if ($lowStockBefore > 0) {
+        $output[] = "";
+        $output[] = "=== Testing Low Stock Cleanup ===";
+        $lowStockNotification = \App\Models\Notification::where('type', 'low_stock')->first();
+        if ($lowStockNotification) {
+            $data = json_decode($lowStockNotification->data, true);
+            $productId = $data['product_id'] ?? null;
+            
+            if ($productId) {
+                $output[] = "Testing cleanup for product ID: {$productId}";
+                $notificationService->cleanupLowStockNotifications($productId);
+                
+                $lowStockAfter = \App\Models\Notification::where('type', 'low_stock')
+                    ->whereJsonContains('data->product_id', $productId)
+                    ->count();
+                
+                $output[] = "Low stock notifications for product {$productId} after cleanup: {$lowStockAfter}";
+            }
+        }
+    }
+    
+    // Test reservation cleanup
+    if ($reservationBefore > 0) {
+        $output[] = "";
+        $output[] = "=== Testing Reservation Cleanup ===";
+        $reservationNotification = \App\Models\Notification::where('type', 'new_reservation')->first();
+        if ($reservationNotification) {
+            $data = json_decode($reservationNotification->data, true);
+            $reservationId = $data['reservation_id'] ?? null;
+            
+            if ($reservationId) {
+                $output[] = "Testing cleanup for reservation ID: {$reservationId}";
+                $notificationService->cleanupNewReservationNotifications($reservationId);
+                
+                $reservationAfter = \App\Models\Notification::where('type', 'new_reservation')
+                    ->whereJsonContains('data->reservation_id', $reservationId)
+                    ->count();
+                
+                $output[] = "New reservation notifications for reservation {$reservationId} after cleanup: {$reservationAfter}";
+            }
+        }
+    }
+    
+    // Final count
+    $totalAfter = \App\Models\Notification::count();
+    $output[] = "";
+    $output[] = "=== Final Results ===";
+    $output[] = "Total notifications after cleanup: {$totalAfter}";
+    $output[] = "Notifications cleaned up: " . ($totalBefore - $totalAfter);
+    
+    return response()->json([
+        'success' => true,
+        'output' => $output
+    ]);
+});
+
+// Test route for generating notifications
+Route::get('/test-generate-notifications', function () {
+    // Generate some test notifications
+    $product = \App\Models\Product::first();
+    if ($product) {
+        $productSize = $product->productSizes()->first();
+        if ($productSize) {
+            \App\Models\Notification::create([
+                'type' => 'low_stock',
+                'message' => "Low stock alert for {$product->name}",
+                'data' => json_encode([
+                    'product_id' => $product->id,
+                    'product_size_id' => $productSize->id,
+                    'current_stock' => 2,
+                    'threshold' => 5
+                ]),
+                'target_roles' => json_encode(['Owner', 'Manager'])
+            ]);
+        }
+    }
+    
+    return response()->json([
+        'success' => true,
+        'message' => 'Test notification generated'
+    ]);
+});
 Route::get('/api/products/{id}/details', [ReservationController::class, 'getProductDetails'])->name('api.products.details');
 
 // Check for pending reservations before allowing cart checkout
