@@ -80,6 +80,11 @@
         .f-gauge .g-glow { filter: drop-shadow(0 8px 18px rgba(14, 165, 233, 0.08)); }
         .f-gauge .g-segment { transition: stroke-opacity .25s ease, transform .3s ease; }
         .f-gauge .g-center { transition: transform .25s ease; }
+        /* Predictive UI */
+        .odash-badge { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:9999px; font-size:11px; font-weight:800; letter-spacing:.2px; }
+        .odash-badge-predictive { background:linear-gradient(135deg,#ede9fe,#dbeafe); color:#6b21a8; border:1px solid #c4b5fd; box-shadow:0 4px 10px rgba(124,58,237,.12); }
+        .odash-pred-card { position:relative; overflow:hidden; border:1px dashed #c7d2fe; background:linear-gradient(180deg,#ffffff, #f8fafc); }
+        .odash-pred-card::before { content:""; position:absolute; inset:-40%; background:radial-gradient(600px 200px at 10% -20%, rgba(124,58,237,.08), transparent 60%); pointer-events:none; }
 
     /* Opening animations for cards */
         .reveal { opacity: 0; transform: translateY(12px) scale(.98); }
@@ -237,16 +242,25 @@
                 <div class="odash-filter-row" style="margin-top:12px;">
                     <div class="odash-filter-bar">
                         <label for="dbf-range" style="font-size:12px;color:#64748b;font-weight:700;">Range</label>
-                        <select id="dbf-range" class="odash-select" style="min-width:130px;">
+                        <select id="dbf-range" class="odash-select" style="min-width:160px;">
                             <option value="day">Day</option>
                             <option value="weekly">Week</option>
                             <option value="monthly">Month</option>
+                            <option value="quarterly">Quarter</option>
+                            <option value="yearly">Year</option>
                         </select>
                         <!-- Manual pickers (toggle visibility based on Range) -->
                         <div class="dbf-pickers" style="display:inline-flex; gap:8px; align-items:center;">
                             <input id="dbf-date" type="date" class="odash-input" style="display:none;" />
                             <input id="dbf-week" type="week" class="odash-input" style="display:none;" />
                             <input id="dbf-month" type="month" class="odash-input" style="display:none;" />
+                            <select id="dbf-quarter" class="odash-select" style="display:none; min-width:120px;">
+                                <option value="1">Q1 (Jan–Mar)</option>
+                                <option value="2">Q2 (Apr–Jun)</option>
+                                <option value="3">Q3 (Jul–Sep)</option>
+                                <option value="4">Q4 (Oct–Dec)</option>
+                            </select>
+                            <input id="dbf-year" type="number" class="odash-input" placeholder="Year" min="2000" max="2100" step="1" style="display:none; width:100px;" />
                         </div>
                         <div class="odash-filter-controls" style="display:flex;align-items:center;gap:8px;margin-left:12px;margin-right:20px;flex:1;justify-content:center;">
                             <button id="dbf-prev" class="odash-btn" type="button" aria-label="Previous"><i class="fas fa-chevron-left"></i></button>
@@ -314,13 +328,56 @@
                     </div>
                 </div>
 
+                <!-- Predictive Analytics Header -->
+                <div class="odash-row" id="odash-prediction-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:12px;">
+                    <div>
+                        <div class="odash-title" style="font-size:16px; color:#1e3a8a;">Expected Sales (Predictions)</div>
+                        <div class="sub" style="font-size:12px; color:#64748b;">Expected sales for the next periods based on historical averages.</div>
+                    </div>
+                    <span class="odash-badge odash-badge-predictive" title="These are predictive estimates based on past performance."><i class="fas fa-wand-magic-sparkles"></i> Predictive</span>
+                </div>
+
+                <!-- Predictive Analytics KPIs (Expected Sales) -->
+                <div class="odash-row" id="odash-prediction-kpis" style="display:grid; grid-template-columns: repeat(5, 1fr); gap:12px; margin-top:12px;">
+                    <div class="odash-card odash-pred-card" style="padding:12px;">
+                        <div class="odash-title" style="font-size:12px; color:#64748b;">Next Day</div>
+                        <div id="kpi-pred-day" class="odash-kpi-value" style="font-size:20px; font-weight:700; color:#1e3a8a;">—</div>
+                        <div class="sub" style="font-size:11px; color:#64748b;">Expected sales for this prediction</div>
+                    </div>
+                    <div class="odash-card odash-pred-card" style="padding:12px;">
+                        <div class="odash-title" style="font-size:12px; color:#64748b;">Next Week</div>
+                        <div id="kpi-pred-week" class="odash-kpi-value" style="font-size:20px; font-weight:700; color:#1e3a8a;">—</div>
+                        <div class="sub" style="font-size:11px; color:#64748b;">Expected sales for this prediction</div>
+                    </div>
+                    <div class="odash-card odash-pred-card" style="padding:12px;">
+                        <div class="odash-title" style="font-size:12px; color:#64748b;">Next Month</div>
+                        <div id="kpi-pred-month" class="odash-kpi-value" style="font-size:20px; font-weight:700; color:#1e3a8a;">—</div>
+                        <div class="sub" style="font-size:11px; color:#64748b;">Expected sales for this prediction</div>
+                    </div>
+                    <div class="odash-card odash-pred-card" style="padding:12px;">
+                        <div class="odash-title" style="font-size:12px; color:#64748b;">Next Quarter</div>
+                        <div id="kpi-pred-quarter" class="odash-kpi-value" style="font-size:20px; font-weight:700; color:#1e3a8a;">—</div>
+                        <div class="sub" style="font-size:11px; color:#64748b;">Expected sales for this prediction</div>
+                    </div>
+                    <div class="odash-card odash-pred-card" style="padding:12px;">
+                        <div class="odash-title" style="font-size:12px; color:#64748b;">Next Year</div>
+                        <div id="kpi-pred-year" class="odash-kpi-value" style="font-size:20px; font-weight:700; color:#1e3a8a;">—</div>
+                        <div class="sub" style="font-size:11px; color:#64748b;">Expected sales for this prediction</div>
+                    </div>
+                </div>
+
                 <!-- Popular Products and Stock Levels -->
                 <div class="odash-row-products">
                     <!-- Popular Products List (Scrollable) -->
                     <div class="odash-card">
                         <div class="odash-card-header" style="justify-content:space-between; align-items:center;">
                             <div class="odash-title">Popular Products</div>
-                            <!-- Removed popular products month/year selectors (#odash-popular-month, #odash-popular-year) -->
+                            <select id="odash-popular-category" class="odash-select" style="min-width:180px;">
+                                <option value="all" selected>All Categories</option>
+                                <option value="men">Men</option>
+                                <option value="women">Women</option>
+                                <option value="accessories">Accessories</option>
+                            </select>
                         </div>
                         <div class="odash-products-list" id="odash-popular-products">
                             <!-- Populated by JS -->
@@ -411,6 +468,8 @@ window.laravelData = {
         popularProducts: '{{ route("owner.popular-products") }}',
         apiDashboardData: '{{ route("owner.api.dashboard-data") }}',
         apiStockLevels: '{{ route("owner.api.stock-levels") }}',
+        apiForecast: '{{ route("owner.api.forecast") }}',
+        apiForecastPredictions: '{{ route("owner.api.forecast.predictions") }}',
         settings: '{{ route("owner.settings") }}'
     }
 };
@@ -479,6 +538,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const dateInput = document.getElementById('dbf-date');
         const weekInput = document.getElementById('dbf-week');
         const monthInput = document.getElementById('dbf-month');
+        const quarterSelect = document.getElementById('dbf-quarter');
+        const yearInput = document.getElementById('dbf-year');
         const prevBtn = document.getElementById('dbf-prev');
         const nextBtn = document.getElementById('dbf-next');
         const windowPill = document.getElementById('dbf-window-text');
@@ -491,6 +552,8 @@ document.addEventListener('DOMContentLoaded', function() {
             dateInput.style.display = range === 'day' ? '' : 'none';
             weekInput.style.display = range === 'weekly' ? '' : 'none';
             monthInput.style.display = range === 'monthly' ? '' : 'none';
+            quarterSelect.style.display = range === 'quarterly' ? '' : 'none';
+            yearInput.style.display = (range === 'quarterly' || range === 'yearly') ? '' : 'none';
         }
 
         function normalizeWeekValue(dt){
@@ -512,6 +575,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 weekInput.value = normalizeWeekValue(anchorDate);
             } else if (range === 'monthly') {
                 monthInput.value = `${anchorDate.getFullYear()}-${String(anchorDate.getMonth()+1).padStart(2,'0')}`;
+            } else if (range === 'quarterly') {
+                const q = Math.floor(anchorDate.getMonth()/3) + 1;
+                quarterSelect.value = String(q);
+                yearInput.value = String(anchorDate.getFullYear());
+            } else if (range === 'yearly') {
+                yearInput.value = String(anchorDate.getFullYear());
             }
         }
 
@@ -539,6 +608,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 const sameMonth = today.getFullYear()===d.getFullYear() && today.getMonth()===d.getMonth();
                 if (sameMonth) text = 'This Month';
                 else text = d.toLocaleDateString('en-US',{month:'long', year:'numeric'});
+            } else if (range === 'quarterly') {
+                const q = Math.floor(d.getMonth()/3) + 1;
+                const today = new Date();
+                const tq = Math.floor(today.getMonth()/3) + 1;
+                if (today.getFullYear()===d.getFullYear() && tq===q) text = `This Quarter`;
+                else text = `Q${q} ${d.getFullYear()}`;
+            } else if (range === 'yearly') {
+                const today = new Date();
+                if (today.getFullYear()===d.getFullYear()) text = 'This Year';
+                else text = String(d.getFullYear());
             }
             windowPill.textContent = text;
         }
@@ -547,6 +626,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (range === 'day') anchorDate.setDate(anchorDate.getDate() + dir);
             else if (range === 'weekly') anchorDate.setDate(anchorDate.getDate() + dir*7);
             else if (range === 'monthly') anchorDate.setMonth(anchorDate.getMonth() + dir);
+            else if (range === 'quarterly') anchorDate.setMonth(anchorDate.getMonth() + dir*3);
+            else if (range === 'yearly') anchorDate.setFullYear(anchorDate.getFullYear() + dir);
             updateInputsFromAnchor(range);
             updateWindowText(range);
             // trigger forecast refresh (rangeSelect change already wired in forecast initializer)
@@ -560,6 +641,13 @@ document.addEventListener('DOMContentLoaded', function() {
             if (r === 'monthly') {
                 // Default to October 2025 for better demo data
                 anchorDate = new Date(2025, 9, 1); // October 1, 2025
+            } else if (r === 'quarterly') {
+                const today = new Date();
+                const qStartMonth = Math.floor(today.getMonth()/3)*3; // 0,3,6,9
+                anchorDate = new Date(today.getFullYear(), qStartMonth, 1);
+            } else if (r === 'yearly') {
+                const today = new Date();
+                anchorDate = new Date(today.getFullYear(), 0, 1);
             } else {
                 // For day and week, use today
                 anchorDate = new Date(); anchorDate.setHours(0,0,0,0);
@@ -608,6 +696,31 @@ document.addEventListener('DOMContentLoaded', function() {
             refreshDashboardData();
         });
 
+        // Quarter and Year inputs
+        quarterSelect.addEventListener('change', ()=>{
+            const q = parseInt(quarterSelect.value || '1', 10);
+            const y = parseInt(yearInput.value || String(new Date().getFullYear()), 10);
+            const startMonth = (q-1)*3; // 0,3,6,9
+            anchorDate = new Date(y, startMonth, 1);
+            updateWindowText('quarterly');
+            document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:'quarterly', anchorDate }}));
+            refreshDashboardData();
+        });
+        yearInput.addEventListener('change', ()=>{
+            const r = rangeSelect.value;
+            const y = parseInt(yearInput.value || String(new Date().getFullYear()), 10);
+            if (r === 'quarterly') {
+                const q = parseInt(quarterSelect.value || '1', 10);
+                const startMonth = (q-1)*3;
+                anchorDate = new Date(y, startMonth, 1);
+            } else if (r === 'yearly') {
+                anchorDate = new Date(y, 0, 1);
+            }
+            updateWindowText(r);
+            document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:r, anchorDate }}));
+            refreshDashboardData();
+        });
+
         // Initialize default
         setVisibility(rangeSelect.value);
         updateInputsFromAnchor(rangeSelect.value);
@@ -632,6 +745,8 @@ function refreshDashboardData() {
     const dateInput = document.getElementById('dbf-date');
     const weekInput = document.getElementById('dbf-week');
     const monthInput = document.getElementById('dbf-month');
+    const quarterSelect = document.getElementById('dbf-quarter');
+    const yearInput = document.getElementById('dbf-year');
     
     if (!rangeSelect) return;
     
@@ -678,6 +793,18 @@ function refreshDashboardData() {
             endDate = new Date(2025, 10, 0); // Last day of October
             endDate.setHours(23, 59, 59, 999);
         }
+    } else if (range === 'quarterly') {
+        const qVal = parseInt(quarterSelect.value || '1', 10);
+        const yVal = parseInt(yearInput.value || String(now.getFullYear()), 10);
+        const startMonth = (qVal - 1) * 3; // 0,3,6,9
+        startDate = new Date(yVal, startMonth, 1);
+        endDate = new Date(yVal, startMonth + 3, 0); // last day of quarter
+        endDate.setHours(23, 59, 59, 999);
+    } else if (range === 'yearly') {
+        const yVal = parseInt(yearInput.value || String(now.getFullYear()), 10);
+        startDate = new Date(yVal, 0, 1);
+        endDate = new Date(yVal, 12, 0);
+        endDate.setHours(23, 59, 59, 999);
     }
     
     // Format dates for API
@@ -893,52 +1020,27 @@ function initOwnerForecastCharts() {
     let offset = 0; // relative adjustment from anchor
     let anchorDate = new Date(); // set by filter pickers
 
-    function getForecastData(range, mode, offset = 0) {
-        if (mode === 'demand') {
-            if (range === 'weekly') {
-                return {
-                        labels: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
-                        menValues:   [50, 62, 70, 58, 78, 95, 88].map(v => Math.max(5, Math.round(v * (1 + 0.05*offset)))),
-                        womenValues: [44, 48, 52, 47, 60, 75, 68].map(v => Math.max(4, Math.round(v * (1 + 0.05*offset)))),
-                        accValues:   [20, 25, 28, 24, 30, 35, 32].map(v => Math.max(2, Math.round(v * (1 + 0.05*offset))))
-                };
-            } else if (range === 'monthly') {
-                const labels = Array.from({length: 30}, (_, i) => `${i+1}`);
-                return {
-                    labels,
-                        menValues:   [20,24,22,28,35,30,32,40,44,38,34,42,48,46,52,49,56,52,58,60,57,62,60,64,66,64,70,75,72,78].map(v => Math.max(5, Math.round(v * (1 + 0.04*offset)))),
-                        womenValues: [18,20,19,23,27,24,26,30,34,31,29,33,36,36,40,38,42,40,44,45,44,48,45,48,50,50,52,55,53,55].map(v => Math.max(4, Math.round(v * (1 + 0.04*offset)))),
-                        accValues:   [8,  9, 10, 11, 12, 11, 12, 14, 15, 14, 13, 14, 16, 16, 18, 17, 18, 18, 19, 20, 19, 21, 20, 21, 22, 22, 23, 24, 23, 24].map(v => Math.max(1, Math.round(v * (1 + 0.04*offset))))
-                };
+    async function fetchForecast(range, mode, anchor) {
+        try {
+            const base = (window.laravelData && window.laravelData.routes && window.laravelData.routes.apiForecast) ? window.laravelData.routes.apiForecast : '/owner/api/forecast';
+            const url = new URL(base, window.location.origin);
+            url.searchParams.set('type', mode);
+            url.searchParams.set('range', range);
+            if (anchor) {
+                const y = anchor.getFullYear();
+                const m = String(anchor.getMonth()+1).padStart(2,'0');
+                const d = String(anchor.getDate()).padStart(2,'0');
+                url.searchParams.set('anchor_date', `${y}-${m}-${d}`);
             }
-            // default day (hourly)
-            return {
-                labels: ['9 AM','10 AM','11 AM','12 PM','1 PM','2 PM','3 PM','4 PM','5 PM','6 PM','7 PM','8 PM'],
-                    menValues:   [6, 9, 11, 13, 18, 14, 12, 11, 15, 20, 14, 10].map(v => Math.max(2, Math.round(v * (1 + 0.06*offset)))),
-                    womenValues: [5, 7,  9, 11, 16, 12, 10,  9, 12, 16, 11,  8].map(v => Math.max(2, Math.round(v * (1 + 0.06*offset)))),
-                    accValues:   [2, 3,  4,  5,  6,  5,  5,  4,  6,  7,  5,  4].map(v => Math.max(1, Math.round(v * (1 + 0.06*offset))))
-            };
+            const res = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
+            const json = await res.json();
+            if (!res.ok || json.success === false) throw new Error(json.message || 'Failed to fetch forecast');
+            const payload = json.data || {};
+            return payload; // { labels, datasets }
+        } catch (e) {
+            console.error('Forecast fetch error:', e);
+            return { labels: [], datasets: {} };
         }
-        // sales mode
-        if (range === 'weekly') {
-            return {
-                labels: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
-                    posValues: [80, 95, 110, 90, 120, 150, 130].map(v => Math.max(10, Math.round(v * (1 + 0.05*offset)))),
-                    resvValues: [40, 55, 60, 50, 70, 90, 80].map(v => Math.max(8, Math.round(v * (1 + 0.05*offset))))
-            };
-        } else if (range === 'monthly') {
-            // 30 days mock
-            const labels = Array.from({length: 30}, (_, i) => `${i+1}`);
-                const posValues = [40,48,42,52,62,50,58,72,78,68,62,75,85,80,90,88,98,95,100,105,102,110,108,115,118,115,125,130,128,135].map(v => Math.max(10, Math.round(v * (1 + 0.04*offset))));
-                const resvValues = [20,24,23,28,33,28,30,38,42,37,36,40,45,45,50,47,52,50,55,57,56,60,57,60,62,63,65,70,67,70].map(v => Math.max(6, Math.round(v * (1 + 0.04*offset))));
-            return { labels, posValues, resvValues };
-        }
-        // default day (hourly)
-        return {
-            labels: ['9 AM','10 AM','11 AM','12 PM','1 PM','2 PM','3 PM','4 PM','5 PM','6 PM','7 PM','8 PM'],
-                posValues: [8, 12, 16, 20, 32, 23, 21, 18, 26, 36, 25, 16].map(v => Math.max(3, Math.round(v * (1 + 0.06*offset)))),
-                resvValues: [4, 6, 8, 10, 16, 12, 11, 10, 14, 19, 13, 9].map(v => Math.max(2, Math.round(v * (1 + 0.06*offset))))
-        };
     }
 
     function buildGradient(ctx, canvas) {
@@ -1000,7 +1102,6 @@ function initOwnerForecastCharts() {
             start = new Date(dt.getFullYear(), dt.getMonth(), 1);
             end = new Date(dt.getFullYear(), dt.getMonth() + 1, 0);
             if (offset === 0) return 'This Month';
-            if (offset === 1) return 'Next Month';
             return `${start.toLocaleString('en-US', { month: 'long', year: 'numeric' })}`;
         } else if (range === 'weekly') {
             const dt = new Date(base);
@@ -1012,14 +1113,12 @@ function initOwnerForecastCharts() {
             end = new Date(start);
             end.setDate(start.getDate() + 6);
             if (offset === 0) return 'This Week';
-            if (offset === 1) return 'Next Week';
             return `${formatDateMDY(start)} – ${formatDateMDY(end)}`;
         }
         // day
         const d = new Date(base);
         d.setDate(d.getDate() + offset);
         if (offset === 0) return 'Today';
-        if (offset === 1) return 'Tomorrow';
         return `${formatDateMDY(d)}`;
     }
 
@@ -1029,6 +1128,8 @@ function initOwnerForecastCharts() {
         const base = new Date(anchorDate.getTime());
         if (range === 'monthly') base.setMonth(base.getMonth()+offset);
         else if (range === 'weekly') base.setDate(base.getDate()+offset*7);
+        else if (range === 'quarterly') base.setMonth(base.getMonth()+offset*3);
+        else if (range === 'yearly') base.setFullYear(base.getFullYear()+offset);
         else base.setDate(base.getDate()+offset);
         // Build text similar to previous behavior
         const today = new Date(); today.setHours(0,0,0,0);
@@ -1043,29 +1144,74 @@ function initOwnerForecastCharts() {
                 const wd = base.getDay(); const start=new Date(base.getTime()); start.setDate(base.getDate()-wd); const end=new Date(start.getTime()); end.setDate(start.getDate()+6);
                 windowText.textContent = `${start.toLocaleDateString('en-US',{month:'short',day:'2-digit'})} – ${end.toLocaleDateString('en-US',{month:'short',day:'2-digit'})}`;
             }
+        } else if (range === 'quarterly') {
+            const tq = Math.floor(today.getMonth()/3)+1;
+            const bq = Math.floor(base.getMonth()/3)+1;
+            windowText.textContent = (today.getFullYear()===base.getFullYear() && tq===bq) ? 'This Quarter' : `Q${bq} ${base.getFullYear()}`;
+        } else if (range === 'yearly') {
+            windowText.textContent = (today.getFullYear()===base.getFullYear()) ? 'This Year' : String(base.getFullYear());
         } else {
             const diffDays = Math.round((base.getTime()-today.getTime())/86400000);
-            windowText.textContent = diffDays===0 ? 'Today' : (diffDays===1 ? 'Tomorrow' : (diffDays===-1 ? 'Yesterday' : base.toLocaleDateString('en-US',{month:'short',day:'2-digit',year:'numeric'})));
+            windowText.textContent = diffDays===0 ? 'Today' : base.toLocaleDateString('en-US',{month:'short',day:'2-digit',year:'numeric'});
         }
     }
 
     function updateNavButtons(range, offset) {
         if (!nextBtn) return;
-        const probe = new Date(anchorDate.getTime());
-        if (range === 'monthly') probe.setMonth(probe.getMonth()+offset);
-        else if (range === 'weekly') probe.setDate(probe.getDate()+offset*7);
-        else probe.setDate(probe.getDate()+offset);
         const today = new Date(); today.setHours(0,0,0,0);
+
+        // Helper: determine if current window is the present period
+        const isPresent = (() => {
+            const base = new Date(anchorDate.getTime());
+            if (range === 'monthly') return base.getFullYear() === today.getFullYear() && base.getMonth() === today.getMonth();
+            if (range === 'weekly') {
+                const isoWeek = (d)=>{ const c=new Date(d.getTime()); c.setDate(c.getDate()+3-((c.getDay()+6)%7)); const w1=new Date(c.getFullYear(),0,4); return 1+Math.round(((c-w1)/86400000-3+((w1.getDay()+6)%7))/7); };
+                return isoWeek(base) === isoWeek(today) && base.getFullYear() === today.getFullYear();
+            }
+            if (range === 'quarterly') {
+                const bq = Math.floor(base.getMonth()/3), tq = Math.floor(today.getMonth()/3);
+                return base.getFullYear() === today.getFullYear() && bq === tq;
+            }
+            if (range === 'yearly') return base.getFullYear() === today.getFullYear();
+            // day
+            return base.getFullYear()===today.getFullYear() && base.getMonth()===today.getMonth() && base.getDate()===today.getDate();
+        })();
+
+        if (isPresent) {
+            nextBtn.disabled = true;
+            return;
+        }
+
+        // Else, prevent navigating into future period by checking the next window start
+        const probeNext = new Date(anchorDate.getTime());
+        if (range === 'monthly') probeNext.setMonth(probeNext.getMonth()+1);
+        else if (range === 'weekly') probeNext.setDate(probeNext.getDate()+7);
+        else if (range === 'quarterly') probeNext.setMonth(probeNext.getMonth()+3);
+        else if (range === 'yearly') probeNext.setFullYear(probeNext.getFullYear()+1);
+        else probeNext.setDate(probeNext.getDate()+1); // day
+
         let disable = false;
-        if (range === 'monthly') disable = (probe.getFullYear()>today.getFullYear()) || (probe.getFullYear()===today.getFullYear() && probe.getMonth()>=today.getMonth()+1);
-        else if (range === 'weekly') disable = (probe.getTime() - today.getTime())/86400000 >= 7; // next whole week ahead
-        else disable = (probe.getTime() - today.getTime())/86400000 >= 1; // next day ahead
+        if (range === 'monthly') {
+            disable = (probeNext.getFullYear()>today.getFullYear()) || (probeNext.getFullYear()===today.getFullYear() && probeNext.getMonth()>today.getMonth());
+        } else if (range === 'weekly') {
+            // if the start day of next window is after today
+            const startOfNext = new Date(probeNext.getTime()); startOfNext.setHours(0,0,0,0);
+            disable = startOfNext.getTime() > today.getTime();
+        } else if (range === 'quarterly') {
+            const tq = Math.floor(today.getMonth()/3);
+            const pq = Math.floor(probeNext.getMonth()/3);
+            disable = (probeNext.getFullYear()>today.getFullYear()) || (probeNext.getFullYear()===today.getFullYear() && pq>tq);
+        } else if (range === 'yearly') {
+            disable = probeNext.getFullYear() > today.getFullYear();
+        } else {
+            disable = (probeNext.getTime() - today.getTime())/86400000 > 0; // day-level future
+        }
         nextBtn.disabled = disable;
     }
 
-    function updateForecast(range, mode) {
-        const data = getForecastData(range, mode, offset);
-        const labels = data.labels;
+    async function updateForecast(range, mode) {
+        const payload = await fetchForecast(range, mode, anchorDate);
+        const labels = payload.labels || [];
         
         // Destroy chart if switching modes to change dataset structure
         if (forecastChart && currentMode !== mode) {
@@ -1073,8 +1219,25 @@ function initOwnerForecastCharts() {
             forecastChart = null;
         }
 
+        // When viewing sales mode, also refresh predictive KPI cards (expected future revenue)
+        if (mode === 'sales') {
+            fetchAndRenderPredictions();
+            const kpiRow = document.getElementById('odash-prediction-kpis');
+            const kpiHeader = document.getElementById('odash-prediction-header');
+            if (kpiRow) kpiRow.style.display = 'grid';
+            if (kpiHeader) kpiHeader.style.display = 'flex';
+        }
+        else {
+            const kpiRow = document.getElementById('odash-prediction-kpis');
+            const kpiHeader = document.getElementById('odash-prediction-header');
+            if (kpiRow) kpiRow.style.display = 'none';
+            if (kpiHeader) kpiHeader.style.display = 'none';
+        }
+
         if (mode === 'demand') {
-            const { menValues, womenValues, accValues } = data;
+            const menValues = (payload.datasets && Array.isArray(payload.datasets.men)) ? payload.datasets.men : [];
+            const womenValues = (payload.datasets && Array.isArray(payload.datasets.women)) ? payload.datasets.women : [];
+            const accValues = (payload.datasets && Array.isArray(payload.datasets.accessories)) ? payload.datasets.accessories : [];
             const menPeaks = getTopIndices(menValues, 2);
             const womenPeaks = getTopIndices(womenValues, 2);
             const accPeaks = getTopIndices(accValues, 2);
@@ -1136,7 +1299,8 @@ function initOwnerForecastCharts() {
         }
 
         // sales mode
-    const { posValues, resvValues } = data;
+        const posValues = (payload.datasets && Array.isArray(payload.datasets.pos)) ? payload.datasets.pos : [];
+        const resvValues = (payload.datasets && Array.isArray(payload.datasets.reservation)) ? payload.datasets.reservation : [];
         const posPeaks = getTopIndices(posValues, 2);
         const resvPeaks = getTopIndices(resvValues, 2);
         const posPointRadius = posValues.map((_, i) => posPeaks.includes(i) ? 6 : 3);
@@ -1256,6 +1420,44 @@ function initOwnerForecastCharts() {
         }
     }
 
+    // Fetch predictive analytics (next periods expected sales) and render KPI cards
+    async function fetchAndRenderPredictions() {
+        const route = window.laravelData?.routes?.apiForecastPredictions;
+        if (!route) return;
+        try {
+            const res = await fetch(route, { headers: { 'Accept':'application/json' } });
+            const json = await res.json();
+            if (!res.ok || json.success === false) throw new Error(json.message || 'Predictions fetch failed');
+            const data = json.data || {};
+            const map = {
+                day: document.getElementById('kpi-pred-day'),
+                week: document.getElementById('kpi-pred-week'),
+                month: document.getElementById('kpi-pred-month'),
+                quarter: document.getElementById('kpi-pred-quarter'),
+                year: document.getElementById('kpi-pred-year')
+            };
+            const fmt = (v)=> (v===null||v===undefined) ? '—' : '₱'+Number(v).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
+            Object.entries(map).forEach(([k, el])=> { if (el) el.textContent = fmt(data[k]); });
+            animatePredictionCards();
+        } catch (e) {
+            console.warn('Prediction KPI error:', e);
+        }
+    }
+
+    function animatePredictionCards(){
+        if (!window.anime) return;
+        const cards = document.querySelectorAll('#odash-prediction-kpis .odash-card');
+        anime({
+            targets: cards,
+            opacity: [0,1],
+            translateY: [12,0],
+            scale: [0.96,1],
+            delay: anime.stagger(70),
+            duration: 520,
+            easing: 'easeOutQuad'
+        });
+    }
+
     // Initialize with current select value or 'day'; also derive anchor from pickers if set
     const initialRange = rangeSelect && rangeSelect.value ? rangeSelect.value : 'day';
     // Read anchor from pickers
@@ -1293,25 +1495,7 @@ function initOwnerForecastCharts() {
         });
     }
 
-    if (prevBtn) {
-        prevBtn.addEventListener('click', () => {
-            offset -= 1;
-            const r = rangeSelect ? rangeSelect.value : 'day';
-            updateForecast(r, currentMode);
-            updateWindowText(r, offset);
-            updateNavButtons(r, offset);
-        });
-    }
-    if (nextBtn) {
-        nextBtn.addEventListener('click', () => {
-            if (offset >= 1) return; // guard: only allow up to +1 into the future
-            offset += 1;
-            const r = rangeSelect ? rangeSelect.value : 'day';
-            updateForecast(r, currentMode);
-            updateWindowText(r, offset);
-            updateNavButtons(r, offset);
-        });
-    }
+    // Note: Prev/Next buttons are handled by the global filter bar which dispatches events.
 
     // React to manual picker changes from the global filter bar
     document.addEventListener('odash:filter-window-updated', (ev)=>{
@@ -1586,20 +1770,54 @@ function initPopularProducts() {
     // Month/year selects removed; default to current month/year values (not user-adjustable)
 
     const dd = (window.laravelData && window.laravelData.dashboardData) ? window.laravelData.dashboardData : {};
-    let currentRange = 'monthly';
+    // Initialize current range from global filter if present
+    const rangeEl = document.getElementById('dbf-range');
+    let currentRange = rangeEl ? (rangeEl.value || 'monthly') : 'monthly';
+    let currentStart = null; // YYYY-MM-DD
+    let currentEnd = null;   // YYYY-MM-DD
 
-    function normalizeFromCategories(srcObj) {
+    const iso = (d)=> new Date(d).toISOString().split('T')[0];
+    function windowFromAnchor(anchorDate, range){
+        const d = new Date(anchorDate);
+        let s, e;
+        if (range === 'day') {
+            s = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0,0,0,0);
+            e = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23,59,59,999);
+        } else if (range === 'weekly') {
+            // anchorDate is start of window per filter bar logic
+            s = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0,0,0,0);
+            e = new Date(s); e.setDate(s.getDate()+6); e.setHours(23,59,59,999);
+        } else if (range === 'monthly') {
+            s = new Date(d.getFullYear(), d.getMonth(), 1, 0,0,0,0);
+            e = new Date(d.getFullYear(), d.getMonth()+1, 0, 23,59,59,999);
+        } else if (range === 'quarterly') {
+            const qStartMonth = Math.floor(d.getMonth()/3)*3;
+            s = new Date(d.getFullYear(), qStartMonth, 1, 0,0,0,0);
+            e = new Date(d.getFullYear(), qStartMonth+3, 0, 23,59,59,999);
+        } else if (range === 'yearly') {
+            s = new Date(d.getFullYear(), 0, 1, 0,0,0,0);
+            e = new Date(d.getFullYear(), 12, 0, 23,59,59,999);
+        } else {
+            s = new Date(d.getFullYear(), d.getMonth(), 1, 0,0,0,0);
+            e = new Date(d.getFullYear(), d.getMonth()+1, 0, 23,59,59,999);
+        }
+        return { start: iso(s), end: iso(e) };
+    }
+
+    function normalizeFromCategories(srcObj, categoryFilter) {
         const out = [];
         ['men','women','accessories'].forEach(cat => {
             const arr = srcObj?.[cat];
             if (Array.isArray(arr)) {
                 arr.forEach(p => out.push({
                     name: p.name || p.product_name || 'Unknown',
+                    category: cat,
                     sales: Number(p.sold ?? p.total_sold ?? p.sales ?? 0)
                 }));
             }
         });
-        return out.sort((a,b)=> b.sales - a.sales);
+        const filtered = (!categoryFilter || categoryFilter==='all') ? out : out.filter(x => x.category === categoryFilter);
+        return filtered.sort((a,b)=> b.sales - a.sales);
     }
 
     function adjustByRange(list, range) {
@@ -1607,8 +1825,9 @@ function initPopularProducts() {
         return list.map(it => ({ ...it, sales: Math.max(0, Math.round(it.sales * factor)) }));
     }
 
-    async function fetchPopularFromApi(range, month, year) {
+    async function fetchPopularFromApi(params) {
         try {
+            const { range, month, year, category, start, end } = params || {};
             const base = window.laravelData?.routes?.popularProducts;
             if (!base) return null;
             const url = new URL(base, window.location.origin);
@@ -1616,23 +1835,32 @@ function initPopularProducts() {
             if (month) url.searchParams.set('month', String(month));
             if (year) url.searchParams.set('year', String(year));
             url.searchParams.set('limit', '24');
+            if (category && category !== 'all') url.searchParams.set('category', category);
+            if (start) url.searchParams.set('start', start);
+            if (end) url.searchParams.set('end', end);
             const res = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
             const data = await res.json();
             if (!res.ok || data.success === false) throw new Error(data.message || 'Failed');
             const items = Array.isArray(data.items) ? data.items : [];
-            return items.map(i => ({ name: i.name || i.product_name || 'Unknown', sales: Number(i.sold ?? i.sales ?? 0) }))
+            return items.map(i => ({ name: i.name || i.product_name || 'Unknown', category: i.category || '', sales: Number(i.sold ?? i.sales ?? 0) }))
                         .sort((a,b)=> b.sales - a.sales);
         } catch (e) {
             return null;
         }
     }
 
-    async function getPopularList(range, month, year) {
-        // Prefer API if available
-        const apiList = await fetchPopularFromApi(range, month, year);
-        if (apiList && apiList.length) return apiList;
+    async function getPopularList(range, month, year, category, start, end) {
+        // Prefer API; even an empty list means "no data" and should not fallback to mocks
+        const apiList = await fetchPopularFromApi({ range, month, year, category, start, end });
+        if (Array.isArray(apiList)) {
+            // If backend didn't filter category, apply client-side filter when requested
+            if (category && category !== 'all') {
+                return apiList.filter(i => (i.category||'').toLowerCase() === category);
+            }
+            return apiList;
+        }
 
-        // Try explicit keyed objects first: popularProducts[range]
+        // Fallback only to exact-range preloaded dashboard data if available
         if (dd.popularProducts && typeof dd.popularProducts === 'object' && dd.popularProducts[range]) {
             const src = dd.popularProducts[range];
             if (Array.isArray(src)) {
@@ -1640,49 +1868,21 @@ function initPopularProducts() {
                           .sort((a,b)=> b.sales - a.sales);
             }
             if (typeof src === 'object') {
-                return normalizeFromCategories(src);
+                return normalizeFromCategories(src, category);
             }
         }
-        // Try alternative flat keys
-        const altKey = range === 'monthly' ? 'popularProductsMonthly' : (range === 'quarterly' ? 'popularProductsQuarterly' : 'popularProductsYearly');
-        if (dd[altKey]) {
-            const src = dd[altKey];
-            if (Array.isArray(src)) {
-                return src.map(p => ({ name: p.name || p.product_name || 'Unknown', sales: Number(p.sold ?? p.total_sold ?? p.sales ?? 0) }))
-                          .sort((a,b)=> b.sales - a.sales);
-            }
-            if (typeof src === 'object') {
-                return normalizeFromCategories(src);
-            }
-        }
-        // Baseline categories or mock
-        let base = [];
-        if (dd.popularProducts && typeof dd.popularProducts === 'object') {
-            base = normalizeFromCategories(dd.popularProducts);
-        }
-        if (!base.length) {
-            base = [
-                { name: 'Nike Air Max 270', sales: 245 },
-                { name: 'Adidas Ultraboost 22', sales: 198 },
-                { name: 'Puma RS-X', sales: 176 },
-                { name: 'New Balance 574', sales: 142 },
-                { name: 'Converse Chuck Taylor', sales: 128 },
-                { name: 'Vans Old Skool', sales: 115 },
-                { name: 'Reebok Classic Leather', sales: 98 },
-                { name: 'Asics Gel-Kayano', sales: 87 },
-                { name: 'Skechers D\'Lites', sales: 76 },
-                { name: 'Fila Disruptor II', sales: 65 },
-                { name: 'Under Armour HOVR', sales: 54 },
-                { name: 'Brooks Ghost 14', sales: 43 }
-            ];
-        }
-        return adjustByRange(base, range);
+        // No data for this timeline
+        return [];
     }
 
-    async function render(range) {
-    const month = now.getMonth() + 1;
-    const year = thisYear;
-        const list = await getPopularList(range, month, year);
+    async function render(range, category) {
+        const month = now.getMonth() + 1;
+        const year = thisYear;
+        const list = await getPopularList(range, month, year, category, currentStart, currentEnd);
+        if (!list || list.length === 0) {
+            container.innerHTML = '<div class="odash-empty" style="padding:12px; color:#6b7280; text-align:center;">No value for this timeline.</div>';
+            return;
+        }
         let html = '';
         list.slice(0, 12).forEach((product, index) => {
             const isTop3 = index < 3;
@@ -1701,9 +1901,75 @@ function initPopularProducts() {
     }
 
     // Initial render
-    render(currentRange);
-    // Re-render on changes
-    // No listeners: filters removed
+    const catSelect = document.getElementById('odash-popular-category');
+    let currentCategory = catSelect ? catSelect.value : 'all';
+    // Initialize window from current filter inputs if available
+    try {
+        const anchorElDate = document.getElementById('dbf-date');
+        const weekEl = document.getElementById('dbf-week');
+        const monthEl = document.getElementById('dbf-month');
+        const quarterEl = document.getElementById('dbf-quarter');
+        const yearEl = document.getElementById('dbf-year');
+        let anchor = new Date();
+        if (currentRange === 'day' && anchorElDate?.value) anchor = new Date(anchorElDate.value);
+        else if (currentRange === 'weekly' && weekEl?.value) {
+            const [y,w] = weekEl.value.split('-W');
+            // Simple ISO week to date start (Mon)
+            const simple = new Date(parseInt(y,10),0,1 + (parseInt(w,10)-1)*7);
+            const dow = simple.getDay();
+            if (dow <= 4) simple.setDate(simple.getDate() - dow + 1); else simple.setDate(simple.getDate() + 8 - dow);
+            anchor = simple;
+        } else if (currentRange === 'monthly' && monthEl?.value) {
+            const [y,m] = monthEl.value.split('-');
+            anchor = new Date(parseInt(y,10), parseInt(m,10)-1, 1);
+        } else if (currentRange === 'quarterly' && yearEl?.value && quarterEl?.value) {
+            const y = parseInt(yearEl.value,10), q = parseInt(quarterEl.value,10);
+            anchor = new Date(y, (q-1)*3, 1);
+        } else if (currentRange === 'yearly' && yearEl?.value) {
+            anchor = new Date(parseInt(yearEl.value,10), 0, 1);
+        }
+        const win = windowFromAnchor(anchor, currentRange);
+        currentStart = win.start; currentEnd = win.end;
+    } catch (e) { /* noop */ }
+    render(currentRange, currentCategory);
+    if (catSelect) {
+        catSelect.addEventListener('change', () => {
+            currentCategory = catSelect.value || 'all';
+            // show skeleton while loading
+            container.innerHTML = Array.from({length:8}).map(()=> '<div class="skeleton" style="height:36px; border-radius:8px; margin:8px 0;"></div>').join('');
+            render(currentRange, currentCategory);
+        });
+    }
+    // Re-render popular products when global range or window changes
+    document.addEventListener('odash:filter-range-changed', (e) => {
+        const detail = e.detail || {};
+        if (!detail.range) return;
+        // Update current range to match global selection
+        currentRange = detail.range;
+        if (detail.anchorDate) {
+            const win = windowFromAnchor(detail.anchorDate, currentRange);
+            currentStart = win.start; currentEnd = win.end;
+        } else {
+            currentStart = null; currentEnd = null;
+        }
+        // Show skeleton while recalculating
+        container.innerHTML = Array.from({length:8}).map(()=> '<div class="skeleton" style="height:36px; border-radius:8px; margin:8px 0;"></div>').join('');
+        render(currentRange, currentCategory);
+    });
+    document.addEventListener('odash:filter-window-updated', (e) => {
+        // For day/week navigation we just re-render with same range; underlying month/year stays constant
+        const detail = e.detail || {};
+        if (detail.range && detail.range !== currentRange) {
+            currentRange = detail.range;
+        }
+        if (detail.anchorDate) {
+            const win = windowFromAnchor(detail.anchorDate, currentRange);
+            currentStart = win.start; currentEnd = win.end;
+        }
+        // Show skeleton while recalculating
+        container.innerHTML = Array.from({length:8}).map(()=> '<div class="skeleton" style="height:36px; border-radius:8px; margin:8px 0;"></div>').join('');
+        render(currentRange, currentCategory);
+    });
 }
 
 // ===== Stock Levels Scrollable List =====
