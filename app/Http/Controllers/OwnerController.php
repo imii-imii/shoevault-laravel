@@ -856,9 +856,13 @@ class OwnerController extends Controller
         // Get products sold in the date range using product_name directly from transaction_items
         $popularProducts = DB::table('transaction_items')
             ->join('transactions', 'transaction_items.transaction_id', '=', 'transactions.transaction_id')
-            ->select('transaction_items.product_name as name', DB::raw('SUM(transaction_items.quantity) as total_sold'))
+            ->select(
+                'transaction_items.product_name as name',
+                DB::raw('LOWER(COALESCE(transaction_items.product_category, "")) as category'),
+                DB::raw('SUM(transaction_items.quantity) as total_sold')
+            )
             ->whereBetween("transactions.{$dateCol}", [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
-            ->groupBy('transaction_items.product_name')
+            ->groupBy('transaction_items.product_name', 'transaction_items.product_category')
             ->orderBy('total_sold', 'desc')
             ->limit(12)
             ->get();
@@ -866,6 +870,7 @@ class OwnerController extends Controller
         return $popularProducts->map(function($product) {
             return [
                 'name' => $product->name,
+                'category' => (string) $product->category,
                 'sales' => (int) $product->total_sold
             ];
         })->toArray();
@@ -1299,42 +1304,78 @@ class OwnerController extends Controller
             $month = $request->integer('month');
             $year = $request->integer('year');
             $limit = max(1, min(100, (int) $request->get('limit', 20)));
+            $category = strtolower((string) $request->get('category', 'all'));
 
             $now = Carbon::now();
             $y = $year ?: (int)$now->year;
 
+            // Optional explicit start/end override for custom windows (supports day/weekly)
+            $startParam = $request->get('start');
+            $endParam = $request->get('end');
+
             $start = null; $end = null;
-            if ($month && $y && $range === 'monthly') {
-                $start = Carbon::create($y, max(1, min(12, (int)$month)), 1)->startOfMonth();
-                $end = (clone $start)->endOfMonth();
-            } elseif ($range === 'quarterly') {
-                // If a month is specified, infer its quarter; otherwise use current quarter of selected year
-                $m = $month ?: (int)$now->month;
-                $q = (int) ceil($m / 3);
-                $qStartMonth = ($q - 1) * 3 + 1; // 1,4,7,10
-                $start = Carbon::create($y, $qStartMonth, 1)->startOfMonth();
-                $end = (clone $start)->addMonths(2)->endOfMonth();
-            } elseif ($range === 'yearly') {
-                $start = Carbon::create($y, 1, 1)->startOfYear();
-                $end = (clone $start)->endOfYear();
-            } else {
-                // default monthly window for current month/year
-                $start = Carbon::create($y, (int)($month ?: $now->month), 1)->startOfMonth();
-                $end = (clone $start)->endOfMonth();
+            if ($startParam && $endParam) {
+                // Validate and use explicit window
+                try {
+                    $start = Carbon::parse($startParam)->startOfDay();
+                    $end = Carbon::parse($endParam)->endOfDay();
+                    if ($end->lt($start)) {
+                        // swap if reversed
+                        [$start, $end] = [$end, $start];
+                    }
+                    // Normalize range label for response
+                    $range = in_array($range, ['day','weekly','monthly','quarterly','yearly']) ? $range : 'custom';
+                } catch (\Exception $e) {
+                    // fall back to computed windows below if parsing fails
+                    $start = null; $end = null;
+                }
+            }
+
+            if (!$start || !$end) {
+                if ($month && $y && $range === 'monthly') {
+                    $start = Carbon::create($y, max(1, min(12, (int)$month)), 1)->startOfMonth();
+                    $end = (clone $start)->endOfMonth();
+                } elseif ($range === 'quarterly') {
+                    // If a month is specified, infer its quarter; otherwise use current quarter of selected year
+                    $m = $month ?: (int)$now->month;
+                    $q = (int) ceil($m / 3);
+                    $qStartMonth = ($q - 1) * 3 + 1; // 1,4,7,10
+                    $start = Carbon::create($y, $qStartMonth, 1)->startOfMonth();
+                    $end = (clone $start)->addMonths(2)->endOfMonth();
+                } elseif ($range === 'yearly') {
+                    $start = Carbon::create($y, 1, 1)->startOfYear();
+                    $end = (clone $start)->endOfYear();
+                } elseif ($range === 'day') {
+                    $ref = Carbon::create($y, (int)($month ?: $now->month), (int)$now->day);
+                    $start = (clone $ref)->startOfDay();
+                    $end = (clone $ref)->endOfDay();
+                } elseif ($range === 'weekly') {
+                    $ref = Carbon::create($y, (int)($month ?: $now->month), (int)$now->day);
+                    $start = (clone $ref)->startOfWeek();
+                    $end = (clone $ref)->endOfWeek();
+                } else {
+                    // default monthly window for current month/year
+                    $start = Carbon::create($y, (int)($month ?: $now->month), 1)->startOfMonth();
+                    $end = (clone $start)->endOfMonth();
+                }
             }
 
             // Aggregate sold quantity per product within window using transactions schema
-            $items = DB::table('transaction_items as ti')
+            $itemsQuery = DB::table('transaction_items as ti')
                 ->join('transactions as t', 't.transaction_id', '=', 'ti.transaction_id')
                 ->whereBetween('t.created_at', [$start, $end])
                 ->select(
                     DB::raw('COALESCE(ti.product_name, "Unknown") as name'),
+                    DB::raw('LOWER(COALESCE(ti.product_category, "")) as category'),
                     DB::raw('SUM(ti.quantity) as sold')
                 )
-                ->groupBy('product_name')
-                ->orderByDesc('sold')
-                ->limit($limit)
-                ->get();
+                ->groupBy('product_name', 'ti.product_category');
+
+            if (!empty($category) && $category !== 'all') {
+                $itemsQuery->whereRaw('LOWER(COALESCE(ti.product_category, "")) = ?', [$category]);
+            }
+
+            $items = $itemsQuery->orderByDesc('sold')->limit($limit)->get();
 
             return response()->json([
                 'success' => true,
