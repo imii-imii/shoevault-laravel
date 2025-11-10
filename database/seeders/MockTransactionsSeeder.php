@@ -19,10 +19,12 @@ use App\Models\ProductSize;
  * Affects: users (cashiers/managers), employees, customers, reservations, transactions, transaction_items
  *
  * Generation rules:
- * - Date range: January 1, 2023 to November 7, 2025
+ * - Date range: January 1, 2022 to November 10, 2025
  * - Business hours: 10:00 AM to 7:00 PM
- * - Daily minimum: 3-10 items sold (POS + Reservations combined)
- * - Reservations: exactly 5 items, connected to customers, status: completed/cancelled
+ * - Monthly revenue target: 50k-600k PHP
+ * - Daily revenue calculated from monthly target
+ * - 10% chance store is closed on any given day
+ * - Reservations: 1-5 items, connected to customers, status: completed/cancelled
  * - POS transactions: 1-3 items per transaction
  * - Reservation transactions: must match existing reservation records
  * - Cashiers and managers can complete reservations
@@ -34,7 +36,6 @@ class MockTransactionsSeeder extends Seeder
     protected array $staffProfiles = [
         'kyla.mariz'   => ['fullname' => 'Kyla Mariz',   'email' => 'kyla.mariz@example.test',   'phone' => '09170000001', 'position' => 'Cashier'],
         'aeron.talain' => ['fullname' => 'Aeron Talain', 'email' => 'aeron.talain@example.test', 'phone' => '09170000002', 'position' => 'Cashier'],
-        'manager.smith' => ['fullname' => 'Alex Smith', 'email' => 'alex.smith@example.test', 'phone' => '09170000003', 'position' => 'Manager'],
     ];
 
     /** @var array<string,array<string,string>> */
@@ -53,11 +54,33 @@ class MockTransactionsSeeder extends Seeder
 
     public function run(): void
     {
-        // Idempotence guard: skip if we already have sufficient data
-        $existing = Transaction::count();
-        if ($existing >= 1000) {
-            echo "[MockTransactionsSeeder] Skipping: {$existing} transactions already present.\n";
-            return;
+        // Check for existing data
+        $existingTransactions = Transaction::count();
+        $existingReservations = Reservation::count();
+        
+        if ($existingTransactions > 0 || $existingReservations > 0) {
+            echo "[MockTransactionsSeeder] Found existing data:\n";
+            echo "  - Transactions: {$existingTransactions}\n";
+            echo "  - Reservations: {$existingReservations}\n";
+            echo "\nThis will remove ALL existing transactions and reservations data.\n";
+            echo "Do you want to continue? (yes/no): ";
+            
+            $handle = fopen("php://stdin", "r");
+            $line = fgets($handle);
+            fclose($handle);
+            
+            if (trim(strtolower($line)) !== 'yes') {
+                echo "[MockTransactionsSeeder] Cancelled by user.\n";
+                return;
+            }
+            
+            echo "[MockTransactionsSeeder] Removing existing data...\n";
+            DB::statement('SET FOREIGN_KEY_CHECKS=0');
+            TransactionItem::truncate();
+            Transaction::truncate();
+            Reservation::truncate();
+            DB::statement('SET FOREIGN_KEY_CHECKS=1');
+            echo "[MockTransactionsSeeder] Existing data cleared.\n";
         }
 
         echo "[MockTransactionsSeeder] Preparing staff accounts...\n";
@@ -81,9 +104,9 @@ class MockTransactionsSeeder extends Seeder
 
         $sizePool = $sizes->all();
         
-        // Date range: January 1, 2023 to November 7, 2025
-        $startDate = Carbon::createFromDate(2023, 1, 1)->startOfDay();
-        $endDate = Carbon::createFromDate(2025, 11, 7)->endOfDay();
+        // Date range: January 1, 2022 to November 7, 2025
+        $startDate = Carbon::createFromDate(2022, 1, 1)->startOfDay();
+        $endDate = Carbon::createFromDate(2025, 11, 10)->endOfDay();
 
         echo "[MockTransactionsSeeder] Generating transactions and reservations from {$startDate->toDateString()} to {$endDate->toDateString()}...\n";
 
@@ -95,12 +118,29 @@ class MockTransactionsSeeder extends Seeder
         $totalItems = 0;
 
         while ($currentDate->lte($endDate)) {
-            // Determine daily target: 3-10 items sold
-            $dailyItemTarget = rand(3, 10);
+            // Calculate target monthly revenue (50k-600k)
+            $monthlyTarget = rand(50000, 600000);
+            $daysInMonth = $currentDate->daysInMonth;
+            $dailyRevenueTarget = $monthlyTarget / $daysInMonth;
+            
+            // 10% chance store is closed (holidays, rest days)
+            $isClosed = mt_rand(1, 100) <= 10;
+            if ($isClosed) {
+                echo "[MockTransactionsSeeder] {$currentDate->toDateString()}: Store closed\n";
+                $currentDate->addDay();
+                continue;
+            }
+            
+            // Calculate how many items needed to reach daily revenue target
+            // Average item price is around 3000-8000 PHP
+            $avgItemPrice = 5500;
+            $dailyItemTarget = max(1, (int)($dailyRevenueTarget / $avgItemPrice));
+            $dailyItemTarget = min($dailyItemTarget, 15); // Cap at 15 items per day for realism
+            
             $itemsCreatedToday = 0;
             
-            // 30% chance of having reservations on any given day
-            $hasReservations = mt_rand(1, 100) <= 30;
+            // 25% chance of having reservations (reduced frequency)
+            $hasReservations = mt_rand(1, 100) <= 25;
             $reservationCount = 0;
             
             if ($hasReservations) {
@@ -118,14 +158,15 @@ class MockTransactionsSeeder extends Seeder
                         $transaction = $this->createReservationTransaction($reservation, $staffUserIds, $currentDate);
                         if ($transaction) {
                             $transactionsCreated++;
-                            $itemsCreatedToday += 5; // Reservations always have 5 items
+                            $itemsCreatedToday += count($reservation->items); // Use actual item count
                         }
                     }
                 }
             }
             
             // Fill remaining daily target with POS transactions  
-            while ($itemsCreatedToday < $dailyItemTarget) {
+            $attempts = 0;
+            while ($itemsCreatedToday < $dailyItemTarget && $attempts < 20) {
                 $remainingItems = $dailyItemTarget - $itemsCreatedToday;
                 $itemsInTransaction = min(rand(1, 3), $remainingItems);
                 
@@ -134,18 +175,35 @@ class MockTransactionsSeeder extends Seeder
                     $transactionsCreated++;
                     $itemsCreatedToday += $itemsInTransaction;
                 }
+                $attempts++;
             }
             
             $totalItems += $itemsCreatedToday;
             
-            if ($currentDate->day === 1 || $transactionsCreated % 50 === 0) {
-                echo "[MockTransactionsSeeder] {$currentDate->toDateString()}: {$itemsCreatedToday} items, {$transactionsCreated} total transactions, {$reservationsCreated} reservations\n";
+            // Calculate daily revenue for reporting
+            $dailyRevenue = 0;
+            $todaysTransactions = Transaction::whereDate('sale_date', $currentDate->toDateString())->get();
+            foreach ($todaysTransactions as $txn) {
+                $dailyRevenue += $txn->total_amount;
+            }
+            
+            if ($currentDate->day === 1 || $transactionsCreated % 50 === 0 || $itemsCreatedToday > 0) {
+                echo "[MockTransactionsSeeder] {$currentDate->toDateString()}: {$itemsCreatedToday} items, ₱" . number_format($dailyRevenue, 2) . " revenue, {$transactionsCreated} total txn, {$reservationsCreated} reservations\n";
             }
             
             $currentDate->addDay();
         }
 
-        echo "[MockTransactionsSeeder] Complete! Created {$transactionsCreated} transactions, {$reservationsCreated} reservations, {$totalItems} total items sold.\n";
+        // Calculate final statistics
+        $totalRevenue = Transaction::sum('total_amount');
+        $monthlyAverage = $totalRevenue / 35; // Approximate months from Jan 2023 to Nov 2025
+        
+        echo "[MockTransactionsSeeder] Complete!\n";
+        echo "  - Transactions: {$transactionsCreated}\n";
+        echo "  - Reservations: {$reservationsCreated}\n";
+        echo "  - Total Items: {$totalItems}\n";
+        echo "  - Total Revenue: ₱" . number_format($totalRevenue, 2) . "\n";
+        echo "  - Monthly Average: ₱" . number_format($monthlyAverage, 2) . "\n";
     }
 
     /**
@@ -241,11 +299,12 @@ class MockTransactionsSeeder extends Seeder
     {
         $customerId = $customerIds[array_rand($customerIds)];
         
-        // Select 5 random product sizes for the reservation
+        // Select 3-5 random product sizes for the reservation (more realistic)
+        $itemCount = rand(1, 5);
         $reservationItems = [];
         $totalAmount = 0;
         
-        for ($i = 0; $i < 5; $i++) {
+        for ($i = 0; $i < $itemCount; $i++) {
             $ps = $sizePool[array_rand($sizePool)];
             $product = $ps->product;
             if (!$product) continue;
@@ -266,8 +325,8 @@ class MockTransactionsSeeder extends Seeder
             ];
         }
         
-        if (count($reservationItems) < 5) {
-            return null; // Skip if we couldn't get 5 items
+        if (count($reservationItems) < 3) {
+            return null; // Skip if we couldn't get at least 3 items
         }
         
         // Random pickup date (1-7 days after reservation date)

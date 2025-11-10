@@ -492,7 +492,7 @@ document.addEventListener('DOMContentLoaded', function() {
 					<option value="cashier">Cashier</option>
 				</select>
 				<small class="au-error" data-for="au-role" style="color:#ef4444;display:none;"></small>
-				<div style="margin-top:6px;font-size:0.85rem;color:#6b7280;">Default password: <strong>password</strong> (users should change this after first login)</div>
+				<div style="margin-top:6px;font-size:0.85rem;color:#6b7280;">Default password: <strong>manager123</strong> or <strong>cashier123</strong> (users should change this after first login)</div>
 			</div>
 			<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:4px;">
 				<button type="button" id="au-cancel" style="padding:10px 14px;border-radius:8px;background:#6b7280;color:#fff;border:none;font-weight:700;">Cancel</button>

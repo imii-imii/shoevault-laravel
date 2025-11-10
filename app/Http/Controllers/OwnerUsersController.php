@@ -192,7 +192,6 @@ class OwnerUsersController extends Controller
         $defaultPasswords = [
             'manager' => 'manager123',
             'cashier' => 'cashier123',
-            'employee' => 'employee123',
         ];
         
         $password = $validated['password'] ?? ($defaultPasswords[$validated['role']] ?? 'password123');
