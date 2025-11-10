@@ -11,6 +11,8 @@
     
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <!-- Anime.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
     
     <style>
         * {
@@ -21,22 +23,38 @@
 
         body {
             font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #000e2e 0%, #2343ce 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 20px;
+            position: relative;
+            overflow: hidden;
         }
 
+        /* Futuristic ambient decorations */
+        .bg-decor { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+        .orb { position: absolute; border-radius: 50%; filter: blur(18px); opacity: .35; }
+        .orb.one { width: 420px; height: 420px; left: -140px; top: -140px; background: radial-gradient(circle, rgba(35,67,206,0.8), rgba(35,67,206,0)); }
+        .orb.two { width: 520px; height: 520px; right: -180px; bottom: -180px; background: radial-gradient(circle, rgba(0,14,46,0.85), rgba(0,14,46,0)); }
+        .scanline { position:absolute; left:0; right:0; height:1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent); opacity:.18; }
+
         .change-password-container {
-            background: #fff;
-            border-radius: 20px;
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+            position: relative;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 18px;
+            border: 1px solid rgba(255,255,255,0.6);
+            box-shadow: 0 28px 60px rgba(0, 0, 0, 0.18);
             padding: 40px;
             width: 100%;
-            max-width: 450px;
+            max-width: 500px;
             text-align: center;
+            z-index: 1;
+            opacity: 0;
+            transform: translateY(16px);
         }
 
         .logo {
@@ -92,8 +110,8 @@
 
         .form-group input:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: #2343ce;
+            box-shadow: 0 0 0 3px rgba(35, 67, 206, 0.15);
         }
 
         .error-message {
@@ -105,7 +123,7 @@
 
         .change-btn {
             width: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #000e2e 0%, #2343ce 100%);
             color: #fff;
             border: none;
             padding: 14px 20px;
@@ -113,12 +131,13 @@
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
-            transition: transform 0.2s ease;
+            transition: transform 0.2s ease, box-shadow .3s ease;
             margin-bottom: 20px;
         }
 
         .change-btn:hover {
             transform: translateY(-2px);
+            box-shadow: 0 14px 26px -10px rgba(35,67,206,0.45);
         }
 
         .change-btn:disabled {
@@ -202,6 +221,12 @@
     </style>
 </head>
 <body>
+    <div class="bg-decor" aria-hidden="true">
+        <span class="orb one"></span>
+        <span class="orb two"></span>
+        <span class="scanline" style="top: 25%"></span>
+        <span class="scanline" style="top: 65%"></span>
+    </div>
     <div class="change-password-container">
         <div class="logo">
             <h1>ShoeVault</h1>
@@ -345,6 +370,25 @@
                 form.insertBefore(errorDiv, form.firstChild);
             @endforeach
         @endif
+
+        // Use anime.js for subtle, professional animations
+        if (window.anime) {
+            // Card entrance
+            anime({ targets: '.change-password-container', opacity: [0,1], translateY: [16,0], duration: 650, easing: 'easeOutCubic' });
+
+            // Ambient motion
+            anime({ targets: '.orb.one', translateX: [-18, 18], translateY: [-10, 10], scale: [1, 1.05], direction: 'alternate', loop: true, duration: 5200, easing: 'easeInOutSine' });
+            anime({ targets: '.orb.two', translateX: [16, -16], translateY: [12, -12], scale: [1.04, 0.96], direction: 'alternate', loop: true, duration: 6000, easing: 'easeInOutSine' });
+            anime({ targets: '.scanline', opacity: [{ value: .32, duration: 900 }, { value: .12, duration: 1100 }], delay: anime.stagger(650), direction: 'alternate', loop: true, easing: 'linear' });
+
+            // Success toast animation (if exists)
+            const toast = document.getElementById('success-toast');
+            if (toast) {
+                anime.timeline()
+                    .add({ targets: toast, opacity: [0,1], translateY: [10,0], scale: [.98,1], duration: 500, easing: 'easeOutBack' })
+                    .add({ targets: toast, delay: 2400, opacity: [1,0], translateY: [0,-10], duration: 500, easing: 'easeInCubic', complete: () => toast.remove() });
+            }
+        }
     </script>
 </body>
 </html>

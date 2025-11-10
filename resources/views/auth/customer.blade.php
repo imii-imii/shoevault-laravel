@@ -255,7 +255,7 @@
               </div>
               <div class="field">
                 <label class="label" for="login-password">Password</label>
-                <input class="input" type="password" id="login-password" placeholder="••••••••" required />
+                <input class="input" type="password" id="login-password" placeholder="password" required />
               </div>
               <div class="actions">
                 <button type="button" onclick="showForgotPasswordStep()" style="background:none;border:none;color:var(--muted);text-decoration:none;cursor:pointer;font-size:inherit;padding:0; -webkit-tap-highlight-color: transparent;">Forgot password?</button>
