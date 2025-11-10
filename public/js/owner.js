@@ -192,11 +192,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // --- Data Loading Functions ---
 async function loadSalesHistory(opts = {}) {
-    const { month = '', page = 1, perPage = 25 } = opts; // date removed
+    const { month = '', page = 1, perPage = 25, type = 'all' } = opts; // date removed
     try {
-        console.log(`Loading sales history (month=${month} page=${page})`);
+        console.log(`Loading sales history (month=${month} page=${page} type=${type})`);
         const url = new URL(laravelRoutes.salesHistory, window.location.origin);
         if (month) url.searchParams.set('month', month);
+        if (type && type !== 'all') url.searchParams.set('type', type);
         url.searchParams.set('page', page);
         url.searchParams.set('per_page', perPage);
         const response = await fetch(url.toString());
@@ -216,10 +217,15 @@ async function loadSalesHistory(opts = {}) {
             if (Array.isArray(data.transactions)) {
                 console.log('Rendering sales table with', data.transactions.length, 'transactions');
                 renderSalesTable(data.transactions);
+                // update page state including selected type
+                __salesPageState.type = type || 'all';
+                __salesPageState.month = month || '';
                 updateSalesPagination(data.pagination);
             } else {
                 console.log('No transactions array found, rendering empty table');
                 renderSalesTable([]);
+                __salesPageState.type = type || 'all';
+                __salesPageState.month = month || '';
                 updateSalesPagination({ page:1,total_pages:1,total:0, per_page:perPage });
             }
         } else {
@@ -234,8 +240,8 @@ async function loadSalesHistory(opts = {}) {
     }
 }
 
-// Apply filters client-side (search/sort) on already fetched page
-function applySalesFilters({ search = '', sort = 'date-desc' } = {}) {
+// Apply filters client-side (search/sort/type) on already fetched page
+function applySalesFilters({ search = '', sort = 'date-desc', type = 'all' } = {}) {
     let rows = Array.isArray(window.__salesTransactions) ? [...window.__salesTransactions] : [];
     // Search across transaction_id, cashier_name, products
     const q = (search || '').toLowerCase();
@@ -245,6 +251,10 @@ function applySalesFilters({ search = '', sort = 'date-desc' } = {}) {
             String(r.cashier_name || '').toLowerCase().includes(q) ||
             String(r.products || '').toLowerCase().includes(q)
         ));
+    }
+    // Type filter (client-side fallback). Server should already filter when requesting a specific type
+    if (type && type !== 'all') {
+        rows = rows.filter(r => ((r.sale_type || 'pos') === type));
     }
     // Sorting
     const num = (v) => Number(v ?? 0);
@@ -284,6 +294,7 @@ function goSalesPage(delta){
 // Wire new month/date filters once DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     const monthEl = document.getElementById('sales-month-filter');
+    const typeEl = document.getElementById('sales-type-filter');
     const searchEl = document.getElementById('sales-search');
     const sortEl = document.getElementById('sales-sort-filter');
     const prevBtn = document.getElementById('sales-prev');
@@ -292,10 +303,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function refetch(resetPage=true){
         if (resetPage) __salesPageState.page = 1;
         __salesPageState.month = monthEl?.value || '';
+        __salesPageState.type = typeEl?.value || 'all';
         loadSalesHistory({
             month: __salesPageState.month,
             page: __salesPageState.page,
-            perPage: __salesPageState.per_page
+            perPage: __salesPageState.per_page,
+            type: __salesPageState.type
         });
     }
 
@@ -303,8 +316,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Search + sort apply client side on current page
     let searchTimer; 
-    searchEl?.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(()=> applySalesFilters({ search: searchEl.value, sort: sortEl.value }), 200); });
-    sortEl?.addEventListener('change', () => applySalesFilters({ search: searchEl?.value || '', sort: sortEl.value }));
+    searchEl?.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(()=> applySalesFilters({ search: searchEl.value, sort: sortEl.value, type: typeEl?.value || 'all' }), 200); });
+    sortEl?.addEventListener('change', () => applySalesFilters({ search: searchEl?.value || '', sort: sortEl.value, type: typeEl?.value || 'all' }));
+    // Type change should refetch from server (resets to page 1)
+    typeEl?.addEventListener('change', () => { refetch(true); });
 
     prevBtn?.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); goSalesPage(-1); });
     nextBtn?.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); goSalesPage(1); });
@@ -349,20 +364,29 @@ async function loadReservationLogs(period = 'weekly') {
     }
 }
 
-async function loadSupplyLogs() {
+async function loadSupplyLogs(opts = {}) {
+    const { page = 1, perPage = 25, search = '', sort = 'date-desc' } = opts;
     try {
-        const response = await fetch(laravelRoutes.supplyLogs);
+        const url = new URL(laravelRoutes.supplyLogs, window.location.origin);
+        url.searchParams.set('page', page);
+        url.searchParams.set('per_page', perPage);
+        if (search) url.searchParams.set('search', search);
+        if (sort) url.searchParams.set('sort', sort);
+        const response = await fetch(url.toString());
         const data = await response.json();
         
         if (response.ok) {
             // Cache supply data for client-side filters
             window.__supplyData = Array.isArray(data.supplyData) ? data.supplyData : [];
             renderSupplyTable(window.__supplyData);
+            return data; // include pagination for callers
         } else {
             console.error('Failed to load supply logs:', data.message);
+            return data;
         }
     } catch (error) {
         console.error('Error loading supply logs:', error);
+        throw error;
     }
 }
 
@@ -390,6 +414,8 @@ async function loadInventoryOverview(source = 'pos', opts = {}) {
         if (source) url.searchParams.set('source', source);
         if (opts.category) url.searchParams.set('category', opts.category);
         if (opts.search) url.searchParams.set('search', opts.search);
+        if (opts.page) url.searchParams.set('page', opts.page);
+        if (opts.perPage) url.searchParams.set('per_page', opts.perPage);
         const response = await fetch(url.toString());
         const data = await response.json();
         
@@ -407,11 +433,14 @@ async function loadInventoryOverview(source = 'pos', opts = {}) {
                 data.items = items;
             }
             renderInventoryOverviewCards(data);
+            return data; // expose pagination
         } else {
             console.error('Failed to load inventory overview:', data.message);
+            return data;
         }
     } catch (error) {
         console.error('Error loading inventory overview:', error);
+        throw error;
     }
 }
 

@@ -225,6 +225,12 @@
                 </div>
                 @endforelse
             </div>
+            <!-- Pagination Bar -->
+            <div id="inv-reservation-pagination" style="display:flex;align-items:center;justify-content:flex-end;gap:10px;margin: 0 20px 20px 20px;">
+                <button id="inv-res-prev" class="paginate-btn" style="padding:8px 12px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;color:#111827;font-weight:700;cursor:pointer;">Prev</button>
+                <span id="inv-res-page-info" style="color:#6b7280;font-weight:700;">Page 1 of 1</span>
+                <button id="inv-res-next" class="paginate-btn" style="padding:8px 12px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;color:#111827;font-weight:700;cursor:pointer;">Next</button>
+            </div>
         </section>
     </div>
 </main>
@@ -700,18 +706,9 @@ document.getElementById('reservation-search').addEventListener('input', function
 
 // Filter functionality
 document.getElementById('reservation-status-filter').addEventListener('change', function(e) {
-    const selectedStatus = e.target.value;
-    const reservationCards = document.querySelectorAll('#reservations-container > div');
-    
-    reservationCards.forEach(card => {
-        if (selectedStatus === 'all') {
-            card.style.display = 'block';
-        } else {
-            const statusElement = card.querySelector('span');
-            const cardStatus = statusElement ? statusElement.textContent.toLowerCase() : '';
-            card.style.display = cardStatus.includes(selectedStatus) ? 'block' : 'none';
-        }
-    });
+    __invResPageState.status = e.target.value || 'all';
+    __invResPageState.page = 1;
+    applyInvReservationPagination();
 });
 
 // Initialize dynamic notification system
@@ -745,6 +742,7 @@ if (showReservationId) {
 document.addEventListener('DOMContentLoaded', function(){
     // Initial sort on load
     sortReservations();
+    applyInvReservationPagination();
     document.querySelectorAll('.view-reservation-btn').forEach(btn => {
         btn.addEventListener('click', function(){
             const card = this.closest('.reservation-card');
@@ -767,6 +765,54 @@ document.addEventListener('DOMContentLoaded', function(){
             lo.style.display = 'none';
         }, 360);
     }
+});
+
+// Pagination state + helpers (Inventory Reservation Reports)
+const __invResPageState = { page: 1, perPage: 10, search: '', status: 'all' };
+
+function getFilteredInvReservationCards() {
+    const term = (__invResPageState.search || '').toLowerCase();
+    const status = (__invResPageState.status || 'all');
+    const nodes = Array.from(document.querySelectorAll('#reservations-container > .reservation-card'));
+    return nodes.filter(card => {
+        const matchText = !term || card.textContent.toLowerCase().includes(term);
+        const matchStatus = status === 'all' || (card.dataset.status || '').toLowerCase() === status;
+        return matchText && matchStatus;
+    });
+}
+
+function applyInvReservationPagination() {
+    // Keep current sort order, then slice
+    const all = getFilteredInvReservationCards();
+    const total = all.length;
+    const totalPages = Math.max(1, Math.ceil(total / __invResPageState.perPage));
+    if (__invResPageState.page > totalPages) __invResPageState.page = totalPages;
+    const start = (__invResPageState.page - 1) * __invResPageState.perPage;
+    const end = start + __invResPageState.perPage;
+
+    document.querySelectorAll('#reservations-container > .reservation-card').forEach(c => c.style.display = 'none');
+    all.slice(start, end).forEach(c => c.style.display = 'block');
+
+    const info = document.getElementById('inv-res-page-info');
+    if (info) info.textContent = `Page ${__invResPageState.page} of ${totalPages}`;
+    const prev = document.getElementById('inv-res-prev');
+    const next = document.getElementById('inv-res-next');
+    if (prev) prev.disabled = __invResPageState.page <= 1;
+    if (next) next.disabled = __invResPageState.page >= totalPages;
+}
+
+document.getElementById('inv-res-prev')?.addEventListener('click', function(){
+    if (__invResPageState.page > 1) { __invResPageState.page -= 1; applyInvReservationPagination(); }
+});
+document.getElementById('inv-res-next')?.addEventListener('click', function(){
+    __invResPageState.page += 1; applyInvReservationPagination();
+});
+
+// Override search to work with pagination
+document.getElementById('reservation-search').addEventListener('input', function(e) {
+    __invResPageState.search = e.target.value || '';
+    __invResPageState.page = 1;
+    applyInvReservationPagination();
 });
 </script>
 @endpush

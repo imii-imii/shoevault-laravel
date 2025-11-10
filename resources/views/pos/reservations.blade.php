@@ -917,6 +917,12 @@
                     </div>
                     @endforelse
                 </div>
+                <!-- Pagination Bar -->
+                <div id="reservation-pagination" style="display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:10px;">
+                    <button id="reservation-prev" class="paginate-btn" style="padding:8px 12px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;color:#111827;font-weight:700;cursor:pointer;">Prev</button>
+                    <span id="reservation-page-info" style="color:#6b7280;font-weight:700;">Page 1 of 1</span>
+                    <button id="reservation-next" class="paginate-btn" style="padding:8px 12px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;color:#111827;font-weight:700;cursor:pointer;">Next</button>
+                </div>
             </section>
         </div>
     </main>
@@ -975,22 +981,59 @@
 
 
 
-        // Search functionality (filter cards)
-        document.getElementById('reservation-search').addEventListener('input', function(e) {
-            const searchTerm = e.target.value.toLowerCase();
-            const cards = document.querySelectorAll('#reservations-container > div');
-            cards.forEach(card => {
-                const text = card.textContent.toLowerCase();
-                card.style.display = text.includes(searchTerm) ? 'block' : 'none';
-            });
+        // Pagination state and helpers
+        const __posResPageState = { page: 1, perPage: 10, search: '' };
+
+        function getFilteredReservationCards() {
+            const term = (__posResPageState.search || '').toLowerCase();
+            const nodes = Array.from(document.querySelectorAll('#reservations-container > .reservation-card'));
+            if (!term) return nodes;
+            return nodes.filter(card => card.textContent.toLowerCase().includes(term));
+        }
+
+        function applyReservationPagination() {
+            const all = getFilteredReservationCards();
+            const total = all.length;
+            const totalPages = Math.max(1, Math.ceil(total / __posResPageState.perPage));
+            if (__posResPageState.page > totalPages) __posResPageState.page = totalPages;
+            const start = (__posResPageState.page - 1) * __posResPageState.perPage;
+            const end = start + __posResPageState.perPage;
+
+            // First hide all cards
+            document.querySelectorAll('#reservations-container > .reservation-card').forEach(c => c.style.display = 'none');
+            // Show only the current slice
+            all.slice(start, end).forEach(c => c.style.display = 'block');
+
+            // Update pagination UI
+            const info = document.getElementById('reservation-page-info');
+            if (info) info.textContent = `Page ${__posResPageState.page} of ${totalPages}`;
+            const prev = document.getElementById('reservation-prev');
+            const next = document.getElementById('reservation-next');
+            if (prev) prev.disabled = __posResPageState.page <= 1;
+            if (next) next.disabled = __posResPageState.page >= totalPages;
+        }
+
+        // Hook up pagination buttons
+        document.getElementById('reservation-prev')?.addEventListener('click', function() {
+            if (__posResPageState.page > 1) { __posResPageState.page -= 1; applyReservationPagination(); }
+        });
+        document.getElementById('reservation-next')?.addEventListener('click', function() {
+            __posResPageState.page += 1; applyReservationPagination();
         });
 
-        // Clear search (show all cards)
+        // Search functionality (works with pagination)
+        document.getElementById('reservation-search').addEventListener('input', function(e) {
+            __posResPageState.search = e.target.value || '';
+            __posResPageState.page = 1;
+            applyReservationPagination();
+        });
+
+        // Clear search (reset and re-paginate)
         document.getElementById('clear-reservation-search').addEventListener('click', function() {
             document.getElementById('reservation-search').value = '';
-            document.querySelectorAll('#reservations-container > div').forEach(card => {
-                card.style.display = 'block';
-            });
+            __posResPageState.search = '';
+            __posResPageState.page = 1;
+            applyReservationPagination();
         });
 
         // ==== Reservation Reports logic (ported) ====

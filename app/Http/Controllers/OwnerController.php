@@ -46,8 +46,9 @@ class OwnerController extends Controller
         // New filtering parameters replacing period-based filtering
         $month = $request->get('month'); // format YYYY-MM
         $date = $request->get('date');   // format YYYY-MM-DD (takes precedence over month)
-        $page = max(1, (int) $request->get('page', 1));
-        $perPage = min(100, max(10, (int) $request->get('per_page', 25))); // clamp per_page
+    $page = max(1, (int) $request->get('page', 1));
+    $perPage = min(100, max(10, (int) $request->get('per_page', 25))); // clamp per_page
+    $type = strtolower((string) $request->get('type', 'all'));
         
         // Check if we have any transactions and create test data if empty
         $transactionCount = DB::table('transactions')->count();
@@ -59,7 +60,7 @@ class OwnerController extends Controller
         // Chart data still uses broader range; optionally narrowed by month or date if provided
         $salesData = $this->getSalesDataForFilters($month, $date);
         $topProducts = $this->getTopSellingProducts();
-        $transactionsResult = $this->getFilteredSalesTransactions($month, $date, $page, $perPage);
+    $transactionsResult = $this->getFilteredSalesTransactions($month, $date, $page, $perPage, $type);
 
         Log::info("Returning sales history data - transactions count: " . count($transactionsResult['data']));
 
@@ -70,6 +71,7 @@ class OwnerController extends Controller
             'filters' => [
                 'month' => $month,
                 'date' => $date,
+                'type' => $type,
             ],
             'pagination' => [
                 'page' => $page,
@@ -89,6 +91,8 @@ class OwnerController extends Controller
         $status = $request->string('status')->lower()->value() ?: 'all';
         $search = $request->string('search')->value();
         $sort = $request->string('sort')->value() ?: 'date-desc';
+        $page = max(1, (int) $request->get('page', 1));
+        $perPage = min(100, max(10, (int) $request->get('per_page', 25)));
 
         // Base query: only completed and cancelled reservations
         $query = Reservation::query()
@@ -119,8 +123,14 @@ class OwnerController extends Controller
                 break;
         }
 
-        // Fetch records (limit for performance; adjust if needed)
-        $reservations = $query->with('customer')->limit(200)->get();
+        // Clone for total count
+        $total = (clone $query)->count();
+
+        // Fetch records with pagination
+        $reservations = $query->with('customer')
+            ->offset(($page - 1) * $perPage)
+            ->limit($perPage)
+            ->get();
 
         // Counts for tabs
         $counts = [
@@ -138,6 +148,12 @@ class OwnerController extends Controller
             ],
             'counts' => $counts,
             'reservations' => $reservations,
+            'pagination' => [
+                'page' => $page,
+                'per_page' => $perPage,
+                'total' => $total,
+                'total_pages' => (int) ceil($total / $perPage),
+            ]
         ]);
     }
 
@@ -149,6 +165,8 @@ class OwnerController extends Controller
         // Return supply log rows joined with suppliers as a single table
         $search = trim((string) $request->get('search', ''));
         $sort = $request->get('sort', 'date-desc'); // date-asc|date-desc|id-asc|id-desc
+        $page = max(1, (int) $request->get('page', 1));
+        $perPage = min(100, max(10, (int) $request->get('per_page', 25)));
 
         $query = \App\Models\SupplyLog::query()
             ->with('supplier:id,name,country')
@@ -184,7 +202,14 @@ class OwnerController extends Controller
                 break;
         }
 
-        $logs = $query->limit(1000)->get();
+        // Total count for pagination
+        $total = (clone $query)->count();
+
+        // Fetch page slice
+        $logs = $query
+            ->offset(($page - 1) * $perPage)
+            ->limit($perPage)
+            ->get();
 
         $rows = $logs->map(function ($log) {
             return [
@@ -202,6 +227,12 @@ class OwnerController extends Controller
             'success' => true,
             'supplyData' => $rows,
             'count' => $rows->count(),
+            'pagination' => [
+                'page' => $page,
+                'per_page' => $perPage,
+                'total' => $total,
+                'total_pages' => (int) ceil($total / $perPage),
+            ]
         ]);
     }
 
@@ -213,6 +244,8 @@ class OwnerController extends Controller
         $source = strtolower($request->get('source', 'pos')); // 'pos' or 'reservation'
         $category = $request->get('category'); // optional future filter
         $search = $request->get('search'); // optional
+        $page = max(1, (int) $request->get('page', 1));
+        $perPage = min(100, max(10, (int) $request->get('per_page', 25)));
 
         // Use the Product model with proper scopes instead of raw queries
         if ($source === 'reservation') {
@@ -238,7 +271,11 @@ class OwnerController extends Controller
             });
         }
 
-        $products = $query->orderBy('name')->get();
+        $total = (clone $query)->count();
+        $products = $query->orderBy('name')
+            ->offset(($page - 1) * $perPage)
+            ->limit($perPage)
+            ->get();
 
         // Transform products to match the expected format
         $items = $products->map(function ($product) {
@@ -269,6 +306,12 @@ class OwnerController extends Controller
             'success' => true,
             'source' => $source,
             'items' => $items,
+            'pagination' => [
+                'page' => $page,
+                'per_page' => $perPage,
+                'total' => $total,
+                'total_pages' => (int) ceil($total / $perPage),
+            ]
         ]);
     }
 
@@ -1041,7 +1084,7 @@ class OwnerController extends Controller
     /**
      * Get recent sales transactions with required fields for the Sales History table.
      */
-    private function getFilteredSalesTransactions(?string $month, ?string $date, int $page, int $perPage)
+    private function getFilteredSalesTransactions(?string $month, ?string $date, int $page, int $perPage, string $type = 'all')
     {
         // Use created_at for datetime display (includes time), sale_date for date filtering only
         $dateCol = $this->salesDateColumn(); // sale_date or created_at - for filtering
@@ -1098,6 +1141,11 @@ class OwnerController extends Controller
             }
         } else {
             $query->where('s.created_at', '>=', Carbon::now()->subMonths(12));
+        }
+
+        // Sale type filter (pos/reservation). Default 'all' means no filtering.
+        if (!empty($type) && $type !== 'all') {
+            $query->where('s.sale_type', '=', $type);
         }
 
         // Total for pagination

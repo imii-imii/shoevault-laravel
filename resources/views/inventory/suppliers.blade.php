@@ -467,6 +467,60 @@ if (typeof NotificationManager !== 'undefined') {
     console.warn('NotificationManager not found. Make sure notifications.js is loaded.');
 }
 
+// --- Logs pagination state ---
+const __supplierLogsCache = {}; // supplierId -> full logs array
+const __supplierLogsPage = {};  // supplierId -> { page, perPage }
+
+function ensureSupplierLogsState(supplierId){
+    if (!__supplierLogsPage[supplierId]) __supplierLogsPage[supplierId] = { page: 1, perPage: 8 };
+    if (!__supplierLogsCache[supplierId]) __supplierLogsCache[supplierId] = [];
+    return __supplierLogsPage[supplierId];
+}
+
+function renderSupplierLogs(supplierId){
+    const panel = document.getElementById(`logs-${supplierId}`);
+    if (!panel) return;
+    const list = panel.querySelector('.logs-list');
+    const state = ensureSupplierLogsState(supplierId);
+    const all = __supplierLogsCache[supplierId] || [];
+    const total = all.length;
+    const totalPages = Math.max(1, Math.ceil(total / state.perPage));
+    if (state.page > totalPages) state.page = totalPages;
+    const start = (state.page - 1) * state.perPage;
+    const end = start + state.perPage;
+    const pageItems = all.slice(start, end);
+    if (!pageItems.length){
+        list.innerHTML = '<div class="logs-empty" style="color:#475569;background:rgba(241,245,249,.7);border:1px dashed #cbd5e1;padding:14px;border-radius:12px;text-align:center;">No logs yet. Add the first one above.</div>';
+    } else {
+        list.innerHTML = pageItems.map(l => logItemHtml(l)).join('');
+    }
+    // pagination bar
+    let bar = panel.querySelector('.logs-pagination');
+    if (!bar){
+        bar = document.createElement('div');
+        bar.className = 'logs-pagination';
+        bar.style.display = 'flex';
+        bar.style.alignItems = 'center';
+        bar.style.justifyContent = 'flex-end';
+        bar.style.gap = '10px';
+        bar.style.marginTop = '6px';
+        bar.innerHTML = `
+            <button class="logs-prev" style="padding:6px 10px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;color:#111827;font-weight:700;cursor:pointer;">Prev</button>
+            <span class="logs-page-info" style="color:#6b7280;font-weight:700;">Page 1 of 1</span>
+            <button class="logs-next" style="padding:6px 10px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;color:#111827;font-weight:700;cursor:pointer;">Next</button>`;
+        const body = panel.querySelector('.logs-body');
+        body.appendChild(bar);
+        bar.querySelector('.logs-prev').addEventListener('click', function(){ if (state.page > 1){ state.page -= 1; renderSupplierLogs(supplierId); } });
+        bar.querySelector('.logs-next').addEventListener('click', function(){ state.page += 1; renderSupplierLogs(supplierId); });
+    }
+    const info = bar.querySelector('.logs-page-info');
+    if (info) info.textContent = `Page ${state.page} of ${totalPages}`;
+    const prev = bar.querySelector('.logs-prev');
+    const next = bar.querySelector('.logs-next');
+    if (prev) prev.disabled = state.page <= 1;
+    if (next) next.disabled = state.page >= totalPages;
+}
+
 // --- Add Supplier module (create only) ---
 const baseSuppliersUrl = "{{ url('inventory/suppliers') }}";
 
@@ -679,17 +733,15 @@ async function toggleSupplyLogs(supplierId){
     const isOpen = panel.style.display === 'block';
     if (isOpen){ panel.style.display = 'none'; panel.classList.remove('open'); if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-clipboard-list"></i> Logs'; return; }
     panel.style.display = 'block'; panel.classList.add('open'); if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-eye-slash"></i> Hide Logs';
-    if (panel.dataset.loaded === 'true') return;
+    if (panel.dataset.loaded === 'true'){ renderSupplierLogs(supplierId); return; }
     list.innerHTML = '<div style="color:#6b7280;"><i class="fas fa-spinner fa-spin"></i> Loading logs…</div>';
     try{
         const res = await fetch(`${baseSuppliersUrl}/${supplierId}/logs`, { headers: { 'Accept': 'application/json' } });
         const data = await res.json();
         const logs = (data && data.logs) || [];
-        if (!logs.length){
-            list.innerHTML = '<div class="logs-empty" style="color:#475569;background:rgba(241,245,249,.7);border:1px dashed #cbd5e1;padding:14px;border-radius:12px;text-align:center;">No logs yet. Add the first one above.</div>';
-        } else {
-            list.innerHTML = logs.map(l => logItemHtml(l)).join('');
-        }
+        __supplierLogsCache[supplierId] = logs;
+        ensureSupplierLogsState(supplierId).page = 1;
+        renderSupplierLogs(supplierId);
         panel.dataset.loaded = 'true';
     } catch(e){
         console.error(e);
@@ -728,15 +780,11 @@ document.addEventListener('submit', async function(ev){
         });
         const data = await res.json();
         if (!res.ok || data.success === false){ alert(data.message || 'Failed to add log'); return; }
-        const list = document.querySelector(`#logs-${supplierId} .logs-list`);
+        // update cache and re-render first page
+        __supplierLogsCache[supplierId] = [data.log, ...(__supplierLogsCache[supplierId] || [])];
+        ensureSupplierLogsState(supplierId).page = 1;
         const panel = document.getElementById(`logs-${supplierId}`);
-        if (list){
-            // remove empty placeholder if present
-            const empty = list.querySelector('.logs-empty');
-            if (empty) empty.remove();
-            list.insertAdjacentHTML('afterbegin', logItemHtml(data.log));
-        }
-        if (panel) panel.dataset.loaded = 'true';
+        if (panel) { panel.dataset.loaded = 'true'; renderSupplierLogs(supplierId); }
         form.reset();
         form.querySelector('[name="brand"]').focus();
     } catch(e){ console.error(e); alert('Unable to add log right now.'); }

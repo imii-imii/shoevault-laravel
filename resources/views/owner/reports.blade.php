@@ -208,6 +208,11 @@
             <div class="filters" style="display:flex; gap:12px; align-items:center; margin-bottom:18px; flex-wrap:wrap;">
                 <input type="text" id="sales-search" placeholder="Search sales..." class="search-input" style="flex:1; min-width:180px;">
                 <input type="month" id="sales-month-filter" class="search-input" aria-label="Filter by month">
+                <select id="sales-type-filter" class="filter-select" style="min-width:160px;">
+                    <option value="all">All</option>
+                    <option value="pos">POS</option>
+                    <option value="reservation">Reservation</option>
+                </select>
                 <select id="sales-sort-filter" class="filter-select" style="min-width:180px;">
                     <option value="date-desc">Date (Newest)</option>
                     <option value="date-asc">Date (Oldest)</option>
@@ -272,6 +277,11 @@
             </div>
             <!-- Card list -->
             <div id="reservation-card-list" class="resv-card-list"></div>
+            <div id="reservation-pagination" style="display:flex; align-items:center; justify-content:flex-end; gap:8px; padding:8px 0;">
+                <button type="button" id="reservation-prev" class="page-btn" style="height:28px; padding:4px 10px;">Prev</button>
+                <span id="reservation-page-info" style="font-size:12px; color:#64748b;">Page 1 of 1</span>
+                <button type="button" id="reservation-next" class="page-btn" style="height:28px; padding:4px 10px;">Next</button>
+            </div>
         </section>
 
         <!-- Supply Logs -->
@@ -315,6 +325,11 @@
                     </thead>
                     <tbody id="supply-logs-tbody"></tbody>
                 </table>
+                <div id="supply-pagination" style="display:flex; align-items:center; justify-content:flex-end; gap:8px; padding:8px 0;">
+                    <button type="button" id="supply-prev" class="page-btn" style="height:28px; padding:4px 10px;">Prev</button>
+                    <span id="supply-page-info" style="font-size:12px; color:#64748b;">Page 1 of 1</span>
+                    <button type="button" id="supply-next" class="page-btn" style="height:28px; padding:4px 10px;">Next</button>
+                </div>
             </div>
         </section>
 
@@ -381,6 +396,11 @@
                 @media (max-width: 900px) { .inv-card { grid-template-columns: 80px 1fr; } .inv-right { align-items:flex-start; } }
             </style>
             <div id="inventory-overview-list" class="inv-list"></div>
+            <div id="inventory-pagination" style="display:flex; align-items:center; justify-content:flex-end; gap:8px; padding:8px 4px;">
+                <button type="button" id="inventory-prev" class="page-btn" style="height:28px; padding:4px 10px;">Prev</button>
+                <span id="inventory-page-info" style="font-size:12px; color:#64748b;">Page 1 of 1</span>
+                <button type="button" id="inventory-next" class="page-btn" style="height:28px; padding:4px 10px;">Next</button>
+            </div>
 
             <!-- Product Detail Modal -->
             <div id="product-detail-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:10000;">
@@ -558,22 +578,49 @@
         }
 
         async function fetchReservationLogs(opts = {}){
-            const { status = 'all', search = '', sort = 'date-desc' } = opts;
+            const { status = 'all', search = '', sort = 'date-desc', page = 1 } = opts;
             const url = new URL(window.laravelData.routes.reservationLogs, window.location.origin);
             url.searchParams.set('status', status);
             if (search) url.searchParams.set('search', search);
             if (sort) url.searchParams.set('sort', sort);
+            url.searchParams.set('page', page);
             try {
                 injectSkeletonList(resvListEl, 6);
                 const res = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
                 const data = await res.json();
                 if (!data || data.success === false) throw new Error('Failed to load');
                 renderReservationCards(data.reservations || []);
+                if (data.pagination) updateReservationPagination(data.pagination);
             } catch (e) {
                 console.error(e);
                 if (resvListEl) resvListEl.innerHTML = '<div class="resv-card"><div style="color:#ef4444;">Failed to load reservation logs.</div></div>';
             }
         }
+
+        // Reservation pagination state & controls
+        const reservationPageInfo = document.getElementById('reservation-page-info');
+        const reservationPrev = document.getElementById('reservation-prev');
+        const reservationNext = document.getElementById('reservation-next');
+        const __reservationState = { page:1, total_pages:1, status:'all', sort:'date-desc', search:'' };
+        function updateReservationPagination(p){
+            __reservationState.page = p?.page || 1;
+            __reservationState.total_pages = p?.total_pages || 1;
+            if (reservationPageInfo) reservationPageInfo.textContent = `Page ${__reservationState.page} of ${__reservationState.total_pages}`;
+            if (reservationPrev) reservationPrev.disabled = (__reservationState.page <= 1);
+            if (reservationNext) reservationNext.disabled = (__reservationState.page >= __reservationState.total_pages);
+        }
+        function goReservation(delta){
+            const target = __reservationState.page + delta;
+            if (target < 1 || target > __reservationState.total_pages) return;
+            fetchReservationLogs({
+                status: __reservationState.status,
+                sort: __reservationState.sort,
+                search: __reservationState.search,
+                page: target
+            });
+        }
+        reservationPrev?.addEventListener('click', (e)=> { e.preventDefault(); e.stopPropagation(); goReservation(-1); });
+        reservationNext?.addEventListener('click', (e)=> { e.preventDefault(); e.stopPropagation(); goReservation(1); });
 
         // Wire status tabs
         if (statusSwitch) {
@@ -582,20 +629,22 @@
                     statusSwitch.querySelectorAll('.switch-tab').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                     const status = btn.getAttribute('data-status') || 'all';
-                    fetchReservationLogs({ status });
+                    __reservationState.status = status;
+                    fetchReservationLogs({ status, page: 1 });
                 });
             });
         }
 
         // Ensure data fetch when navigating to the Reservation Logs tab
         document.querySelectorAll('.switch-tab[data-target="reports-reservation-logs"]').forEach(btn => {
-            btn.addEventListener('click', () => fetchReservationLogs({ status: 'all' }));
+            btn.addEventListener('click', () => { __reservationState.status='all'; fetchReservationLogs({ status: 'all', page:1 }); });
         });
 
         // Sales History filters wiring
-        (function wireSalesFilters(){
+            (function wireSalesFilters(){
             const searchEl = document.getElementById('sales-search');
             const monthEl = document.getElementById('sales-month-filter');
+            const typeEl = document.getElementById('sales-type-filter');
             const dateEl = document.getElementById('sales-date-filter');
             const sortEl = document.getElementById('sales-sort-filter');
             // Initial fetch
@@ -618,13 +667,15 @@
             const apply = ()=> {
                 if (typeof applySalesFilters === 'function') applySalesFilters({
                     search: searchEl?.value || '',
-                    sort: sortEl?.value || 'date-desc'
+                    sort: sortEl?.value || 'date-desc',
+                    type: typeEl?.value || 'all'
                 });
             };
             let t;
             searchEl?.addEventListener('input', ()=> { clearTimeout(t); t = setTimeout(apply, 200); });
-            monthEl?.addEventListener('change', ()=> { if (!dateEl?.value && typeof loadSalesHistory==='function') loadSalesHistory({ month: monthEl.value }); setTimeout(apply, 150); });
-            dateEl?.addEventListener('change', ()=> { if (typeof loadSalesHistory==='function') loadSalesHistory({ date: dateEl.value }); setTimeout(apply, 150); });
+            monthEl?.addEventListener('change', ()=> { if (!dateEl?.value && typeof loadSalesHistory==='function') loadSalesHistory({ month: monthEl.value, type: typeEl?.value || 'all' }); setTimeout(apply, 150); });
+            dateEl?.addEventListener('change', ()=> { if (typeof loadSalesHistory==='function') loadSalesHistory({ date: dateEl.value, type: typeEl?.value || 'all' }); setTimeout(apply, 150); });
+            typeEl?.addEventListener('change', ()=> { apply(); });
             sortEl?.addEventListener('change', apply);
         })();
 
@@ -633,22 +684,46 @@
             const searchEl = document.getElementById('supply-search');
             const sortEl = document.getElementById('supply-sort-filter');
             const tableCont = document.querySelector('#reports-supply-logs .table-container');
-            const apply = ()=> { if (typeof applySupplyFilters === 'function') {
+            const supplyPrev = document.getElementById('supply-prev');
+            const supplyNext = document.getElementById('supply-next');
+            const supplyPageInfo = document.getElementById('supply-page-info');
+            const __supplyState = { page:1, total_pages:1, per_page:25, search:'', sort:'date-desc' };
+            function updateSupplyPagination(p){
+                __supplyState.page = p?.page || 1;
+                __supplyState.total_pages = p?.total_pages || 1;
+                __supplyState.per_page = p?.per_page || __supplyState.per_page;
+                if (supplyPageInfo) supplyPageInfo.textContent = `Page ${__supplyState.page} of ${__supplyState.total_pages}`;
+                if (supplyPrev) supplyPrev.disabled = (__supplyState.page <= 1);
+                if (supplyNext) supplyNext.disabled = (__supplyState.page >= __supplyState.total_pages);
+            }
+            function goSupply(delta){
+                const target = __supplyState.page + delta;
+                if (target < 1 || target > __supplyState.total_pages) return;
                 injectTableSkeleton(tableCont);
-                const r = applySupplyFilters({ search: searchEl?.value || '', sort: sortEl?.value || 'date-desc' });
-                if (r && typeof r.then === 'function') r.finally(()=> { removeTableSkeleton(tableCont); animateChildren('#reports-supply-logs tbody'); });
+                const r = loadSupplyLogs({ page: target, perPage: __supplyState.per_page, search: __supplyState.search, sort: __supplyState.sort });
+                if (r && typeof r.then === 'function') r.then(d => updateSupplyPagination(d?.pagination)).finally(()=> { removeTableSkeleton(tableCont); animateChildren('#reports-supply-logs tbody'); });
+            }
+            supplyPrev?.addEventListener('click', (e)=> { e.preventDefault(); e.stopPropagation(); goSupply(-1); });
+            supplyNext?.addEventListener('click', (e)=> { e.preventDefault(); e.stopPropagation(); goSupply(1); });
+            const apply = ()=> { if (typeof applySupplyFilters === 'function') {
+                __supplyState.search = searchEl?.value || '';
+                __supplyState.sort = sortEl?.value || 'date-desc';
+                __supplyState.page = 1;
+                injectTableSkeleton(tableCont);
+                const r = loadSupplyLogs({ page: 1, perPage: __supplyState.per_page, search: __supplyState.search, sort: __supplyState.sort });
+                if (r && typeof r.then === 'function') r.then(d=> { updateSupplyPagination(d?.pagination); if (typeof applySupplyFilters==='function') applySupplyFilters({ search: __supplyState.search, sort: __supplyState.sort }); }).finally(()=> { removeTableSkeleton(tableCont); animateChildren('#reports-supply-logs tbody'); });
                 else setTimeout(()=> { removeTableSkeleton(tableCont); animateChildren('#reports-supply-logs tbody'); }, 250);
             }};
             // Initial fetch
             if (typeof loadSupplyLogs === 'function') {
                 injectTableSkeleton(tableCont);
                 const orig = loadSupplyLogs;
-                window.loadSupplyLogs = async function(...args){
+                window.loadSupplyLogs = async function(opts = {}){
                     injectTableSkeleton(tableCont);
-                    try { const r = orig.apply(this, args); if (r && typeof r.then === 'function') await r; else await new Promise(res=> setTimeout(res, 200)); }
+                    try { const r = orig.apply(this, [opts]); const data = (r && typeof r.then === 'function') ? await r : null; if (data?.pagination) updateSupplyPagination(data.pagination); }
                     finally { removeTableSkeleton(tableCont); animateChildren('#reports-supply-logs tbody'); }
                 };
-                loadSupplyLogs();
+                loadSupplyLogs({ page: 1, perPage: __supplyState.per_page });
             }
 
             let t;
@@ -663,14 +738,24 @@
             const searchEl = document.getElementById('inventory-search');
             const sortSel = document.getElementById('inventory-sort-filter');
             const list = document.getElementById('inventory-overview-list');
+            const invPrev = document.getElementById('inventory-prev');
+            const invNext = document.getElementById('inventory-next');
+            const invPageInfo = document.getElementById('inventory-page-info');
+            const __inventoryState = { page:1, total_pages:1, per_page:25, source:'pos', category:'', search:'', sort:'' };
             const showInvSkeleton = ()=> { if (list) { list.classList.add('animate-stagger'); list.innerHTML = Array.from({length: 10}).map(()=> `<div class=\"inv-card\" style=\"border:1px solid #eef2f7; border-radius:12px; padding:16px;\">\n                <div class=\"skeleton line\" style=\"width:45%; height:14px;\"></div>\n                <div class=\"skeleton line\" style=\"width:70%; height:10px; margin-top:8px;\"></div>\n            </div>`).join(''); }};
             const apply = ()=> {
                 if (typeof loadInventoryOverview === 'function') {
-                    loadInventoryOverview(sourceSel?.value || 'pos', {
-                        category: catSel?.value || '',
-                        search: searchEl?.value || '',
-                        sort: sortSel?.value || ''
-                    });
+                    __inventoryState.source = sourceSel?.value || 'pos';
+                    __inventoryState.category = catSel?.value || '';
+                    __inventoryState.search = searchEl?.value || '';
+                    __inventoryState.sort = sortSel?.value || '';
+                    loadInventoryOverview(__inventoryState.source, {
+                        category: __inventoryState.category,
+                        search: __inventoryState.search,
+                        sort: __inventoryState.sort,
+                        page: __inventoryState.page,
+                        perPage: __inventoryState.per_page
+                    }).then(d => { if (d?.pagination) updateInventoryPagination(d.pagination); });
                 }
             };
             // Observe for content and animate
@@ -681,11 +766,26 @@
                 });
                 mo.observe(list, { childList: true });
             }
-            sourceSel?.addEventListener('change', apply);
-            catSel?.addEventListener('change', apply);
-            sortSel?.addEventListener('change', apply);
+            sourceSel?.addEventListener('change', ()=> { __inventoryState.page=1; apply(); });
+            catSel?.addEventListener('change', ()=> { __inventoryState.page=1; apply(); });
+            sortSel?.addEventListener('change', ()=> { apply(); });
             let ti;
             searchEl?.addEventListener('input', ()=> { clearTimeout(ti); ti = setTimeout(apply, 250); });
+            function updateInventoryPagination(p){
+                __inventoryState.page = p?.page || 1;
+                __inventoryState.total_pages = p?.total_pages || 1;
+                if (invPageInfo) invPageInfo.textContent = `Page ${__inventoryState.page} of ${__inventoryState.total_pages}`;
+                if (invPrev) invPrev.disabled = (__inventoryState.page <= 1);
+                if (invNext) invNext.disabled = (__inventoryState.page >= __inventoryState.total_pages);
+            }
+            function goInventory(delta){
+                const target = __inventoryState.page + delta;
+                if (target < 1 || target > __inventoryState.total_pages) return;
+                __inventoryState.page = target;
+                apply();
+            }
+            invPrev?.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); goInventory(-1); });
+            invNext?.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); goInventory(1); });
             // Initial load for POS inventory with current filters
             showInvSkeleton();
             apply();
@@ -693,7 +793,7 @@
 
     // Initial fetch (completed + cancelled) so content is ready even before switching tabs
     injectSkeletonList(resvListEl, 6);
-    fetchReservationLogs({ status: 'all' }).finally(()=> setTimeout(hideSectionLoader, 300));
+    fetchReservationLogs({ status: 'all', page: 1 }).finally(()=> setTimeout(hideSectionLoader, 300));
 
         // ===== Export utilities =====
         function filenameWithDate(base, ext){
