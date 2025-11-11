@@ -52,6 +52,29 @@ class MockTransactionsSeeder extends Seeder
         ['fullname' => 'Robert Miller', 'email' => 'robert.miller@example.com', 'phone' => '09171234010'],
     ];
 
+    /** @var array<string,array<int,int>> Philippine holidays that boost sales */
+    protected array $philippineHolidays = [
+        // Christmas season (biggest sales boost)
+        '12' => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31],
+        // Valentine's Day period
+        '02' => [12, 13, 14, 15, 16],
+        // Holy Week (March/April - using March for simplicity)
+        '03' => [28, 29, 30, 31],
+        '04' => [1, 2, 3],
+        // Mother's Day (May 2nd Sunday)
+        '05' => [8, 9, 10, 11, 12, 13, 14],
+        // Back to School (June)
+        '06' => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+        // Father's Day (June 3rd Sunday)
+        '06' => [15, 16, 17, 18, 19, 20, 21],
+        // Independence Day
+        '06' => [12],
+        // All Saints' Day
+        '11' => [1, 2],
+        // New Year
+        '01' => [1, 2, 3]
+    ];
+
     public function run(): void
     {
         // Check for existing data
@@ -123,8 +146,14 @@ class MockTransactionsSeeder extends Seeder
             $daysInMonth = $currentDate->daysInMonth;
             $dailyRevenueTarget = $monthlyTarget / $daysInMonth;
             
+            // Apply Philippine holiday sales multiplier
+            $holidayMultiplier = $this->getHolidaySalesMultiplier($currentDate);
+            $dailyRevenueTarget *= $holidayMultiplier;
+            
             // 10% chance store is closed (holidays, rest days)
-            $isClosed = mt_rand(1, 100) <= 10;
+            // But reduce closure chance during high sales periods
+            $closureChance = $holidayMultiplier > 1.5 ? 3 : 10; // Only 3% chance during major holidays
+            $isClosed = mt_rand(1, 100) <= $closureChance;
             if ($isClosed) {
                 echo "[MockTransactionsSeeder] {$currentDate->toDateString()}: Store closed\n";
                 $currentDate->addDay();
@@ -135,16 +164,19 @@ class MockTransactionsSeeder extends Seeder
             // Average item price is around 3000-8000 PHP
             $avgItemPrice = 5500;
             $dailyItemTarget = max(1, (int)($dailyRevenueTarget / $avgItemPrice));
-            $dailyItemTarget = min($dailyItemTarget, 15); // Cap at 15 items per day for realism
+            $dailyItemTarget = min($dailyItemTarget, 25); // Increase cap to 25 for holiday periods
             
             $itemsCreatedToday = 0;
             
-            // 25% chance of having reservations (reduced frequency)
-            $hasReservations = mt_rand(1, 100) <= 25;
+            // Reservation frequency increases during holidays
+            $baseReservationChance = 25;
+            $holidayReservationChance = min(75, $baseReservationChance * $holidayMultiplier);
+            $hasReservations = mt_rand(1, 100) <= $holidayReservationChance;
             $reservationCount = 0;
             
             if ($hasReservations) {
-                $reservationCount = rand(1, 2); // 1-2 reservations per day when they occur
+                $maxReservations = $holidayMultiplier > 2.0 ? 4 : ($holidayMultiplier > 1.5 ? 3 : 2);
+                $reservationCount = rand(1, $maxReservations);
             }
             
             // Create reservations for this day
@@ -187,8 +219,9 @@ class MockTransactionsSeeder extends Seeder
                 $dailyRevenue += $txn->total_amount;
             }
             
-            if ($currentDate->day === 1 || $transactionsCreated % 50 === 0 || $itemsCreatedToday > 0) {
-                echo "[MockTransactionsSeeder] {$currentDate->toDateString()}: {$itemsCreatedToday} items, ₱" . number_format($dailyRevenue, 2) . " revenue, {$transactionsCreated} total txn, {$reservationsCreated} reservations\n";
+            if ($currentDate->day === 1 || $transactionsCreated % 50 === 0 || $itemsCreatedToday > 0 || $holidayMultiplier > 1.2) {
+                $holidayNote = $holidayMultiplier > 1.2 ? " (Holiday boost: x{$holidayMultiplier})" : "";
+                echo "[MockTransactionsSeeder] {$currentDate->toDateString()}: {$itemsCreatedToday} items, ₱" . number_format($dailyRevenue, 2) . " revenue{$holidayNote}, {$transactionsCreated} total txn, {$reservationsCreated} reservations\n";
             }
             
             $currentDate->addDay();
@@ -293,6 +326,75 @@ class MockTransactionsSeeder extends Seeder
     }
 
     /**
+     * Check if a date is a Philippine holiday period with sales boost
+     */
+    protected function getHolidaySalesMultiplier(Carbon $date): float
+    {
+        $month = $date->format('m');
+        $day = (int) $date->format('d');
+        
+        // Christmas season gets the biggest boost
+        if ($month === '12') {
+            if ($day >= 15 && $day <= 25) {
+                return 3.5; // 350% boost for Christmas week
+            } elseif ($day >= 1 && $day <= 31) {
+                return 2.2; // 220% boost for entire December
+            }
+        }
+        
+        // Valentine's Day period
+        if ($month === '02' && $day >= 12 && $day <= 16) {
+            return 1.8; // 180% boost
+        }
+        
+        // Holy Week
+        if (($month === '03' && $day >= 28) || ($month === '04' && $day <= 3)) {
+            return 1.6; // 160% boost
+        }
+        
+        // Mother's Day period (2nd Sunday of May)
+        if ($month === '05' && $day >= 8 && $day <= 14) {
+            return 1.7; // 170% boost
+        }
+        
+        // Back to School (early June)
+        if ($month === '06' && $day >= 1 && $day <= 15) {
+            return 1.9; // 190% boost
+        }
+        
+        // All Saints' Day
+        if ($month === '11' && ($day === 1 || $day === 2)) {
+            return 1.4; // 140% boost
+        }
+        
+        // New Year period
+        if ($month === '01' && $day >= 1 && $day <= 3) {
+            return 1.5; // 150% boost
+        }
+        
+        return 1.0; // Normal sales
+    }
+
+    /**
+     * Determine if accessories should be included (30% chance)
+     */
+    protected function shouldIncludeAccessories(): bool
+    {
+        return mt_rand(1, 100) <= 30;
+    }
+
+    /**
+     * Adjust product category (40% chance men becomes women)
+     */
+    protected function adjustProductCategory(string $originalCategory): string
+    {
+        if (strtolower($originalCategory) === 'men' && mt_rand(1, 100) <= 40) {
+            return 'women';
+        }
+        return $originalCategory;
+    }
+
+    /**
      * Create a reservation with exactly 5 items.
      */
     protected function createReservation($date, $customerIds, $sizePool): ?Reservation
@@ -313,12 +415,17 @@ class MockTransactionsSeeder extends Seeder
             $unitPrice = (float) $product->price;
             $totalAmount += $unitPrice * $quantity;
             
+            // Skip accessories unless they pass the 30% chance
+            if (strtolower($product->category) === 'accessories' && !$this->shouldIncludeAccessories()) {
+                continue;
+            }
+            
             $reservationItems[] = [
                 'product_size_id' => $ps->product_size_id,
                 'product_name' => $product->name,
                 'product_brand' => $product->brand,
                 'product_color' => $product->color,
-                'product_category' => $product->category,
+                'product_category' => $this->adjustProductCategory($product->category),
                 'size' => $ps->size,
                 'quantity' => $quantity,
                 'unit_price' => $unitPrice,
@@ -417,7 +524,7 @@ class MockTransactionsSeeder extends Seeder
                 'product_name' => $item['product_name'],
                 'product_brand' => $item['product_brand'],
                 'product_color' => $item['product_color'],
-                'product_category' => $item['product_category'],
+                'product_category' => $item['product_category'], // Already adjusted during reservation creation
                 'quantity' => $item['quantity'],
                 'size' => $item['size'],
                 'unit_price' => $item['unit_price'],
@@ -449,10 +556,22 @@ class MockTransactionsSeeder extends Seeder
         $subtotal = 0;
         $builtItems = [];
         
-        for ($i = 0; $i < $itemCount; $i++) {
+        $attempts = 0;
+        for ($i = 0; $i < $itemCount && $attempts < $itemCount * 3; $i++) {
             $ps = $sizePool[array_rand($sizePool)];
             $product = $ps->product;
-            if (!$product) continue;
+            if (!$product) {
+                $attempts++;
+                $i--; // Try again
+                continue;
+            }
+            
+            // Skip accessories unless they pass the 30% chance
+            if (strtolower($product->category) === 'accessories' && !$this->shouldIncludeAccessories()) {
+                $attempts++;
+                $i--; // Try again
+                continue;
+            }
             
             $quantity = rand(1, 2);
             $unitPrice = (float) $product->price;
@@ -465,7 +584,7 @@ class MockTransactionsSeeder extends Seeder
                 'product_name' => $product->name,
                 'product_brand' => $product->brand,
                 'product_color' => $product->color,
-                'product_category' => $product->category,
+                'product_category' => $this->adjustProductCategory($product->category),
                 'quantity' => $quantity,
                 'size' => $ps->size,
                 'unit_price' => $unitPrice,
@@ -473,6 +592,7 @@ class MockTransactionsSeeder extends Seeder
                 'created_at' => $transactionTime,
                 'updated_at' => $transactionTime,
             ];
+            $attempts++;
         }
         
         if (empty($builtItems)) {

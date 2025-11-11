@@ -362,7 +362,7 @@
                     <!-- Sales Forecast (Mock) -->
                     <div class="odash-card odash-line-card">
                         <div class="odash-card-header" style="align-items:center; justify-content:space-between;">
-                            <div class="odash-title">Forecast</div>
+                            <div id="odash-forecast-title" class="odash-title">Forecast</div>
                             <div style="display:flex; gap:12px; align-items:center; color:#64748b; flex-wrap:wrap;">
                                 <div id="odash-forecast-legend" style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;"></div>
                                 <div style="display:flex; gap:8px; align-items:center;">
@@ -1098,9 +1098,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 shiftAnchor(rangeSelect.value, -1);
                 // Update both KPIs and forecast, but preserve forecast mode
                 refreshDashboardKPIs(); // Update KPIs only
-                const typeSelect = document.getElementById('odash-forecast-type');
-                const currentMode = (typeSelect && typeSelect.value) ? typeSelect.value : (window.currentForecastMode || 'sales');
-                updateForecast(rangeSelect.value, currentMode); // Update forecast with correct mode
+                
+                // Check if predictive mode is active
+                const predictiveToggle = document.getElementById('odash-predictive-mode');
+                const isPredictive = predictiveToggle && predictiveToggle.checked;
+                
+                // Only update forecast if not in predictive mode (predictive mode ignores navigation)
+                if (!isPredictive) {
+                    const typeSelect = document.getElementById('odash-forecast-type');
+                    const currentMode = (typeSelect && typeSelect.value) ? typeSelect.value : (window.currentForecastMode || 'sales');
+                    updateForecast(rangeSelect.value, currentMode); // Update forecast with correct mode
+                }
             }
         });
         nextBtn.addEventListener('click', ()=> {
@@ -1108,9 +1116,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 shiftAnchor(rangeSelect.value, 1);
                 // Update both KPIs and forecast, but preserve forecast mode
                 refreshDashboardKPIs(); // Update KPIs only
-                const typeSelect = document.getElementById('odash-forecast-type');
-                const currentMode = (typeSelect && typeSelect.value) ? typeSelect.value : (window.currentForecastMode || 'sales');
-                updateForecast(rangeSelect.value, currentMode); // Update forecast with correct mode
+                
+                // Check if predictive mode is active
+                const predictiveToggle = document.getElementById('odash-predictive-mode');
+                const isPredictive = predictiveToggle && predictiveToggle.checked;
+                
+                // Only update forecast if not in predictive mode (predictive mode ignores navigation)
+                if (!isPredictive) {
+                    const typeSelect = document.getElementById('odash-forecast-type');
+                    const currentMode = (typeSelect && typeSelect.value) ? typeSelect.value : (window.currentForecastMode || 'sales');
+                    updateForecast(rangeSelect.value, currentMode); // Update forecast with correct mode
+                }
             }
         });
 
@@ -1289,9 +1305,133 @@ document.addEventListener('DOMContentLoaded', function() {
     })();
 });
 
+// Error handling for forecast data loading
+function handleForecastError(errorMessage) {
+    console.error('Forecast error:', errorMessage);
+    return {
+        labels: [],
+        datasets: {},
+        error: errorMessage || 'Unable to load forecast data'
+    };
+}
+
+
 // Forecast-related functions (moved outside IIFE for global access)
 async function fetchForecast(range, mode, anchor, abortSignal = null) {
     try {
+        const predictiveToggle = document.getElementById('odash-predictive-mode');
+        const isPredictive = predictiveToggle && predictiveToggle.checked;
+        
+        if (isPredictive) {
+            // For predictive mode, use ML forecast API
+            const mlApiBase = '/owner/api/ml-forecast';
+            
+            if (mode === 'demand') {
+                // For demand mode, fetch single demand forecast
+                const url = new URL(`${mlApiBase}?type=demand&range=${range}`, window.location.origin);
+                const fetchOptions = { 
+                    headers: { 'Accept': 'application/json' }
+                };
+                
+                if (abortSignal) {
+                    fetchOptions.signal = abortSignal;
+                }
+                
+                const res = await fetch(url.toString(), fetchOptions);
+                const json = await res.json();
+                
+                if (!res.ok || json.success === false) {
+                    console.error('Demand forecast failed:', json.message || 'Unknown error');
+                    return { 
+                        labels: [], 
+                        datasets: {}, 
+                        error: json.message || 'Failed to load demand forecast data'
+                    };
+                }
+                
+                // Log demand forecast data source information
+                if (json.meta) {
+                    console.group(`🔮 DEMAND FORECAST - Data Source Info`);
+                    console.log(`📊 Using Real Data: ${json.meta.using_real_data ? '✅ YES' : '❌ NO (Fallback)'}`);
+                    console.log(`🏷️  Data Source: ${json.meta.data_source || 'unknown'}`);
+                    if (json.meta.brands_found) {
+                        console.log(`🏪 Brands Found: ${json.meta.brands_found.join(', ')}`);
+                        console.log(`📦 Total Quantities: ${json.meta.total_quantities || 'N/A'}`);
+                    }
+                    console.log(`📅 Historical Days: ${json.meta.historical_days || 'N/A'}`);
+                    console.groupEnd();
+                } else {
+                    console.warn('⚠️  DEMAND FORECAST: No metadata available to determine data source');
+                }
+                
+                return json.data || {}; // { labels, datasets: { brands, quantities } }
+            } else {
+                // For sales mode, fetch both POS and Reservation data
+                const promises = [
+                    fetch(new URL(`${mlApiBase}?type=${mode}&range=${range}&sale_type=pos`, window.location.origin), { 
+                        headers: { 'Accept': 'application/json' },
+                        signal: abortSignal 
+                    }),
+                    fetch(new URL(`${mlApiBase}?type=${mode}&range=${range}&sale_type=reservation`, window.location.origin), { 
+                        headers: { 'Accept': 'application/json' },
+                        signal: abortSignal 
+                    })
+                ];
+                
+                const [posResponse, reservationResponse] = await Promise.all(promises);
+                const [posData, reservationData] = await Promise.all([
+                    posResponse.json(),
+                    reservationResponse.json()
+                ]);
+                
+                // Check if both requests succeeded
+                if (!posResponse.ok || !reservationResponse.ok || !posData.success || !reservationData.success) {
+                    console.error('One or both forecast requests failed:', { posData, reservationData });
+                    return { 
+                        labels: [], 
+                        datasets: {}, 
+                        error: 'Failed to load forecast data for one or both sale types'
+                    };
+                }
+                
+                // Log sales forecast data source information
+                console.group(`💰 SALES FORECAST - Data Source Info`);
+                
+                // Log POS data info
+                if (posData.meta) {
+                    console.log(`📊 POS Data - Using Real Data: ${posData.meta.using_real_data ? '✅ YES' : '❌ NO (Fallback)'}`);
+                    console.log(`🏪 POS Data - Historical Records: ${posData.meta.historical_records || 'N/A'}`);
+                    console.log(`📈 POS Data - Daily Average: $${posData.meta.base_daily_avg || 'N/A'}`);
+                } else {
+                    console.warn('⚠️  POS FORECAST: No metadata available');
+                }
+                
+                // Log Reservation data info
+                if (reservationData.meta) {
+                    console.log(`📊 Reservation Data - Using Real Data: ${reservationData.meta.using_real_data ? '✅ YES' : '❌ NO (Fallback)'}`);
+                    console.log(`🏪 Reservation Data - Historical Records: ${reservationData.meta.historical_records || 'N/A'}`);
+                    console.log(`📈 Reservation Data - Daily Average: $${reservationData.meta.base_daily_avg || 'N/A'}`);
+                } else {
+                    console.warn('⚠️  RESERVATION FORECAST: No metadata available');
+                }
+                
+                console.log(`📅 Forecast Range: ${range}`);
+                console.log(`🎯 Forecast Mode: ${mode}`);
+                console.groupEnd();
+                
+                // Combine the data for chart display
+                return {
+                    labels: posData.data.labels, // Use labels from POS data (should be same for both)
+                    datasets: {
+                        pos: posData.data.datasets.pos || [],
+                        reservation: reservationData.data.datasets.pos || [], // Use 'pos' field from reservation API response
+                        posTrend: posData.data.datasets.trend || [],
+                        reservationTrend: reservationData.data.datasets.trend || []
+                    }
+                };
+            }
+        }
+        
         const base = (window.laravelData && window.laravelData.routes && window.laravelData.routes.apiForecast) ? window.laravelData.routes.apiForecast : '/owner/api/forecast';
         const url = new URL(base, window.location.origin);
         url.searchParams.set('type', mode);
@@ -1314,14 +1454,73 @@ async function fetchForecast(range, mode, anchor, abortSignal = null) {
         const res = await fetch(url.toString(), fetchOptions);
         const json = await res.json();
         if (!res.ok || json.success === false) throw new Error(json.message || 'Failed to fetch forecast');
+        
+        // Log historical forecast data source information
+        if (json.meta) {
+            console.group(`📊 HISTORICAL FORECAST - Data Source Info`);
+            console.log(`📈 Using Real Data: ${json.meta.using_real_data ? '✅ YES' : '❌ NO (Fallback)'}`);
+            console.log(`🏪 Historical Records: ${json.meta.historical_records || 'N/A'}`);
+            console.log(`💰 Daily Average: $${json.meta.base_daily_avg || 'N/A'}`);
+            console.log(`📈 Growth Rate: ${((json.meta.growth_rate || 0) * 100).toFixed(2)}% per period`);
+            console.log(`🎯 Sale Type: ${json.meta.sale_type || 'all'}`);
+            console.log(`📅 Range: ${range}`);
+            console.log(`🔧 Method: ${json.method || 'unknown'}`);
+            console.groupEnd();
+        } else {
+            console.warn('⚠️  HISTORICAL FORECAST: No metadata available to determine data source');
+        }
+        
         const payload = json.data || {};
         return payload; // { labels, datasets }
     } catch (e) {
         // Don't log errors for aborted requests
         if (e.name !== 'AbortError') {
             console.error('Forecast fetch error:', e);
+            return { 
+                labels: [], 
+                datasets: {}, 
+                error: 'Network error: Unable to load forecast data'
+            };
         }
         return { labels: [], datasets: {} };
+    }
+}
+
+// Function to update forecast title based on predictive mode and range
+function updateForecastTitle() {
+    const titleElement = document.getElementById('odash-forecast-title');
+    const predictiveToggle = document.getElementById('odash-predictive-mode');
+    const rangeSelect = document.getElementById('dbf-range');
+    
+    if (!titleElement || !predictiveToggle || !rangeSelect) return;
+    
+    const isPredictive = predictiveToggle.checked;
+    const range = rangeSelect.value;
+    
+    if (!isPredictive) {
+        titleElement.textContent = 'Historical Data';
+    } else {
+        let forecastPeriod;
+        switch (range) {
+            case 'day':
+                forecastPeriod = 'tomorrow';
+                break;
+            case 'weekly':
+                forecastPeriod = 'next 7 days';
+                break;
+            case 'monthly':
+                forecastPeriod = 'next 30 days';
+                break;
+            case 'quarterly':
+                forecastPeriod = 'next 3 months';
+                break;
+            case 'yearly':
+                forecastPeriod = 'next 12 months';
+                break;
+            default:
+                forecastPeriod = 'upcoming period';
+        }
+        titleElement.textContent = `Forecast for ${forecastPeriod}`;
     }
 }
 
@@ -1367,15 +1566,79 @@ async function performForecastUpdate(range, mode) {
     let currentMode = window.currentForecastMode || 'sales';
     let anchorDate = window.forecastAnchorDate || new Date();
     
+    // Check if predictive mode is active
+    const predictiveToggle = document.getElementById('odash-predictive-mode');
+    const isPredictive = predictiveToggle && predictiveToggle.checked;
+    
+    // For predictive mode, always use current date instead of anchor date
+    const dateToUse = isPredictive ? new Date() : anchorDate;
+    
     // Create AbortController for request cancellation
     const abortController = new AbortController();
     window.currentForecastRequest = abortController;
     
-    const payload = await fetchForecast(range, mode, anchorDate, abortController.signal);
+    const payload = await fetchForecast(range, mode, dateToUse, abortController.signal);
     
     // Check if request was cancelled
     if (abortController.signal.aborted) {
         return;
+    }
+    
+    // Check for forecast data errors
+    if (payload.error) {
+        // Display error message in chart area
+        if (forecastShell) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'forecast-error';
+            errorDiv.style.cssText = `
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                text-align: center;
+                color: #ef4444;
+                font-size: 16px;
+                font-weight: 500;
+                z-index: 10;
+                background: rgba(255, 255, 255, 0.9);
+                padding: 20px;
+                border-radius: 8px;
+                border: 2px solid #fecaca;
+            `;
+            errorDiv.innerHTML = `
+                <i class="fas fa-exclamation-triangle" style="font-size: 24px; margin-bottom: 10px;"></i><br>
+                <div>Unable to Load Forecast Data</div>
+                <div style="font-size: 14px; color: #6b7280; margin-top: 8px;">${payload.error}</div>
+            `;
+            
+            // Remove existing error messages
+            const existingError = forecastShell.querySelector('.forecast-error');
+            if (existingError) existingError.remove();
+            
+            forecastShell.appendChild(errorDiv);
+            
+            // Hide chart if it exists
+            if (forecastChart) {
+                forecastChart.canvas.style.display = 'none';
+            }
+        }
+        
+        // Clear the current forecast request reference
+        if (window.currentForecastRequest === abortController) {
+            window.currentForecastRequest = null;
+        }
+        return;
+    }
+    
+    // Remove any existing error messages
+    if (forecastShell) {
+        const existingError = forecastShell.querySelector('.forecast-error');
+        if (existingError) existingError.remove();
+        
+        // Show chart if it was hidden
+        if (forecastChart) {
+            forecastChart.canvas.style.display = 'block';
+        }
     }
     
     // Transform labels and data based on range
@@ -2535,9 +2798,18 @@ function initOwnerForecastCharts() {
     const predictiveToggle = document.getElementById('odash-predictive-mode');
     if (predictiveToggle) {
         predictiveToggle.addEventListener('change', () => {
-            // For now, just log the state - backend integration to be added later
             console.log('Predictive Mode:', predictiveToggle.checked ? 'ON' : 'OFF');
-            // TODO: Integrate with backend prediction system
+            
+            // Update the forecast title
+            updateForecastTitle();
+            
+            // Update the forecast chart data
+            const rangeSelect = document.getElementById('dbf-range');
+            const typeSelect = document.getElementById('odash-forecast-type');
+            const activeMode = (typeSelect && typeSelect.value) ? typeSelect.value : (window.currentForecastMode || 'sales');
+            const range = rangeSelect ? rangeSelect.value : 'day';
+            
+            updateForecast(range, activeMode);
         });
     }
 
@@ -2549,11 +2821,22 @@ function initOwnerForecastCharts() {
         anchorDate = detail.anchorDate ? new Date(detail.anchorDate) : new Date();
         if (rangeSelect && rangeSelect.value !== detail.range) rangeSelect.value = detail.range;
         offset = 0; // reset
+        
+        // Check if predictive mode is active - if so, don't update forecast based on anchor date
+        const predictiveToggle = document.getElementById('odash-predictive-mode');
+        const isPredictive = predictiveToggle && predictiveToggle.checked;
+        
         // Get current mode from dropdown or global state to ensure consistency
         const activeMode = (typeSelect && typeSelect.value) ? typeSelect.value : (window.currentForecastMode || 'sales');
-        updateForecast(rangeSelect ? rangeSelect.value : 'day', activeMode);
+        
+        // Only update forecast if not in predictive mode (predictive mode uses current date, not anchor date)
+        if (!isPredictive) {
+            updateForecast(rangeSelect ? rangeSelect.value : 'day', activeMode);
+        }
+        
         updateWindowText(rangeSelect ? rangeSelect.value : 'day', offset);
         updateNavButtons(rangeSelect ? rangeSelect.value : 'day', offset);
+        updateForecastTitle();
             // Animate window pill feedback
             if (window.anime) {
                 anime({
@@ -2570,11 +2853,15 @@ function initOwnerForecastCharts() {
         const detail = ev.detail||{}; if (!detail.range) return;
         anchorDate = detail.anchorDate ? new Date(detail.anchorDate) : new Date();
         offset = 0;
+        
         // Get current mode from dropdown or global state to ensure consistency
         const activeMode = (typeSelect && typeSelect.value) ? typeSelect.value : (window.currentForecastMode || 'sales');
+        
+        // Always update forecast when range changes (both predictive and historical modes need this)
         updateForecast(detail.range, activeMode);
         updateWindowText(detail.range, offset);
         updateNavButtons(detail.range, offset);
+        updateForecastTitle();
             if (window.anime) {
                 anime({
                     targets: '#dbf-window-text',
@@ -2602,6 +2889,9 @@ function initOwnerForecastCharts() {
 
         renderNeonGauge(resvContainer, { completed, cancelled, pending, total });
     }
+    
+    // Set initial forecast title based on predictive mode and range
+    updateForecastTitle();
 }
 
 // ===== Futuristic Neon Gauge (SVG) =====
@@ -2916,8 +3206,7 @@ function initPopularProducts() {
             console.log('📨 Popular Products API Response:', {
                 status: res.status,
                 ok: res.ok,
-                data: data,
-                sampleItem: data.items?.[0] || 'No items'
+                data: data
             });
             
             if (!res.ok || data.success === false) throw new Error(data.message || 'Failed');

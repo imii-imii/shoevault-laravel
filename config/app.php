@@ -123,4 +123,16 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Python Path for ML Models
+    |--------------------------------------------------------------------------
+    |
+    | Path to Python executable for running machine learning models.
+    | Set PYTHON_PATH in your .env file to override the default.
+    |
+    */
+
+    'python_path' => env('PYTHON_PATH', 'python'),
+
 ];

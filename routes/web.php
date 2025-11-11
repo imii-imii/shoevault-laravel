@@ -409,6 +409,12 @@ Route::middleware(['auth', 'role:owner', 'force.password.change'])->prefix('owne
     Route::get('/api/transaction-date-range', [OwnerController::class, 'getTransactionDateRange'])->name('api.transaction-date-range');
     // Forecast data (sales revenue and demand)
     Route::get('/api/forecast', [ForecastController::class, 'index'])->name('api.forecast');
+    
+    // ML-based forecast endpoints
+    Route::get('/api/ml-forecast', [\App\Http\Controllers\Owner\MLForecastController::class, 'forecast'])->name('api.ml-forecast');
+    Route::post('/api/ml-forecast/train', [\App\Http\Controllers\Owner\MLForecastController::class, 'trainModel'])->name('api.ml-forecast.train');
+    Route::get('/api/ml-forecast/status', [\App\Http\Controllers\Owner\MLForecastController::class, 'modelStatus'])->name('api.ml-forecast.status');
+    Route::get('/api/ml-forecast/export-data', [\App\Http\Controllers\Owner\MLForecastController::class, 'exportData'])->name('api.ml-forecast.export-data');
 
 
     // User management APIs

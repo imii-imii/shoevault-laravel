@@ -1,0 +1,349 @@
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
+
+class SimpleForecastService
+{
+    /**
+     * Simple forecasting service that doesn't require Python/ML dependencies
+     * Uses statistical methods and historical patterns for predictions
+     * Fallback when ML models are not available (like on shared hosting)
+     */
+
+    /**
+     * Generate forecast using simple statistical methods
+     */
+    public function generateStatisticalForecast(string $range = 'weekly', string $type = 'sales', int $periods = null, string $saleType = 'all')
+    {
+        try {
+            // Get historical data for pattern analysis
+            $historicalData = $this->getHistoricalData(90, $saleType); // Last 90 days
+            
+            if (empty($historicalData)) {
+                return [
+                    'success' => false,
+                    'error' => 'No historical data available for forecast generation' . ($saleType !== 'all' ? " for sale type: {$saleType}" : ''),
+                    'method' => 'error'
+                ];
+            }
+
+            // Calculate base metrics
+            $metrics = $this->calculateHistoricalMetrics($historicalData);
+            
+            // Generate forecast based on statistical patterns
+            $forecast = $this->generateStatisticalPredictions($range, $type, $periods, $metrics);
+            
+            return [
+                'success' => true,
+                'data' => [
+                    'labels' => $forecast['labels'],
+                    'datasets' => $forecast['datasets']
+                ],
+                'method' => 'statistical',
+                'meta' => [
+                    'base_daily_avg' => $metrics['daily_avg'],
+                    'growth_rate' => $metrics['growth_rate'],
+                    'seasonal_factor' => $metrics['seasonal_factor']
+                ]
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Statistical forecast failed: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => 'Unable to load forecast data: ' . $e->getMessage(),
+                'method' => 'error'
+            ];
+        }
+    }
+
+    /**
+     * Get historical transaction data
+     */
+    private function getHistoricalData(int $days = 90, string $saleType = 'all'): array
+    {
+        try {
+            $endDate = Carbon::now();
+            $startDate = $endDate->copy()->subDays($days);
+
+            $query = DB::table('transactions')
+                ->selectRaw('
+                    DATE(created_at) as date,
+                    SUM(total_amount) as sales,
+                    COUNT(*) as transaction_count,
+                    DAYOFWEEK(created_at) as day_of_week
+                ')
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->whereNotNull('total_amount')
+                ->where('total_amount', '>', 0);
+
+            // Filter by sale_type if specified
+            if ($saleType !== 'all') {
+                $query->where('sale_type', $saleType);
+            }
+
+            $data = $query->groupBy('date', 'day_of_week')
+                ->orderBy('date')
+                ->get()
+                ->toArray();
+
+            return array_map(function($item) {
+                return (array) $item;
+            }, $data);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to get historical data: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Calculate statistical metrics from historical data
+     */
+    private function calculateHistoricalMetrics(array $data): array
+    {
+        if (empty($data)) {
+            return [
+                'daily_avg' => 1500,
+                'growth_rate' => 0.02,
+                'seasonal_factor' => 1.0,
+                'weekday_patterns' => [1.0, 1.0, 1.0, 1.0, 1.2, 1.4, 1.3]
+            ];
+        }
+
+        // Calculate daily average
+        $totalSales = array_sum(array_column($data, 'sales'));
+        $dailyAvg = $totalSales / count($data);
+
+        // Calculate growth rate (simple linear trend)
+        $growthRate = $this->calculateGrowthRate($data);
+
+        // Calculate weekday patterns
+        $weekdayPatterns = $this->calculateWeekdayPatterns($data);
+
+        // Calculate seasonal factor
+        $seasonalFactor = $this->calculateSeasonalFactor();
+
+        return [
+            'daily_avg' => $dailyAvg,
+            'growth_rate' => $growthRate,
+            'seasonal_factor' => $seasonalFactor,
+            'weekday_patterns' => $weekdayPatterns
+        ];
+    }
+
+    /**
+     * Calculate growth rate from historical data
+     */
+    private function calculateGrowthRate(array $data): float
+    {
+        if (count($data) < 7) {
+            return 0.02; // Default 2% growth
+        }
+
+        // Compare first week vs last week
+        $firstWeek = array_slice($data, 0, 7);
+        $lastWeek = array_slice($data, -7);
+
+        $firstWeekAvg = array_sum(array_column($firstWeek, 'sales')) / 7;
+        $lastWeekAvg = array_sum(array_column($lastWeek, 'sales')) / 7;
+
+        if ($firstWeekAvg == 0) {
+            return 0.02;
+        }
+
+        $growthRate = ($lastWeekAvg - $firstWeekAvg) / $firstWeekAvg / count($data) * 7;
+        
+        // Cap growth rate between -10% and +10%
+        return max(-0.1, min(0.1, $growthRate));
+    }
+
+    /**
+     * Calculate weekday patterns (Monday = 1, Sunday = 7)
+     */
+    private function calculateWeekdayPatterns(array $data): array
+    {
+        $weekdayTotals = array_fill(1, 7, 0);
+        $weekdayCounts = array_fill(1, 7, 0);
+
+        foreach ($data as $record) {
+            $dayOfWeek = (int) $record['day_of_week'];
+            $weekdayTotals[$dayOfWeek] += $record['sales'];
+            $weekdayCounts[$dayOfWeek]++;
+        }
+
+        $overallAvg = array_sum($weekdayTotals) / array_sum($weekdayCounts);
+        $patterns = [];
+
+        for ($day = 1; $day <= 7; $day++) {
+            if ($weekdayCounts[$day] > 0) {
+                $dayAvg = $weekdayTotals[$day] / $weekdayCounts[$day];
+                $patterns[] = $overallAvg > 0 ? $dayAvg / $overallAvg : 1.0;
+            } else {
+                $patterns[] = 1.0;
+            }
+        }
+
+        return $patterns;
+    }
+
+    /**
+     * Calculate seasonal factor based on current month
+     */
+    private function calculateSeasonalFactor(): float
+    {
+        $month = (int) date('n'); // 1-12
+        
+        // Seasonal multipliers for shoe sales (higher in fall/winter, back-to-school)
+        $seasonalMultipliers = [
+            1 => 0.9,  // January (post-holiday low)
+            2 => 0.85, // February (low season)
+            3 => 1.0,  // March (spring start)
+            4 => 1.1,  // April (spring)
+            5 => 1.0,  // May
+            6 => 0.9,  // June (summer low)
+            7 => 0.85, // July (summer low)
+            8 => 1.2,  // August (back-to-school)
+            9 => 1.15, // September (back-to-school)
+            10 => 1.1, // October (fall)
+            11 => 1.25, // November (pre-holiday)
+            12 => 1.3  // December (holiday season)
+        ];
+
+        return $seasonalMultipliers[$month] ?? 1.0;
+    }
+
+    /**
+     * Generate statistical predictions
+     */
+    private function generateStatisticalPredictions(string $range, string $type, ?int $periods, array $metrics): array
+    {
+        $periods = $periods ?? $this->getDefaultPeriods($range);
+        
+        $labels = [];
+        $posData = [];
+        $reservationData = [];
+        $trendData = [];
+        $peaks = [];
+
+        $baseValue = $metrics['daily_avg'];
+        $growthRate = $metrics['growth_rate'];
+        $seasonalFactor = $metrics['seasonal_factor'];
+        $weekdayPatterns = $metrics['weekday_patterns'];
+
+        $startDate = Carbon::now()->addDay(); // Start from tomorrow
+
+        for ($i = 0; $i < $periods; $i++) {
+            // Calculate date for this period
+            $currentDate = $this->getDateForPeriod($range, $startDate, $i);
+            
+            // Generate label
+            $labels[] = $this->formatLabel($range, $currentDate, $i);
+
+            // Calculate base prediction
+            $prediction = $baseValue;
+
+            // Apply growth
+            $prediction *= (1 + ($growthRate * $i));
+
+            // Apply seasonal factor
+            $prediction *= $seasonalFactor;
+
+            // Apply weekday pattern for daily/weekly ranges
+            if (in_array($range, ['day', 'weekly', 'monthly'])) {
+                $dayOfWeek = $currentDate->dayOfWeek; // 0 = Sunday, 6 = Saturday
+                $patternIndex = $dayOfWeek == 0 ? 6 : $dayOfWeek - 1; // Convert to our array index
+                $prediction *= $weekdayPatterns[$patternIndex] ?? 1.0;
+            }
+
+            // Add some realistic randomness
+            $randomFactor = 0.85 + (mt_rand() / mt_getrandmax()) * 0.3; // 0.85 to 1.15
+            $prediction *= $randomFactor;
+
+            // Ensure non-negative
+            $prediction = max(0, $prediction);
+
+            $posData[] = round($prediction);
+            $reservationData[] = round($prediction * 0.15); // 15% of sales
+            $trendData[] = round($prediction * 1.1); // Trend line slightly higher
+
+            // Identify peaks
+            if ($i > 0 && $prediction > $baseValue * 1.3) {
+                $peaks[] = ['x' => $i, 'y' => round($prediction)];
+            }
+        }
+
+        return [
+            'labels' => $labels,
+            'datasets' => [
+                'pos' => $posData,
+                'reservations' => $reservationData,
+                'trend' => $trendData,
+                'peaks' => $peaks
+            ]
+        ];
+    }
+
+    /**
+     * Get date for specific period
+     */
+    private function getDateForPeriod(string $range, Carbon $startDate, int $index): Carbon
+    {
+        switch ($range) {
+            case 'day':
+                // Start from 10 AM and add hours for business hours
+                return $startDate->copy()->setHour(10)->addHours($index);
+            case 'weekly':
+                return $startDate->copy()->addDays($index);
+            case 'monthly':
+                return $startDate->copy()->addDays($index);
+            case 'quarterly':
+                return $startDate->copy()->addWeeks($index);
+            case 'yearly':
+                return $startDate->copy()->addMonths($index);
+            default:
+                return $startDate->copy()->addDays($index);
+        }
+    }
+
+    /**
+     * Format label for chart
+     */
+    private function formatLabel(string $range, Carbon $date, int $index): string
+    {
+        switch ($range) {
+            case 'day':
+                return $date->format('g:i A'); // 12-hour format with AM/PM (e.g., "10:00 AM", "1:00 PM")
+            case 'weekly':
+                return $date->format('D M j');
+            case 'monthly':
+                return $date->format('M j');
+            case 'quarterly':
+                return 'Week ' . ($index + 1);
+            case 'yearly':
+                return $date->format('M Y');
+            default:
+                return $date->format('M j');
+        }
+    }
+
+    /**
+     * Get default periods for range
+     */
+    private function getDefaultPeriods(string $range): int
+    {
+        return match ($range) {
+            'day' => 10, // Business hours: 10 AM - 7 PM (10 hours)
+            'weekly' => 7,
+            'monthly' => 30,
+            'quarterly' => 12,
+            'yearly' => 12,
+            default => 30
+        };
+    }
+
+}
