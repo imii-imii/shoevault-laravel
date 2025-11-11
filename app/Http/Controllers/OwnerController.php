@@ -622,8 +622,20 @@ class OwnerController extends Controller
             $endDate = $request->input('end_date');
             $range = $request->input('range', 'day');
             
+            // Debug: Log all incoming requests
+            Log::info('getDashboardData called', [
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'range' => $range,
+                'all_inputs' => $request->all()
+            ]);
+            
             // Validate dates
             if (!$startDate || !$endDate) {
+                Log::warning('getDashboardData: Missing required dates', [
+                    'start_date' => $startDate,
+                    'end_date' => $endDate
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Start date and end date are required'
@@ -631,6 +643,12 @@ class OwnerController extends Controller
             }
             
             $data = $this->getDashboardKPIsByDateRange($startDate, $endDate, $range);
+            
+            // Debug: Log the final response data
+            Log::info('getDashboardData response', [
+                'kpis' => $data['kpis'] ?? null,
+                'forecast_data_count' => isset($data['forecast']) ? count($data['forecast']) : 0
+            ]);
             
             return response()->json([
                 'success' => true,
@@ -651,9 +669,18 @@ class OwnerController extends Controller
      */
     private function getDashboardKPIs()
     {
+        // Get current date in local timezone for initial dashboard load
+        $currentDate = now()->toDateString();
+        
+        Log::info('getDashboardKPIs: Using date for initial load', [
+            'date' => $currentDate,
+            'now_utc' => now()->utc()->toDateTimeString(),
+            'today_string' => today()->toDateString()
+        ]);
+        
         $rangeData = $this->getDashboardKPIsByDateRange(
-            today()->toDateString(),
-            today()->toDateString(),
+            $currentDate,
+            $currentDate,
             'day'
         );
         
@@ -684,28 +711,86 @@ class OwnerController extends Controller
         $dateCol = $this->salesDateColumn();
         $amountExpr = $this->salesAmountExpression();
         
+        // Debug logging
+        Log::info('Dashboard KPI Query Debug', [
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'range' => $range,
+            'date_column' => $dateCol,
+            'amount_expression' => $amountExpr
+        ]);
+        
+        // Check if we have any data at all
+        $totalTransactionsCount = Transaction::count();
+        $totalTransactionItemsCount = TransactionItem::count();
+        $totalReservationsCount = Reservation::count();
+        
+        // Check what the actual date formats are in the database
+        $recentTransactions = Transaction::orderBy($dateCol, 'desc')->limit(3)
+            ->select('transaction_id', $dateCol, $amountExpr)
+            ->get();
+        
+        Log::info('Database Records Count', [
+            'total_transactions' => $totalTransactionsCount,
+            'total_transaction_items' => $totalTransactionItemsCount,
+            'total_reservations' => $totalReservationsCount,
+            'recent_transactions_sample' => $recentTransactions->toArray()
+        ]);
+        
         // Calculate sales for the date range
-        $sales = Transaction::whereBetween($dateCol, [$startDate, $endDate])
-            ->select(DB::raw("SUM($amountExpr) as total"))
-            ->value('total') ?? 0;
+        // Handle timestamp columns properly by converting dates to full datetime ranges
+        $startDateTime = $startDate . ' 00:00:00';
+        $endDateTime = $endDate . ' 23:59:59';
+        
+        $salesQuery = Transaction::whereBetween($dateCol, [$startDateTime, $endDateTime]);
+        $totalTransactions = $salesQuery->count();
+        $sales = $salesQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
+        
+        // Debug: Check what data exists in the date range
+        $sampleTransactions = Transaction::whereBetween($dateCol, [$startDateTime, $endDateTime])
+            ->select('transaction_id', $dateCol, $amountExpr)
+            ->limit(5)
+            ->get();
+        
+        Log::info('Sales Query Results', [
+            'total_transactions' => $totalTransactions,
+            'total_sales' => $sales,
+            'sample_transactions' => $sampleTransactions->toArray(),
+            'query_date_range' => [$startDateTime, $endDateTime],
+            'original_date_range' => [$startDate, $endDate],
+            'date_column_used' => $dateCol
+        ]);
             
         // Calculate products sold in the date range
-        $productsSold = TransactionItem::whereHas('transaction', function($query) use ($dateCol, $startDate, $endDate) {
-            $query->whereBetween($dateCol, [$startDate, $endDate]);
+        $productsSold = TransactionItem::whereHas('transaction', function($query) use ($dateCol, $startDateTime, $endDateTime) {
+            $query->whereBetween($dateCol, [$startDateTime, $endDateTime]);
         })->sum('quantity') ?? 0;
         
+        Log::info('Products Sold Query Results', [
+            'products_sold' => $productsSold
+        ]);
+        
         // Calculate reservations for the date range
-        $completedReservations = Reservation::where('status', 'completed')
-            ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+        // Completed reservations = transactions with sale_type = 'reservation' (reservations that were fulfilled/sold)
+        $completedReservations = Transaction::where('sale_type', 'reservation')
+            ->whereBetween($dateCol, [$startDateTime, $endDateTime])
             ->count();
             
+        // Cancelled reservations = reservations with status = 'cancelled' 
         $cancelledReservations = Reservation::where('status', 'cancelled')
-            ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->whereBetween('created_at', [$startDateTime, $endDateTime])
             ->count();
             
+        // Pending reservations = reservations with status = 'pending'
         $pendingReservations = Reservation::where('status', 'pending')
-            ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->whereBetween('created_at', [$startDateTime, $endDateTime])
             ->count();
+            
+        Log::info('Reservation Query Results', [
+            'completed_reservations' => $completedReservations . ' (transactions with sale_type=reservation)',
+            'cancelled_reservations' => $cancelledReservations . ' (reservations with status=cancelled)',
+            'pending_reservations' => $pendingReservations . ' (reservations with status=pending)'
+        ]);
         
         // Generate forecast data based on range
         $forecast = $this->generateForecastData($startDate, $endDate, $range);
@@ -744,8 +829,8 @@ class OwnerController extends Controller
         $reservationData = [];
         
         if ($range === 'day') {
-            // Hourly data for the day
-            for ($hour = 9; $hour <= 20; $hour++) {
+            // Hourly data for the day (Business hours: 10am - 7pm)
+            for ($hour = 10; $hour <= 19; $hour++) {
                 $hourStart = $startDate . ' ' . sprintf('%02d:00:00', $hour);
                 $hourEnd = $startDate . ' ' . sprintf('%02d:59:59', $hour);
                 
@@ -798,13 +883,14 @@ class OwnerController extends Controller
                     ->select(DB::raw("SUM($amountExpr) as total"))
                     ->value('total') ?? 0;
                 
-                $labels[] = $current->format('M d');
+                // Generate proper day labels (e.g., "Mon", "Tue", "Wed")
+                $labels[] = $current->format('D');
                 $posData[] = (float) $posRevenue;
                 $reservationData[] = (float) $resvRevenue;
                 
                 $current->addDay();
             }
-        } else {
+        } else if ($range === 'monthly') {
             // Weekly data for the month
             $current = Carbon::parse($startDate)->startOfWeek();
             $end = Carbon::parse($endDate)->endOfWeek();
@@ -831,11 +917,116 @@ class OwnerController extends Controller
                     ->select(DB::raw("SUM($amountExpr) as total"))
                     ->value('total') ?? 0;
                 
-                $labels[] = 'Week ' . $current->week;
+                // Generate proper week labels (e.g., "Week 1", "Week 2")
+                $weekOfMonth = $current->weekOfMonth;
+                $labels[] = 'Week ' . $weekOfMonth;
                 $posData[] = (float) $posRevenue;
                 $reservationData[] = (float) $resvRevenue;
                 
                 $current->addWeek();
+            }
+        } else if ($range === 'quarterly') {
+            // Monthly data for the quarter
+            $current = Carbon::parse($startDate)->startOfMonth();
+            $end = Carbon::parse($endDate)->endOfMonth();
+            
+            while ($current->lte($end)) {
+                $monthStart = $current->toDateString() . ' 00:00:00';
+                $monthEnd = $current->copy()->endOfMonth()->toDateString() . ' 23:59:59';
+                
+                // Get POS transactions (sale_type = 'pos' or transactions without reservation_id)
+                $posRevenue = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
+                    ->where(function($query) {
+                        $query->where('sale_type', 'pos')
+                              ->orWhereNull('reservation_id');
+                    })
+                    ->select(DB::raw("SUM($amountExpr) as total"))
+                    ->value('total') ?? 0;
+                    
+                // Get reservation transactions (sale_type = 'reservation' or transactions with reservation_id)
+                $resvRevenue = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
+                    ->where(function($query) {
+                        $query->where('sale_type', 'reservation')
+                              ->orWhereNotNull('reservation_id');
+                    })
+                    ->select(DB::raw("SUM($amountExpr) as total"))
+                    ->value('total') ?? 0;
+                
+                // Generate quarter-based labels (e.g., "Q1 Jan", "Q1 Feb", "Q1 Mar")
+                $quarter = 'Q' . $current->quarter;
+                $monthName = $current->format('M');
+                $labels[] = $quarter . ' ' . $monthName;
+                $posData[] = (float) $posRevenue;
+                $reservationData[] = (float) $resvRevenue;
+                
+                $current->addMonth();
+            }
+        } else if ($range === 'yearly') {
+            // Monthly data for the year
+            $current = Carbon::parse($startDate)->startOfMonth();
+            $end = Carbon::parse($endDate)->endOfMonth();
+            
+            while ($current->lte($end)) {
+                $monthStart = $current->toDateString() . ' 00:00:00';
+                $monthEnd = $current->copy()->endOfMonth()->toDateString() . ' 23:59:59';
+                
+                // Get POS transactions (sale_type = 'pos' or transactions without reservation_id)
+                $posRevenue = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
+                    ->where(function($query) {
+                        $query->where('sale_type', 'pos')
+                              ->orWhereNull('reservation_id');
+                    })
+                    ->select(DB::raw("SUM($amountExpr) as total"))
+                    ->value('total') ?? 0;
+                    
+                // Get reservation transactions (sale_type = 'reservation' or transactions with reservation_id)
+                $resvRevenue = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
+                    ->where(function($query) {
+                        $query->where('sale_type', 'reservation')
+                              ->orWhereNotNull('reservation_id');
+                    })
+                    ->select(DB::raw("SUM($amountExpr) as total"))
+                    ->value('total') ?? 0;
+                
+                // Generate proper month labels (e.g., "Jan", "Feb", "Mar")
+                $labels[] = $current->format('M');
+                $posData[] = (float) $posRevenue;
+                $reservationData[] = (float) $resvRevenue;
+                
+                $current->addMonth();
+            }
+        } else {
+            // Default: Monthly data (fallback)
+            $current = Carbon::parse($startDate)->startOfMonth();
+            $end = Carbon::parse($endDate)->endOfMonth();
+            
+            while ($current->lte($end)) {
+                $monthStart = $current->toDateString() . ' 00:00:00';
+                $monthEnd = $current->copy()->endOfMonth()->toDateString() . ' 23:59:59';
+                
+                // Get POS transactions (sale_type = 'pos' or transactions without reservation_id)
+                $posRevenue = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
+                    ->where(function($query) {
+                        $query->where('sale_type', 'pos')
+                              ->orWhereNull('reservation_id');
+                    })
+                    ->select(DB::raw("SUM($amountExpr) as total"))
+                    ->value('total') ?? 0;
+                    
+                // Get reservation transactions (sale_type = 'reservation' or transactions with reservation_id)
+                $resvRevenue = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
+                    ->where(function($query) {
+                        $query->where('sale_type', 'reservation')
+                              ->orWhereNotNull('reservation_id');
+                    })
+                    ->select(DB::raw("SUM($amountExpr) as total"))
+                    ->value('total') ?? 0;
+                
+                $labels[] = $current->format('M Y');
+                $posData[] = (float) $posRevenue;
+                $reservationData[] = (float) $resvRevenue;
+                
+                $current->addMonth();
             }
         }
         
@@ -1361,21 +1552,141 @@ class OwnerController extends Controller
             }
 
             // Aggregate sold quantity per product within window using transactions schema
+            // Use the same date column as KPIs for consistency
+            $dateCol = $this->salesDateColumn();
             $itemsQuery = DB::table('transaction_items as ti')
                 ->join('transactions as t', 't.transaction_id', '=', 'ti.transaction_id')
-                ->whereBetween('t.created_at', [$start, $end])
-                ->select(
+                ->whereBetween("t.$dateCol", [$start, $end]);
+                
+            // If a specific category is requested, include category in grouping and selection
+            if (!empty($category) && $category !== 'all') {
+                $itemsQuery->select(
                     DB::raw('COALESCE(ti.product_name, "Unknown") as name'),
                     DB::raw('LOWER(COALESCE(ti.product_category, "")) as category'),
+                    DB::raw('COALESCE(ti.product_brand, "Unknown") as brand'),
+                    DB::raw('COALESCE(ti.product_color, "Unknown") as color'),
                     DB::raw('SUM(ti.quantity) as sold')
                 )
-                ->groupBy('product_name', 'ti.product_category');
-
-            if (!empty($category) && $category !== 'all') {
-                $itemsQuery->whereRaw('LOWER(COALESCE(ti.product_category, "")) = ?', [$category]);
+                ->groupBy('ti.product_name', 'ti.product_category', 'ti.product_brand', 'ti.product_color')
+                ->whereRaw('LOWER(COALESCE(ti.product_category, "")) = ?', [$category]);
+            } else {
+                // For "All Categories", show products from ALL categories
+                $itemsQuery->select(
+                    DB::raw('COALESCE(ti.product_name, "Unknown") as name'),
+                    DB::raw('LOWER(COALESCE(ti.product_category, "")) as category'),
+                    DB::raw('COALESCE(ti.product_brand, "Unknown") as brand'),
+                    DB::raw('COALESCE(ti.product_color, "Unknown") as color'),
+                    DB::raw('SUM(ti.quantity) as sold')
+                )
+                ->groupBy('ti.product_name', 'ti.product_brand', 'ti.product_color', 'ti.product_category'); // Include category to show different categories
+                // No WHERE clause - this should include ALL categories
             }
 
             $items = $itemsQuery->orderByDesc('sold')->limit($limit)->get();
+
+            // Debug: Check what categories exist in the date range
+            $categoriesInRange = DB::table('transaction_items as ti')
+                ->join('transactions as t', 't.transaction_id', '=', 'ti.transaction_id')
+                ->whereBetween("t.$dateCol", [$start, $end])
+                ->select(
+                    DB::raw('LOWER(COALESCE(ti.product_category, "")) as category'),
+                    DB::raw('COUNT(*) as count'),
+                    DB::raw('SUM(ti.quantity) as total_quantity')
+                )
+                ->groupBy('ti.product_category')
+                ->orderByDesc('total_quantity')
+                ->get();
+
+            // Debug logging for Popular Products
+            $productNames = $items->pluck('name')->toArray();
+            $totalQuantityFromPopularProducts = $items->sum('sold');
+            $dateCol = $this->salesDateColumn();
+            
+            // Additional debug: Check if there are more products beyond the limit (by name+color combinations)
+            $totalProductsInRange = DB::table('transaction_items as ti')
+                ->join('transactions as t', 't.transaction_id', '=', 'ti.transaction_id')
+                ->whereBetween("t.$dateCol", [$start, $end])
+                ->select(DB::raw('COUNT(DISTINCT CONCAT(ti.product_name, "-", COALESCE(ti.product_color, ""), "-", COALESCE(ti.product_category, ""))) as unique_products'))
+                ->value('unique_products');
+                
+            // Check total quantity sold in the range (should match KPI)
+            $totalQuantityInRange = DB::table('transaction_items as ti')
+                ->join('transactions as t', 't.transaction_id', '=', 'ti.transaction_id')
+                ->whereBetween("t.$dateCol", [$start, $end])
+                ->sum('ti.quantity');
+                
+            // Check for data quality issues
+            $nullProductNames = DB::table('transaction_items as ti')
+                ->join('transactions as t', 't.transaction_id', '=', 'ti.transaction_id')
+                ->whereBetween("t.$dateCol", [$start, $end])
+                ->whereNull('ti.product_name')
+                ->sum('ti.quantity');
+                
+            $emptyProductNames = DB::table('transaction_items as ti')
+                ->join('transactions as t', 't.transaction_id', '=', 'ti.transaction_id')
+                ->whereBetween("t.$dateCol", [$start, $end])
+                ->where('ti.product_name', '')
+                ->sum('ti.quantity');
+                
+            // Check items that fail the JOIN condition
+            $totalQuantityWithoutJoin = DB::table('transaction_items as ti')
+                ->whereExists(function($query) use ($dateCol, $start, $end) {
+                    $query->select(DB::raw(1))
+                          ->from('transactions as t')
+                          ->whereColumn('t.transaction_id', 'ti.transaction_id')
+                          ->whereBetween("t.$dateCol", [$start, $end]);
+                })
+                ->sum('ti.quantity');
+                
+            // Check transaction items without matching transactions
+            $orphanedItems = DB::table('transaction_items as ti')
+                ->leftJoin('transactions as t', 't.transaction_id', '=', 'ti.transaction_id')
+                ->whereNull('t.transaction_id')
+                ->count();
+                
+            // Compare with KPI-style calculation for verification
+            $kpiStyleQuantity = DB::table('transaction_items as ti')
+                ->whereExists(function($query) use ($dateCol, $start, $end) {
+                    $query->select(DB::raw(1))
+                          ->from('transactions as t')
+                          ->whereColumn('t.transaction_id', 'ti.transaction_id')
+                          ->whereBetween("t.$dateCol", [$start->format('Y-m-d H:i:s'), $end->format('Y-m-d H:i:s')]);
+                })
+                ->sum('ti.quantity');
+            
+            // Get the actual SQL query for debugging
+            $actualQuery = $itemsQuery->toSql();
+            $queryBindings = $itemsQuery->getBindings();
+            
+            Log::info('Popular Products Query Results', [
+                'date_range' => $start->toDateString() . ' to ' . $end->toDateString(),
+                'date_column_used' => $dateCol,
+                'range' => $range,
+                'month' => $month,
+                'year' => $y,
+                'category_filter' => $category,
+                'actual_sql_query' => $actualQuery,
+                'query_bindings' => $queryBindings,
+                'products_found' => $items->count(),
+                'limit_applied' => $limit,
+                'grouping_logic' => 'By product_name + product_category + product_brand + product_color (sizes combined)',
+                'categories_in_date_range' => $categoriesInRange->toArray(),
+                'returned_categories' => $items->pluck('category')->unique()->values()->toArray(),
+                'total_unique_products_in_range' => $totalProductsInRange,
+                'total_quantity_from_popular_products' => $totalQuantityFromPopularProducts,
+                'total_quantity_in_date_range' => $totalQuantityInRange,
+                'total_quantity_without_join_constraint' => $totalQuantityWithoutJoin,
+                'quantity_discrepancy' => $totalQuantityInRange - $totalQuantityFromPopularProducts,
+                'data_quality_issues' => [
+                    'null_product_names_quantity' => $nullProductNames,
+                    'empty_product_names_quantity' => $emptyProductNames,
+                    'orphaned_transaction_items' => $orphanedItems,
+                ],
+                'kpi_style_quantity_check' => $kpiStyleQuantity,
+                'sample_items' => $items->take(5)->toArray(),
+                'product_names' => $productNames,
+                'full_results' => $items->toArray()
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -1489,5 +1800,47 @@ class OwnerController extends Controller
         }
         
         return asset($profileObject->profile_picture);
+    }
+
+    /**
+     * Get the date range for transaction data to set date picker limits
+     */
+    public function getTransactionDateRange()
+    {
+        try {
+            // Get the earliest and latest transaction dates
+            $dateRange = DB::table('transactions')
+                ->selectRaw('MIN(created_at) as earliest, MAX(created_at) as latest')
+                ->first();
+
+            $earliestDate = $dateRange && $dateRange->earliest 
+                ? Carbon::parse($dateRange->earliest)->format('Y-m-d')
+                : '2022-01-01'; // Fallback if no transactions exist
+
+            $latestDate = $dateRange && $dateRange->latest 
+                ? Carbon::parse($dateRange->latest)->format('Y-m-d')
+                : Carbon::now()->format('Y-m-d');
+
+            return response()->json([
+                'earliest' => $earliestDate,
+                'latest' => $latestDate,
+                'earliest_week' => Carbon::parse($earliestDate)->format('Y-\WW'),
+                'latest_week' => Carbon::parse($latestDate)->format('Y-\WW'),
+                'earliest_month' => Carbon::parse($earliestDate)->format('Y-m'),
+                'latest_month' => Carbon::parse($latestDate)->format('Y-m')
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error getting transaction date range: ' . $e->getMessage());
+            
+            // Return safe defaults
+            return response()->json([
+                'earliest' => '2022-01-01',
+                'latest' => Carbon::now()->format('Y-m-d'),
+                'earliest_week' => '2022-W01',
+                'latest_week' => Carbon::now()->format('Y-\WW'),
+                'earliest_month' => '2022-01',
+                'latest_month' => Carbon::now()->format('Y-m')
+            ]);
+        }
     }
 }

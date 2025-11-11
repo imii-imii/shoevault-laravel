@@ -406,10 +406,10 @@ Route::middleware(['auth', 'role:owner', 'force.password.change'])->prefix('owne
     // API routes for dashboard data
     Route::post('/api/dashboard-data', [OwnerController::class, 'getDashboardData'])->name('api.dashboard-data');
     Route::get('/api/stock-levels', [OwnerController::class, 'getStockLevels'])->name('api.stock-levels');
+    Route::get('/api/transaction-date-range', [OwnerController::class, 'getTransactionDateRange'])->name('api.transaction-date-range');
     // Forecast data (sales revenue and demand)
     Route::get('/api/forecast', [ForecastController::class, 'index'])->name('api.forecast');
-    // Forecast predictions (expected revenue for next periods)
-    Route::get('/api/forecast/predictions', [ForecastController::class, 'predictions'])->name('api.forecast.predictions');
+
 
     // User management APIs
     Route::get('/users', [OwnerUsersController::class, 'index'])->name('users.index');

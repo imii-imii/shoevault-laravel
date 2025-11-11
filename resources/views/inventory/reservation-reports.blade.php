@@ -468,18 +468,59 @@ function openReservationModalFromCard(card) {
                 list.innerHTML = '<div style="color:#6B7280;font-size:0.9rem;">No products recorded for this reservation.</div>';
                 return;
             }
-            list.innerHTML = data.items.map(item => `
+            
+            // Debug: Log the actual item structure to see what properties are available
+            console.log('Reservation items data:', data.items);
+            data.items.forEach((item, index) => {
+                console.log(`Item ${index}:`, item);
+                console.log(`Available properties:`, Object.keys(item));
+            });
+            
+            list.innerHTML = data.items.map(item => {
+                // The backend returns 'price' property, so use that first
+                const price = item.price || 0;
+                
+                console.log(`Item "${item.name}" price debug:`, {
+                    item_price: item.price,
+                    final_price_used: price,
+                    quantity: item.quantity,
+                    all_item_properties: Object.keys(item)
+                });
+                
+                return `
                 <div style=\"display:flex;justify-content:space-between;gap:12px;border:1px solid #cfd4ff;;border-radius:8px;padding:10px;\">
                     <div>
                         <div style=\"font-weight:600;\">${item.name}</div>
                         <div style=\"color:#6B7280;font-size:0.85rem;\">${item.brand || ''} ${item.color ? '• ' + item.color : ''} ${item.size ? '• Size ' + item.size : ''}</div>
                     </div>
-                    <div style=\"text-align:right;\">x${item.quantity || 1}<br>₱${Number(item.price || 0).toLocaleString()}</div>
+                    <div style=\"text-align:right;\">x${item.quantity || 1}<br>₱${Number(price || 0).toLocaleString()}</div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
                 const totalEl = document.getElementById('reservation-total');
                 if (totalEl) {
-                    const total = data.reservation && typeof data.reservation.total_amount !== 'undefined' ? Number(data.reservation.total_amount) : data.items.reduce((sum, i) => sum + (Number(i.price || 0) * (Number(i.quantity || 1))), 0);
+                    // Use reservation total if available, otherwise calculate from items
+                    let total = 0;
+                    if (data.reservation && typeof data.reservation.total_amount !== 'undefined') {
+                        total = Number(data.reservation.total_amount);
+                    } else {
+                        // Calculate total using item prices
+                        total = data.items.reduce((sum, i) => {
+                            const itemPrice = i.price || 0;
+                            return sum + (Number(itemPrice) * (Number(i.quantity || 1)));
+                        }, 0);
+                    }
+                    
+                    console.log('Total calculation:', {
+                        reservation_total: data.reservation?.total_amount,
+                        calculated_total: total,
+                        items_used_for_calc: data.items.map(i => ({
+                            name: i.name,
+                            price: i.price,
+                            quantity: i.quantity
+                        }))
+                    });
+                    
                     totalEl.textContent = `Total: ₱${total.toLocaleString()}`;
                 }
         })
@@ -526,9 +567,14 @@ function openTransactionModal(reservationId) {
         .then(r => r.json())
         .then(data => {
             const items = data.items || [];
+            console.log('Transaction modal items data:', items);
+            
             const total = data.reservation?.total_amount != null
                 ? Number(data.reservation.total_amount)
-                : items.reduce((s,i)=>s + (Number(i.price||0) * Number(i.quantity||1)),0);
+                : items.reduce((s,i)=> {
+                    const itemPrice = i.price || 0;
+                    return s + (Number(itemPrice) * Number(i.quantity||1));
+                }, 0);
             txContext.total = total;
 
             txBody.innerHTML = `
@@ -536,15 +582,18 @@ function openTransactionModal(reservationId) {
                     <div>
                         <h4 style=\"margin:0 0 8px 0;\">Products</h4>
                         <div style=\"display:grid;gap:8px;\">
-                            ${items.length ? items.map(i => `
+                            ${items.length ? items.map(i => {
+                                const itemPrice = i.price || 0;
+                                return `
                                 <div style=\"display:flex;justify-content:space-between;border:1px solid #f1f5f9;border-radius:8px;padding:10px;\">
                                     <div>
                                         <div style=\"font-weight:700;\">${i.name}</div>
                                         <div style=\"color:#6b7280;font-size:0.85rem;\">${i.brand||''} ${i.color?('• '+i.color):''} ${i.size?('• Size '+i.size):''}</div>
                                     </div>
-                                    <div style=\"text-align:right;\">x${i.quantity||1}<br>₱${Number(i.price||0).toLocaleString()}</div>
+                                    <div style=\"text-align:right;\">x${i.quantity||1}<br>₱${Number(itemPrice||0).toLocaleString()}</div>
                                 </div>
-                            `).join('') : '<div style=\"color:#6b7280;\">No items</div>'}
+                                `;
+                            }).join('') : '<div style=\"color:#6b7280;\">No items</div>'}
                         </div>
                     </div>
                     <div style="border:1px solid #e5e7eb;border-radius:12px;padding:12px;">
@@ -693,21 +742,19 @@ document.querySelectorAll('.view-reservation-btn').forEach(btn => {
     });
 });
 
-// Search functionality
-document.getElementById('reservation-search').addEventListener('input', function(e) {
-    const searchTerm = e.target.value.toLowerCase();
-    const reservationCards = document.querySelectorAll('#reservations-container > div');
-    
-    reservationCards.forEach(card => {
-        const text = card.textContent.toLowerCase();
-        card.style.display = text.includes(searchTerm) ? 'block' : 'none';
-    });
-});
-
 // Filter functionality
 document.getElementById('reservation-status-filter').addEventListener('change', function(e) {
-    __invResPageState.status = e.target.value || 'all';
+    const newStatus = e.target.value || 'all';
+    console.log('Status filter changed to:', newStatus);
+    
+    __invResPageState.status = newStatus;
     __invResPageState.page = 1;
+    
+    // Reset any inline styles that might be interfering
+    document.querySelectorAll('#reservations-container > .reservation-card').forEach(card => {
+        card.style.display = '';
+    });
+    
     applyInvReservationPagination();
 });
 
@@ -774,10 +821,31 @@ function getFilteredInvReservationCards() {
     const term = (__invResPageState.search || '').toLowerCase();
     const status = (__invResPageState.status || 'all');
     const nodes = Array.from(document.querySelectorAll('#reservations-container > .reservation-card'));
+    
+    console.log('Filtering reservations:', {
+        totalCards: nodes.length,
+        searchTerm: term,
+        statusFilter: status,
+        cardStatuses: nodes.map(card => card.dataset.status)
+    });
+    
     return nodes.filter(card => {
         const matchText = !term || card.textContent.toLowerCase().includes(term);
-        const matchStatus = status === 'all' || (card.dataset.status || '').toLowerCase() === status;
-        return matchText && matchStatus;
+        const cardStatus = (card.dataset.status || '').toLowerCase();
+        const matchStatus = status === 'all' || cardStatus === status;
+        
+        const matches = matchText && matchStatus;
+        if (!matches) {
+            console.log('Card filtered out:', {
+                cardId: card.dataset.resId,
+                cardStatus: cardStatus,
+                expectedStatus: status,
+                matchText: matchText,
+                matchStatus: matchStatus
+            });
+        }
+        
+        return matches;
     });
 }
 
@@ -790,8 +858,24 @@ function applyInvReservationPagination() {
     const start = (__invResPageState.page - 1) * __invResPageState.perPage;
     const end = start + __invResPageState.perPage;
 
+    console.log('Applying pagination:', {
+        totalCards: all.length,
+        currentPage: __invResPageState.page,
+        totalPages: totalPages,
+        showingRange: `${start + 1}-${Math.min(end, total)}`
+    });
+
+    // Hide all cards first
     document.querySelectorAll('#reservations-container > .reservation-card').forEach(c => c.style.display = 'none');
-    all.slice(start, end).forEach(c => c.style.display = 'block');
+    
+    // Show only the cards for current page
+    const pageCards = all.slice(start, end);
+    pageCards.forEach(c => c.style.display = 'block');
+    
+    console.log('Cards shown on page:', pageCards.map(c => ({
+        id: c.dataset.resId,
+        status: c.dataset.status
+    })));
 
     const info = document.getElementById('inv-res-page-info');
     if (info) info.textContent = `Page ${__invResPageState.page} of ${totalPages}`;

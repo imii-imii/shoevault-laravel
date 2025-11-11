@@ -9,90 +9,8 @@ use App\Models\Transaction;
 
 class ForecastController extends Controller
 {
-    /**
-     * Predict expected sales revenue for the next periods using simple means.
-     * - Next day: mean of the last 7 individual days
-     * - Next week: mean of the last 8 completed weeks
-     * - Next month: mean of the same month across last up to 3 years
-     * - Next quarter: mean of the same quarter across last up to 3 years
-     * - Next year: mean of the last 3 full years
-     */
-    public function predictions(Request $request)
-    {
-        $ref = Carbon::today();
 
-        $sumBetween = function (Carbon $s, Carbon $e) {
-            return (float) DB::table('transactions')
-                ->whereBetween('sale_date', [$s, $e])
-                ->sum('total_amount');
-        };
 
-        // Next day
-        $dayVals = [];
-        for ($i = 1; $i <= 7; $i++) {
-            $d = (clone $ref)->subDays($i);
-            $dayVals[] = $sumBetween((clone $d)->startOfDay(), (clone $d)->endOfDay());
-        }
-        $predDay = $this->meanOrNull($dayVals);
-
-        // Next week (use last 8 full weeks)
-        $weekVals = [];
-        $cursor = (clone $ref)->startOfWeek(Carbon::SUNDAY);
-        for ($i = 1; $i <= 8; $i++) {
-            $ws = (clone $cursor)->subWeeks($i);
-            $we = (clone $ws)->endOfWeek(Carbon::SATURDAY);
-            $weekVals[] = $sumBetween($ws, $we);
-        }
-        $predWeek = $this->meanOrNull($weekVals);
-
-        // Next month (same month across years)
-        $nextMonth = (clone $ref)->addMonth()->month;
-        $monthVals = [];
-        for ($y = $ref->year - 3; $y <= $ref->year - 1; $y++) {
-            $s = Carbon::create($y, $nextMonth, 1)->startOfMonth();
-            $e = (clone $s)->endOfMonth();
-            $monthVals[] = $sumBetween($s, $e);
-        }
-        $predMonth = $this->meanOrNull($monthVals);
-
-        // Next quarter (same quarter across years)
-        $nextQAnchor = (clone $ref)->addQuarter();
-        $qStartMonth = intdiv($nextQAnchor->month - 1, 3) * 3 + 1; // 1,4,7,10
-        $qVals = [];
-        for ($y = $ref->year - 3; $y <= $ref->year - 1; $y++) {
-            $s = Carbon::create($y, $qStartMonth, 1)->startOfMonth();
-            $e = (clone $s)->addMonths(2)->endOfMonth();
-            $qVals[] = $sumBetween($s, $e);
-        }
-        $predQuarter = $this->meanOrNull($qVals);
-
-        // Next year (last 3 full years)
-        $yVals = [];
-        for ($y = $ref->year - 3; $y <= $ref->year - 1; $y++) {
-            $s = Carbon::create($y, 1, 1)->startOfYear();
-            $e = Carbon::create($y, 12, 31)->endOfYear();
-            $yVals[] = $sumBetween($s, $e);
-        }
-        $predYear = $this->meanOrNull($yVals);
-
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'day' => $predDay,
-                'week' => $predWeek,
-                'month' => $predMonth,
-                'quarter' => $predQuarter,
-                'year' => $predYear,
-            ],
-        ]);
-    }
-
-    private function meanOrNull(array $vals): ?float
-    {
-        $filtered = array_values(array_filter($vals, fn($v) => $v !== null && is_numeric($v)));
-        if (count($filtered) === 0) return null;
-        return array_sum($filtered) / count($filtered);
-    }
     /**
      * Unified forecast endpoint
      * Query params:
@@ -141,7 +59,16 @@ class ForecastController extends Controller
             // Week starts on Sunday to match UI
             $start = (clone $anchor)->startOfWeek(Carbon::SUNDAY);
             $end = (clone $start)->endOfWeek(Carbon::SATURDAY);
-            $labels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+            
+            // Generate actual month/day labels instead of Sun-Sat
+            $labels = [];
+            $current = clone $start;
+            for ($i = 0; $i < 7; $i++) {
+                // Format as "Mon 12/15" (DayName Month/Day)
+                $labels[] = $current->format('M j'); // e.g., "Dec 15"
+                $current->addDay();
+            }
+            
             // Buckets 0..6 map to Sun..Sat
             $buckets = range(0, 6);
             return [$start, $end, $labels, $buckets];
@@ -178,17 +105,17 @@ class ForecastController extends Controller
             $buckets = range(1, $days); // day of month
             return [$start, $end, $labels, $buckets];
         }
-        // day (hourly)
+        // day (hourly) - Business hours: 10am - 7pm
         $start = (clone $anchor)->startOfDay();
         $end = (clone $anchor)->endOfDay();
-        // 24 hours 0..23
+        // Business hours 10..19 (10am - 7pm)
         $labels = array_map(function ($h) {
-            // Format 12-hour like "12 AM", "1 PM"
+            // Format 12-hour like "10 AM", "1 PM"
             $ampm = $h < 12 ? 'AM' : 'PM';
             $hour12 = $h % 12; if ($hour12 === 0) $hour12 = 12;
             return $hour12 . ' ' . $ampm;
-        }, range(0, 23));
-        $buckets = range(0, 23); // hour of day
+        }, range(10, 19));
+        $buckets = range(10, 19); // business hours only
         return [$start, $end, $labels, $buckets];
     }
 
@@ -227,40 +154,30 @@ class ForecastController extends Controller
     }
 
     /**
-     * Demand (units sold) by time bucket and category (men, women, accessories)
+     * Demand (units sold) by brand - returns total quantities per brand for horizontal bar chart
      */
     private function buildDemandData(Carbon $start, Carbon $end, string $range, array $buckets): array
     {
-        $expr = $this->bucketExpression('t.sale_date', $range);
+        // Get total quantity sold by brand for the entire time period
         $rows = DB::table('transaction_items as ti')
             ->join('transactions as t', 't.transaction_id', '=', 'ti.transaction_id')
-            ->selectRaw("LOWER(COALESCE(ti.product_category,'other')) as category, {$expr} as bucket, SUM(ti.quantity) as qty")
+            ->selectRaw("COALESCE(ti.product_brand, 'Unknown') as brand, SUM(ti.quantity) as total_qty")
             ->whereBetween('t.sale_date', [$start, $end])
-            ->groupBy('category', 'bucket')
+            ->groupBy('ti.product_brand')
+            ->orderBy('total_qty', 'desc')
             ->get();
 
-        $men = array_fill(0, count($buckets), 0);
-        $women = array_fill(0, count($buckets), 0);
-        $acc = array_fill(0, count($buckets), 0);
+        $brands = [];
+        $quantities = [];
 
         foreach ($rows as $row) {
-            $idx = $this->bucketIndex((int)$row->bucket, $range, $buckets);
-            if ($idx === null) continue;
-            $cat = $this->mapCategoryToGroup((string)$row->category);
-            $qty = (int)$row->qty;
-            if ($cat === 'women') {
-                $women[$idx] += $qty;
-            } elseif ($cat === 'men') {
-                $men[$idx] += $qty;
-            } else { // accessories / others
-                $acc[$idx] += $qty;
-            }
+            $brands[] = $row->brand;
+            $quantities[] = (int)$row->total_qty;
         }
 
         return [
-            'men' => $men,
-            'women' => $women,
-            'accessories' => $acc,
+            'brands' => $brands,
+            'quantities' => $quantities,
         ];
     }
 
@@ -337,7 +254,8 @@ class ForecastController extends Controller
             $pos = $bucketValue - 1;
             return isset($buckets[$pos]) ? $pos : null;
         }
-        // day: 0..23 direct index
-        return isset($buckets[$bucketValue]) ? $bucketValue : null;
+        // day: hour 10..19 -> index 0..9
+        $pos = array_search($bucketValue, $buckets, true);
+        return $pos === false ? null : $pos;
     }
 }

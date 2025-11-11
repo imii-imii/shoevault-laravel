@@ -1458,9 +1458,48 @@ class InventoryController extends Controller
                 $items = collect($reservation->items)->map(function($item) {
                     // Get the actual product to fetch correct details
                     $product = null;
-                    if (isset($item['product_id'])) {
-                        $product = Product::find($item['product_id']);
+                    $productId = $item['product_id'] ?? null;
+                    
+                    if ($productId) {
+                        $product = Product::find($productId);
+                        Log::info('Product lookup', [
+                            'product_id' => $productId,
+                            'product_found' => $product ? true : false,
+                            'product_price' => $product ? $product->price : 'NOT_FOUND'
+                        ]);
                     }
+                    
+                    // Try to get price from item first, then from product lookup
+                    $storedPrice = $item['product_price'] ?? null;
+                    $productPrice = $product ? $product->price : null;
+                    $finalPrice = 0;
+                    
+                    if ($storedPrice !== null && $storedPrice > 0) {
+                        $finalPrice = (float)$storedPrice;
+                    } elseif ($productPrice !== null && $productPrice > 0) {
+                        $finalPrice = (float)$productPrice;
+                    } else {
+                        // Last resort: try to find product by name if ID lookup failed
+                        if (!$product && isset($item['product_name'])) {
+                            $productByName = Product::where('name', $item['product_name'])->first();
+                            if ($productByName) {
+                                $finalPrice = (float)$productByName->price;
+                                Log::info('Found product by name fallback', [
+                                    'product_name' => $item['product_name'],
+                                    'found_price' => $finalPrice
+                                ]);
+                            }
+                        }
+                    }
+                    
+                    Log::info('Item price calculation', [
+                        'product_name' => $item['product_name'] ?? 'Unknown',
+                        'product_id' => $productId,
+                        'stored_price' => $storedPrice,
+                        'product_price_from_db' => $productPrice,
+                        'final_price' => $finalPrice,
+                        'price_source' => $storedPrice > 0 ? 'stored' : ($productPrice > 0 ? 'database' : 'fallback')
+                    ]);
                     
                     return [
                         'name' => $item['product_name'] ?? ($product ? $product->name : 'Product'),
@@ -1468,7 +1507,7 @@ class InventoryController extends Controller
                         'color' => $item['product_color'] ?? ($product ? $product->color : null),
                         'size' => $item['product_size'] ?? null,
                         'quantity' => $item['quantity'] ?? 1,
-                        'price' => (float)($item['product_price'] ?? ($product ? $product->price : 0)),
+                        'price' => $finalPrice,
                         'category' => $product ? $product->category : ($item['product_category'] ?? null)
                     ];
                 })->toArray();
@@ -1479,9 +1518,48 @@ class InventoryController extends Controller
                     $items = collect($decodedItems)->map(function($item) {
                         // Get the actual product to fetch correct details
                         $product = null;
-                        if (isset($item['product_id'])) {
-                            $product = Product::find($item['product_id']);
+                        $productId = $item['product_id'] ?? null;
+                        
+                        if ($productId) {
+                            $product = Product::find($productId);
+                            Log::info('Product lookup (JSON string case)', [
+                                'product_id' => $productId,
+                                'product_found' => $product ? true : false,
+                                'product_price' => $product ? $product->price : 'NOT_FOUND'
+                            ]);
                         }
+                        
+                        // Try to get price from item first, then from product lookup
+                        $storedPrice = $item['product_price'] ?? null;
+                        $productPrice = $product ? $product->price : null;
+                        $finalPrice = 0;
+                        
+                        if ($storedPrice !== null && $storedPrice > 0) {
+                            $finalPrice = (float)$storedPrice;
+                        } elseif ($productPrice !== null && $productPrice > 0) {
+                            $finalPrice = (float)$productPrice;
+                        } else {
+                            // Last resort: try to find product by name if ID lookup failed
+                            if (!$product && isset($item['product_name'])) {
+                                $productByName = Product::where('name', $item['product_name'])->first();
+                                if ($productByName) {
+                                    $finalPrice = (float)$productByName->price;
+                                    Log::info('Found product by name fallback (JSON string case)', [
+                                        'product_name' => $item['product_name'],
+                                        'found_price' => $finalPrice
+                                    ]);
+                                }
+                            }
+                        }
+                        
+                        Log::info('Item price calculation (JSON string case)', [
+                            'product_name' => $item['product_name'] ?? 'Unknown',
+                            'product_id' => $productId,
+                            'stored_price' => $storedPrice,
+                            'product_price_from_db' => $productPrice,
+                            'final_price' => $finalPrice,
+                            'price_source' => $storedPrice > 0 ? 'stored' : ($productPrice > 0 ? 'database' : 'fallback')
+                        ]);
                         
                         return [
                             'name' => $item['product_name'] ?? ($product ? $product->name : 'Product'),
@@ -1489,7 +1567,7 @@ class InventoryController extends Controller
                             'color' => $item['product_color'] ?? ($product ? $product->color : null),
                             'size' => $item['product_size'] ?? null,
                             'quantity' => $item['quantity'] ?? 1,
-                            'price' => (float)($item['product_price'] ?? ($product ? $product->price : 0)),
+                            'price' => $finalPrice,
                             'category' => $product ? $product->category : ($item['product_category'] ?? null)
                         ];
                     })->toArray();
