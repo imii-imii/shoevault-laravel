@@ -20,6 +20,7 @@ class SEOService
             'og_description' => 'Discover premium shoes from top brands. Reserve your favorite pairs online.',
             'og_type' => 'website',
             'og_url' => url('/'),
+            'og_image' => url('/images/shoevault-logo.png'),
             'canonical' => url('/'),
             'robots' => 'index, follow'
         ];
@@ -41,6 +42,7 @@ class SEOService
             'og_description' => "Browse our collection of {$productCount}+ premium shoes with easy online reservation.",
             'og_type' => 'website',
             'og_url' => url('/portal'),
+            'og_image' => url('/images/shoevault-logo.png'),
             'canonical' => url('/portal'),
             'robots' => 'index, follow'
         ];

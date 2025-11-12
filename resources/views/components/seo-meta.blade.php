@@ -45,11 +45,12 @@
 <meta name="theme-color" content="#3498db">
 <meta name="msapplication-TileColor" content="#3498db">
 
-<!-- Favicon (add your favicon files to public/images/) -->
-<link rel="icon" type="image/x-icon" href="{{ asset('images/favicon.ico') }}">
-<link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/favicon-32x32.png') }}">
-<link rel="icon" type="image/png" sizes="16x16" href="{{ asset('images/favicon-16x16.png') }}">
-<link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/apple-touch-icon.png') }}">
+<!-- Favicon -->
+<link rel="icon" type="image/png" href="{{ asset('images/shoevault-logo.png') }}">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/shoevault-logo.png') }}">
+<link rel="icon" type="image/png" sizes="16x16" href="{{ asset('images/shoevault-logo.png') }}">
+<link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/shoevault-logo.png') }}">
+<link rel="shortcut icon" href="{{ asset('images/shoevault-logo.png') }}" type="image/png">
 
 <!-- Structured Data (JSON-LD) -->
 @if($structuredData)

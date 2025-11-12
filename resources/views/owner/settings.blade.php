@@ -6,6 +6,10 @@
 	<meta name="csrf-token" content="{{ csrf_token() }}">
 	<title>Master Controls - ShoeVault Batangas</title>
 
+	<!-- Favicon -->
+	<link rel="icon" type="image/png" href="{{ asset('images/shoevault-logo.png') }}">
+	<link rel="shortcut icon" href="{{ asset('images/shoevault-logo.png') }}" type="image/png">
+
 	<!-- Fonts -->
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;600;700;800&family=Roboto+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
 

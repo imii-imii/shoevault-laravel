@@ -1,9 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shoe Conversion - Shoe Store</title>
+    <!-- SEO Meta Tags -->
+    @if(isset($meta))
+        <x-seo-meta :meta="$meta" />
+    @else
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Shoe Conversion - Shoe Store</title>
+        <!-- Favicon -->
+        <link rel="icon" type="image/png" href="{{ asset('images/shoevault-logo.png') }}">
+        <link rel="shortcut icon" href="{{ asset('images/shoevault-logo.png') }}" type="image/png">
+    @endif
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <style>
         * {
