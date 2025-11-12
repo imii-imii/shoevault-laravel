@@ -75,6 +75,33 @@ class Customer extends Authenticatable
     }
 
     /**
+     * Get the remember token (from linked user)
+     */
+    public function getRememberToken()
+    {
+        return $this->user ? $this->user->getRememberToken() : null;
+    }
+
+    /**
+     * Set the remember token (on linked user)
+     */
+    public function setRememberToken($value)
+    {
+        if ($this->user) {
+            $this->user->setRememberToken($value);
+            $this->user->save();
+        }
+    }
+
+    /**
+     * Get the remember token name (delegate to user)
+     */
+    public function getRememberTokenName()
+    {
+        return 'remember_token';
+    }
+
+    /**
      * Check if customer email is verified
      */
     public function hasVerifiedEmail()

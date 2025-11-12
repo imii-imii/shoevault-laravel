@@ -257,6 +257,12 @@
                 <label class="label" for="login-password">Password</label>
                 <input class="input" type="password" id="login-password" placeholder="password" required />
               </div>
+              <div class="field" style="margin-top: 8px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem; color: var(--muted);">
+                  <input type="checkbox" id="login-remember" style="accent-color: var(--accent); transform: scale(1.1);" />
+                  <span>Remember me on this device</span>
+                </label>
+              </div>
               <div class="actions">
                 <button type="button" onclick="showForgotPasswordStep()" style="background:none;border:none;color:var(--muted);text-decoration:none;cursor:pointer;font-size:inherit;padding:0; -webkit-tap-highlight-color: transparent;">Forgot password?</button>
                 <button class="btn btn-primary" type="submit">Login</button>
@@ -419,6 +425,7 @@
         e.preventDefault();
         const email = document.getElementById('login-email').value;
         const password = document.getElementById('login-password').value;
+        const remember = document.getElementById('login-remember').checked;
         
         if (!email || !password) {
           showMessage('Please enter your email and password.', 'error');
@@ -437,7 +444,7 @@
               'Content-Type': 'application/json',
               'Accept': 'application/json',
             },
-            body: JSON.stringify({ email, password }),
+            body: JSON.stringify({ email, password, remember }),
           });
 
           const data = await response.json();

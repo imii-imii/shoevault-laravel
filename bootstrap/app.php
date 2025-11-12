@@ -16,6 +16,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \App\Http\Middleware\RoleMiddleware::class,
             'customer.auth' => \App\Http\Middleware\CustomerAuth::class,
             'force.password.change' => \App\Http\Middleware\ForcePasswordChange::class,
+            'operating.hours' => \App\Http\Middleware\OperatingHoursMiddleware::class,
+            'session.lifetime' => \App\Http\Middleware\SessionLifetimeMiddleware::class,
         ]);
 
         // Exclude customer authentication routes from CSRF verification
@@ -23,14 +25,16 @@ return Application::configure(basePath: dirname(__DIR__))
             'customer/*',
         ]);
 
-        // Apply active-user enforcement to all web requests
+        // Apply active-user enforcement and session lifetime management to all web requests
         if (method_exists($middleware, 'web')) {
             $middleware->web([
                 \App\Http\Middleware\EnsureUserIsActive::class,
+                \App\Http\Middleware\SessionLifetimeMiddleware::class,
             ]);
         } else {
             // Fallback for older signatures: append globally
             $middleware->append(\App\Http\Middleware\EnsureUserIsActive::class);
+            $middleware->append(\App\Http\Middleware\SessionLifetimeMiddleware::class);
         }
     })
     ->withExceptions(function (Exceptions $exceptions): void {

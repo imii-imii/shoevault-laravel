@@ -2334,18 +2334,9 @@ async function processSaleAndPrint(summary, paymentAmount) {
             }
         });
 
-        // visual-only void action (require confirmation to avoid accidental triggers)
+        // void transaction functionality
         btn.addEventListener('click', ()=>{
-            const ok = confirm('This will void the last transaction (UI only). Continue?');
-            if (!ok) return;
-            // show ephemeral UI feedback
-            btn.disabled = true;
-            btn.textContent = 'Voided';
-            btn.style.opacity = '0.9';
-            setTimeout(()=>{
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-ban"></i><span>Void Last Transaction</span>';
-            }, 1800);
+            startVoidProcess();
             // close panel
             panel.classList.remove('open');
             tab.setAttribute('aria-expanded', 'false');
@@ -2355,6 +2346,322 @@ async function processSaleAndPrint(summary, paymentAmount) {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', createVoidPull);
     else createVoidPull();
 })();
+
+// Void Transaction Functionality
+let currentVoidTransactions = [];
+let selectedTransactionId = null;
+let managerAuth = null;
+
+function startVoidProcess() {
+    // Fetch recent transactions
+    fetch('{{ route("pos.void.recent-transactions") }}', {
+        method: 'GET',
+        headers: {
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            currentVoidTransactions = data.transactions;
+            if (currentVoidTransactions.length === 0) {
+                alert('No transactions found in the last 10 minutes.');
+                return;
+            } else if (currentVoidTransactions.length === 1) {
+                selectedTransactionId = currentVoidTransactions[0].transaction_id;
+                showManagerAuth();
+            } else {
+                showTransactionSelection();
+            }
+        } else {
+            alert('Failed to retrieve transactions: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to retrieve transactions. Please try again.');
+    });
+}
+
+function showTransactionSelection() {
+    const modal = createModal('Select Transaction to Void', '');
+    
+    let content = '<div style="max-height: 400px; overflow-y: auto;">';
+    content += '<p style="margin-bottom: 15px; color: #666;">Select the transaction you want to void:</p>';
+    
+    currentVoidTransactions.forEach(transaction => {
+        // Calculate minutes passed since transaction
+        const transactionTime = new Date(transaction.created_at);
+        const now = new Date();
+        const minutesPassed = Math.floor((now - transactionTime) / (1000 * 60));
+        
+        content += `
+            <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 10px; cursor: pointer; transition: background-color 0.2s;" 
+                 onclick="selectTransaction('${transaction.transaction_id}')" 
+                 onmouseover="this.style.backgroundColor='#f5f5f5'" 
+                 onmouseout="this.style.backgroundColor='white'">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <strong>Transaction ID: ${transaction.transaction_id}</strong>
+                    <span style="color: #059669; font-weight: bold;">₱${parseFloat(transaction.total_amount).toLocaleString()}</span>
+                </div>
+                <div style="font-size: 14px; color: #666; margin-bottom: 5px;">
+                    Cashier: ${transaction.cashier_name}
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <div style="font-size: 14px; color: #666;">
+                        Time: ${transaction.created_at_human}
+                    </div>
+                    <div style="font-size: 13px; color: #16a34a; font-weight: bold;">
+                        ${minutesPassed} minute${minutesPassed !== 1 ? 's' : ''} ago
+                    </div>
+                </div>
+                <div style="font-size: 13px; color: #888;">
+                    ${transaction.items_count} item(s)
+                </div>
+            </div>
+        `;
+    });
+    
+    content += '</div>';
+    
+    modal.querySelector('.modal-body').innerHTML = content;
+    
+    const footer = modal.querySelector('.modal-footer');
+    footer.innerHTML = `
+        <button onclick="closeModal()" style="padding: 8px 16px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">Cancel</button>
+    `;
+}
+
+function selectTransaction(transactionId) {
+    selectedTransactionId = transactionId;
+    closeModal();
+    showManagerAuth();
+}
+
+function showManagerAuth() {
+    const modal = createModal('Manager Authentication Required', '');
+    
+    const content = `
+        <p style="margin-bottom: 20px; color: #666;">Manager credentials required to void transaction.</p>
+        <form id="manager-auth-form" onsubmit="authenticateManager(event)">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">Manager Username:</label>
+                <input type="text" id="manager-username" required 
+                       style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">Password:</label>
+                <input type="password" id="manager-password" required 
+                       style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+        </form>
+    `;
+    
+    modal.querySelector('.modal-body').innerHTML = content;
+    
+    const footer = modal.querySelector('.modal-footer');
+    footer.innerHTML = `
+        <button onclick="closeModal()" style="padding: 8px 16px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer; margin-right: 10px;">Cancel</button>
+        <button onclick="submitManagerAuth()" 
+                style="padding: 8px 16px; background: #2563eb; color: white; border: none; border-radius: 4px; cursor: pointer;">Authenticate</button>
+    `;
+}
+
+function submitManagerAuth() {
+    const username = document.getElementById('manager-username').value;
+    const password = document.getElementById('manager-password').value;
+    
+    if (!username || !password) {
+        alert('Please enter both username and password.');
+        return;
+    }
+    
+    // Disable button to prevent double submission
+    const button = event.target;
+    button.disabled = true;
+    button.textContent = 'Authenticating...';
+    
+    fetch('{{ route("pos.void.authenticate-manager") }}', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({ username, password })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            managerAuth = data.manager;
+            closeModal();
+            showTransactionConfirmation();
+        } else {
+            alert('Authentication failed: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Authentication failed. Please try again.');
+    })
+    .finally(() => {
+        button.disabled = false;
+        button.textContent = 'Authenticate';
+    });
+}
+
+function authenticateManager(event) {
+    event.preventDefault();
+    submitManagerAuth();
+}
+
+function showTransactionConfirmation() {
+    const transaction = currentVoidTransactions.find(t => t.transaction_id === selectedTransactionId);
+    
+    const modal = createModal('Confirm Void Transaction', '');
+    
+    let content = `
+        <div style="margin-bottom: 20px; padding: 15px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px;">
+            <p style="color: #dc2626; font-weight: bold; margin: 0;">⚠️ This action cannot be undone!</p>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <h4 style="margin: 0 0 15px 0; color: #333;">Transaction Details:</h4>
+            <div style="background: #f9f9f9; padding: 15px; border-radius: 8px;">
+                <div style="margin-bottom: 10px;"><strong>Transaction ID:</strong> ${transaction.transaction_id}</div>
+                <div style="margin-bottom: 10px;"><strong>Total Amount:</strong> ₱${parseFloat(transaction.total_amount).toLocaleString()}</div>
+                <div style="margin-bottom: 10px;"><strong>Cashier:</strong> ${transaction.cashier_name}</div>
+                <div style="margin-bottom: 15px;"><strong>Time:</strong> ${transaction.created_at_human}</div>
+                
+                <h5 style="margin: 15px 0 10px 0;">Items:</h5>
+                <div style="max-height: 200px; overflow-y: auto;">
+    `;
+    
+    transaction.items.forEach(item => {
+        content += `
+            <div style="border-bottom: 1px solid #eee; padding: 8px 0; display: flex; justify-content: space-between;">
+                <div>
+                    <div style="font-weight: bold;">${item.product_name}</div>
+                    <div style="font-size: 13px; color: #666;">
+                        Brand: ${item.product_brand || 'N/A'} | Size: ${item.size || 'N/A'} | Color: ${item.product_color || 'N/A'}
+                    </div>
+                    <div style="font-size: 13px; color: #666;">Qty: ${item.quantity} × ₱${parseFloat(item.unit_price).toLocaleString()}</div>
+                </div>
+                <div style="font-weight: bold;">₱${parseFloat(item.subtotal).toLocaleString()}</div>
+            </div>
+        `;
+    });
+    
+    content += `
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 20px; padding: 15px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px;">
+            <p style="margin: 0; color: #0369a1;"><strong>Manager:</strong> ${managerAuth.full_name} (${managerAuth.email})</p>
+        </div>
+    `;
+    
+    modal.querySelector('.modal-body').innerHTML = content;
+    
+    const footer = modal.querySelector('.modal-footer');
+    footer.innerHTML = `
+        <button onclick="closeModal()" style="padding: 10px 20px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer; margin-right: 10px;">Cancel</button>
+        <button onclick="confirmVoidTransaction()" 
+                style="padding: 10px 20px; background: #dc2626; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Void Transaction</button>
+    `;
+}
+
+function confirmVoidTransaction() {
+    const button = event.target;
+    button.disabled = true;
+    button.textContent = 'Processing...';
+    
+    fetch(`{{ route("pos.void.transaction", ":id") }}`.replace(':id', selectedTransactionId), {
+        method: 'DELETE',
+        headers: {
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeModal();
+            alert('Transaction voided successfully!');
+            // Reset void process variables
+            currentVoidTransactions = [];
+            selectedTransactionId = null;
+            managerAuth = null;
+        } else {
+            alert('Failed to void transaction: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to void transaction. Please try again.');
+    })
+    .finally(() => {
+        button.disabled = false;
+        button.textContent = 'Void Transaction';
+    });
+}
+
+function createModal(title, bodyContent) {
+    // Remove existing modal if any
+    const existingModal = document.getElementById('void-modal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const modal = document.createElement('div');
+    modal.id = 'void-modal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 8px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+            <div style="padding: 20px; border-bottom: 1px solid #eee;">
+                <h3 style="margin: 0; color: #333;">${title}</h3>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                ${bodyContent}
+            </div>
+            <div class="modal-footer" style="padding: 15px 20px; border-top: 1px solid #eee; text-align: right;">
+                <!-- Footer content will be added by specific functions -->
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Close on outside click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeModal();
+        }
+    });
+    
+    return modal;
+}
+
+function closeModal() {
+    const modal = document.getElementById('void-modal');
+    if (modal) {
+        modal.remove();
+    }
+}
 </script>
 
 <script src="{{ asset('js/notifications.js') }}"></script>

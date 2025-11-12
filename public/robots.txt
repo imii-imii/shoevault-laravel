@@ -1,2 +1,40 @@
+# ShoeVault - Laravel E-commerce Site
+# Generated on: 2025-11-13
+
 User-agent: *
-Disallow:
+Allow: /
+
+# Allow important pages
+Allow: /portal
+Allow: /form
+Allow: /size-converter
+
+# Block admin and internal areas
+Disallow: /pos/
+Disallow: /inventory/
+Disallow: /owner/
+Disallow: /debug/
+Disallow: /api/
+Disallow: /customer/login
+Disallow: /customer/register
+Disallow: /test-*
+Disallow: /*.json$
+Disallow: /*.xml$
+
+# Block Laravel internal paths
+Disallow: /storage/
+Disallow: /vendor/
+Disallow: /bootstrap/
+Disallow: /config/
+Disallow: /database/
+
+# Allow crawling of static assets
+Allow: /css/
+Allow: /js/
+Allow: /images/
+Allow: /assets/
+
+# Crawl-delay to be nice to the server
+Crawl-delay: 1
+
+# Sitemap location

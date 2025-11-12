@@ -31,6 +31,7 @@ class CustomerAuthController extends Controller
         $request->validate([
             'email' => 'required|email',
             'password' => 'required|string',
+            'remember' => 'sometimes|boolean',
         ]);
 
         $customer = Customer::with('user')->where('email', $request->email)->first();
@@ -97,8 +98,18 @@ class CustomerAuthController extends Controller
             ], 401);
         }
 
-        // Manually log in the customer
-        Auth::guard('customer')->login($customer);
+        // Manually log in the customer with remember me option
+        $rememberMe = $request->filled('remember') && $request->boolean('remember');
+        Auth::guard('customer')->login($customer, $rememberMe);
+
+        // Store remember me choice in session for middleware to use
+        $request->session()->put('customer_remember_me', $rememberMe);
+
+        Log::info('Customer login successful', [
+            'customer_id' => $customer->customer_id,
+            'remember_me' => $rememberMe,
+            'session_remember_flag' => $rememberMe
+        ]);
 
         return response()->json([
             'success' => true,
@@ -279,6 +290,9 @@ class CustomerAuthController extends Controller
      */
     public function logout(Request $request)
     {
+        // Clear remember me session flag
+        $request->session()->forget('customer_remember_me');
+        
         Auth::guard('customer')->logout();
         
         // Return a view with animated success message that redirects to login

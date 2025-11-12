@@ -1,11 +1,17 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
-    <title>Welcome to ShoeVault Batangas!</title>
-    <meta charset="utf-8">
+    <!-- SEO Meta Tags -->
+    @if(isset($meta, $structuredData))
+        <x-seo-meta :meta="$meta" :structuredData="$structuredData" />
+    @else
+        <title>Welcome to ShoeVault Batangas!</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    @endif
+    
     <link href='https://unpkg.com/boxicons@2.0.7/css/boxicons.min.css' rel='stylesheet'>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" type="text/css" href="{{ asset('css/reservation-home.css') }}">
     
     <!-- Performance optimization script -->

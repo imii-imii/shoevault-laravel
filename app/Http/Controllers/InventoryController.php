@@ -1093,7 +1093,7 @@ class InventoryController extends Controller
 
         try {
             $request->validate([
-                'status' => 'required|string|in:pending,completed,cancelled',
+                'status' => 'required|string|in:pending,completed,cancelled,for_cancellation',
                 'amount_paid' => 'nullable|numeric|min:0', // Add validation for amount_paid
                 'change_given' => 'nullable|numeric|min:0' // Add validation for change_given
             ]);

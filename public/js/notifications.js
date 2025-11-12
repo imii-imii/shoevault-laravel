@@ -17,16 +17,8 @@ class NotificationManager {
      */
     async init(userRole = null) {
         try {
-            if (this.debugMode) {
-                console.log('🔔 Initializing notification system...');
-                console.log('CSRF Token:', this.csrfToken);
-                console.log('Current URL:', window.location.href);
-                console.log('User Role:', userRole);
-            }
-            
             // Check for required elements
             if (!this.csrfToken) {
-                console.error('❌ CSRF token not found. Make sure meta tag is present.');
                 throw new Error('CSRF token not found');
             }
             
@@ -38,12 +30,7 @@ class NotificationManager {
             await this.loadNotifications();
             this.bindEvents();
             this.startPolling();
-            console.log('✅ Notification system initialized successfully');
         } catch (error) {
-            console.error('❌ Failed to initialize notification system:', error);
-            console.error('Error details:', error.message);
-            console.error('Error stack:', error.stack);
-            
             // Try to show a fallback notification system
             this.initializeFallback();
         }
@@ -55,13 +42,11 @@ class NotificationManager {
     ensureCriticalMethods() {
         // Add missing handleNotificationClick method if it doesn't exist
         if (typeof this.handleNotificationClick !== 'function') {
-            console.warn('⚠️ handleNotificationClick method missing, using fallback');
             this.handleNotificationClick = this.handleNotificationClickFallback;
         }
         
         // Add missing markNotificationAsRead method if it doesn't exist
         if (typeof this.markNotificationAsRead !== 'function') {
-            console.warn('⚠️ markNotificationAsRead method missing, using markAsRead');
             this.markNotificationAsRead = this.markAsRead;
         }
     }
@@ -70,7 +55,6 @@ class NotificationManager {
      * Initialize a basic fallback notification system
      */
     initializeFallback() {
-        console.log('🔄 Initializing fallback notification system...');
         try {
             // Just bind basic dropdown toggle
             const bell = document.querySelector('.notification-bell');
@@ -85,11 +69,9 @@ class NotificationManager {
                 document.addEventListener('click', () => {
                     dropdown.style.display = 'none';
                 });
-                
-                console.log('✅ Fallback notification system initialized');
             }
         } catch (error) {
-            console.error('❌ Even fallback initialization failed:', error);
+            // Fallback initialization failed silently
         }
     }
 
@@ -98,14 +80,11 @@ class NotificationManager {
      */
     async loadNotifications(unreadOnly = false) {
         try {
-            console.log('📡 Loading notifications from server...');
-            
             // Use relative URL for better compatibility
             let url = '/api/notifications';
             if (unreadOnly) {
                 url += '?unread_only=true';
             }
-            console.log('🌐 Request URL:', url);
 
             const response = await fetch(url, {
                 method: 'GET',
@@ -117,18 +96,13 @@ class NotificationManager {
                 },
                 credentials: 'same-origin'
             });
-
-            console.log('📡 Response status:', response.status, response.statusText);
-            console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
             
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('❌ Response error body:', errorText);
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
             const data = await response.json();
-            console.log('📊 Received notification data:', data);
             
             if (data.success) {
                 this.cache.set('notifications', data.notifications);
@@ -139,7 +113,6 @@ class NotificationManager {
                 throw new Error(data.message || 'Failed to load notifications');
             }
         } catch (error) {
-            console.error('❌ Error loading notifications:', error);
             // Show fallback empty state
             this.updateUI([], 0);
             return { notifications: [], unread_count: 0 };
@@ -169,7 +142,7 @@ class NotificationManager {
                 return data.unread_count;
             }
         } catch (error) {
-            console.error('Error getting unread count:', error);
+            // Error getting unread count, fallback to 0
         }
         return 0;
     }
@@ -179,7 +152,6 @@ class NotificationManager {
      */
     async markAsRead(notificationId) {
         try {
-            console.log('🔄 Marking notification as read:', notificationId);
             const response = await fetch(`/api/notifications/${notificationId}/read`, {
                 method: 'POST',
                 headers: {
@@ -190,8 +162,6 @@ class NotificationManager {
                 },
                 credentials: 'same-origin'
             });
-
-            console.log('📡 Mark as read response:', response.status, response.statusText);
             
             if (response.ok) {
                 // Update local cache
@@ -210,7 +180,7 @@ class NotificationManager {
                 return true;
             }
         } catch (error) {
-            console.error('Error marking notification as read:', error);
+            // Error marking notification as read
         }
         return false;
     }
@@ -244,7 +214,7 @@ class NotificationManager {
                 return true;
             }
         } catch (error) {
-            console.error('Error marking all notifications as read:', error);
+            // Error marking all notifications as read
         }
         return false;
     }
@@ -278,8 +248,6 @@ class NotificationManager {
      */
     updateNotificationList(notifications) {
         const listElements = document.querySelectorAll('.notification-list, #notification-list');
-        console.log('🔄 Updating notification list. Found elements:', listElements.length);
-        console.log('📝 Notifications to display:', notifications.length);
         
         // Store notifications for access in click handlers
         this.currentNotifications = notifications;
@@ -378,11 +346,8 @@ class NotificationManager {
     bindEvents() {
         // Prevent double binding
         if (this.eventsInitialized) {
-            console.log('⚠️ Events already initialized, skipping...');
             return;
         }
-        
-        console.log('🔗 Binding notification events...');
         
         // Store reference to this for use in event handlers
         const self = this;
@@ -392,17 +357,13 @@ class NotificationManager {
             bell.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('🔔 Notification bell clicked');
                 
                 const wrapper = bell.closest('.notification-wrapper') || bell.parentElement;
                 if (!wrapper) {
-                    console.warn('⚠️ No notification wrapper found');
                     return;
                 }
                 
                 const isCurrentlyOpen = wrapper.classList.contains('open');
-                console.log('📊 Current state:', { isCurrentlyOpen });
-                console.log('🎯 Wrapper classes:', wrapper.className);
                 
                 // Close all OTHER notification dropdowns first (but not the current one)
                 document.querySelectorAll('.notification-wrapper').forEach(w => {
@@ -414,15 +375,11 @@ class NotificationManager {
                 // Toggle current dropdown
                 if (!isCurrentlyOpen) {
                     wrapper.classList.add('open');
-                    console.log('✅ Dropdown opened');
-                    console.log('🎯 Wrapper classes after open:', wrapper.className);
                     
                     // Load fresh notifications when opening
                     self.loadNotifications();
                 } else {
                     wrapper.classList.remove('open');
-                    console.log('❌ Dropdown closed');
-                    console.log('🎯 Wrapper classes after close:', wrapper.className);
                 }
             });
         });
@@ -435,7 +392,6 @@ class NotificationManager {
                 document.querySelectorAll('.notification-wrapper').forEach(wrapper => {
                     if (wrapper.classList.contains('open')) {
                         wrapper.classList.remove('open');
-                        console.log('🚪 Dropdown closed by outside click');
                     }
                 });
             }
@@ -453,8 +409,6 @@ class NotificationManager {
         
         // Mark events as initialized
         this.eventsInitialized = true;
-        
-        console.log('✅ Notification events bound successfully');
     }
 
     /**
@@ -579,11 +533,9 @@ class NotificationManager {
     handleNotificationClickFallback(notificationType, notificationData, notificationId = null) {
         try {
             const data = notificationData || {};
-            console.log('🔔 Fallback: Handling notification click:', { type: notificationType, data, userRole: this.userRole });
             
             // For non-manager users (cashier, owner), just mark as read
             if (this.userRole && this.userRole !== 'manager') {
-                console.log('👤 Non-manager user clicked notification, marking as read only');
                 if (notificationId) {
                     this.markAsRead(notificationId);
                     this.showToast('Notification marked as read', 'success');
@@ -594,7 +546,6 @@ class NotificationManager {
             }
             
             // Manager users get basic toast (since full navigation might not work without the complete method)
-            console.log('👨‍💼 Manager user clicked notification');
             switch (notificationType) {
                 case 'low_stock':
                     this.showToast('Low stock notification clicked - would navigate to inventory', 'info');
@@ -607,7 +558,6 @@ class NotificationManager {
                     break;
             }
         } catch (error) {
-            console.error('Error in fallback notification click handler:', error);
             this.showToast('Notification acknowledged', 'success');
         }
     }
@@ -618,11 +568,9 @@ class NotificationManager {
     handleNotificationClick(notificationType, notificationData, notificationId = null) {
         try {
             const data = notificationData || {};
-            console.log('🔔 Handling notification click:', { type: notificationType, data, userRole: this.userRole });
             
             // For non-manager users (cashier, owner), just mark as read
             if (this.userRole && this.userRole !== 'manager') {
-                console.log('👤 Non-manager user clicked notification, marking as read only');
                 if (notificationId) {
                     this.markNotificationAsRead(notificationId);
                     this.showToast('Notification marked as read', 'success');
@@ -633,7 +581,6 @@ class NotificationManager {
             }
             
             // Manager users get full navigation behavior
-            console.log('👨‍💼 Manager user clicked notification, handling with navigation');
             switch (notificationType) {
                 case 'low_stock':
                     this.handleLowStockNotificationClick(data);
@@ -642,11 +589,11 @@ class NotificationManager {
                     this.handleNewReservationNotificationClick(data);
                     break;
                 default:
-                    console.log('No specific action defined for notification type:', notificationType);
+                    // No specific action defined for this notification type
                     break;
             }
         } catch (error) {
-            console.error('Error handling notification click:', error);
+            // Error handling notification click
         }
     }
 
@@ -654,25 +601,18 @@ class NotificationManager {
      * Handle low stock notification click - navigate to inventory dashboard and show product modal
      */
     handleLowStockNotificationClick(data) {
-        console.log('📦 Handling low stock notification:', data);
         const productId = data.product_id;
         
         if (!productId) {
-            console.warn('No product_id found in low stock notification data:', data);
             this.showToast('Unable to find product information', 'error');
             return;
         }
 
-        console.log('🔍 Product ID:', productId);
-        console.log('🔍 Product ID type:', typeof productId);
-
         // Check if we're already on the inventory dashboard
         if (window.location.pathname.includes('/inventory/dashboard')) {
-            console.log('✅ Already on inventory dashboard, showing product modal');
             // Already on inventory dashboard, just show the product details modal
             this.showProductDetailsModal(productId);
         } else {
-            console.log('🚀 Navigating to inventory dashboard');
             // Navigate to inventory dashboard with product parameter
             const dashboardUrl = `/inventory/dashboard?show_product=${productId}`;
             window.location.href = dashboardUrl;
@@ -683,24 +623,18 @@ class NotificationManager {
      * Handle new reservation notification click - navigate to reservation reports and show reservation modal
      */
     handleNewReservationNotificationClick(data) {
-        console.log('📅 Handling new reservation notification:', data);
         const reservationId = data.reservation_id;
         
         if (!reservationId) {
-            console.warn('No reservation_id found in new reservation notification data:', data);
             this.showToast('Unable to find reservation information', 'error');
             return;
         }
 
-        console.log('🔍 Reservation ID:', reservationId);
-
         // Check if we're already on the reservation reports page
         if (window.location.pathname.includes('/inventory/reservation-reports')) {
-            console.log('✅ Already on reservation reports, showing reservation modal');
             // Already on reservation reports, just show the reservation details modal
             this.showReservationDetailsModal(reservationId);
         } else {
-            console.log('🚀 Navigating to reservation reports');
             // Navigate to reservation reports with reservation parameter
             const reportsUrl = `/inventory/reservation-reports?show_reservation=${reservationId}`;
             window.location.href = reportsUrl;
@@ -711,14 +645,10 @@ class NotificationManager {
      * Show product details modal for a specific product
      */
     showProductDetailsModal(productId) {
-        console.log('🔍 Attempting to show product details modal for product:', productId);
-        
         // Use the existing openProductDetailsModal function if available
         if (typeof openProductDetailsModal === 'function') {
-            console.log('✅ Found openProductDetailsModal function, calling it');
             openProductDetailsModal(productId);
         } else {
-            console.warn('❌ openProductDetailsModal function not available');
             this.showToast('Product details function not available', 'error');
         }
     }
@@ -727,22 +657,16 @@ class NotificationManager {
      * Show reservation details modal for a specific reservation
      */
     showReservationDetailsModal(reservationId) {
-        console.log('🔍 Attempting to show reservation details modal for reservation:', reservationId);
-        
         // Look for reservation card with this ID and trigger the modal
         const reservationCard = document.querySelector(`[data-res-id="${reservationId}"]`);
         if (reservationCard) {
-            console.log('✅ Found reservation card, attempting to open modal');
             // Use the existing openReservationModalFromCard function if available
             if (typeof openReservationModalFromCard === 'function') {
-                console.log('✅ Found openReservationModalFromCard function, calling it');
                 openReservationModalFromCard(reservationCard);
             } else {
-                console.warn('❌ openReservationModalFromCard function not available');
                 this.showToast('Reservation details function not available', 'error');
             }
         } else {
-            console.warn(`❌ Reservation card with ID ${reservationId} not found`);
             this.showToast(`Reservation ${reservationId} not found on this page`, 'error');
         }
     }

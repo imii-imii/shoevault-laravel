@@ -118,6 +118,7 @@ class Reservation extends Model
             'confirmed' => 'bg-blue-100 text-blue-800', 
             'completed' => 'bg-green-100 text-green-800',
             'cancelled' => 'bg-red-100 text-red-800',
+            'for_cancellation' => 'bg-orange-100 text-orange-800',
             default => 'bg-gray-100 text-gray-800'
         };
     }
@@ -144,6 +145,14 @@ class Reservation extends Model
     public function scopeCancelled($query)
     {
         return $query->where('status', 'cancelled');
+    }
+
+    /**
+     * Scope for reservations marked for cancellation
+     */
+    public function scopeForCancellation($query)
+    {
+        return $query->where('status', 'for_cancellation');
     }
 
     /**

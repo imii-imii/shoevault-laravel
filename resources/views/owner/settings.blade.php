@@ -126,6 +126,19 @@
 			transform: translateY(0); 
 			box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
 		}
+
+		/* Clear notifications button styling */
+		#clear-notifications-btn {
+			transition: all 0.2s ease;
+		}
+		#clear-notifications-btn:hover {
+			background: #b91c1c !important;
+			transform: translateY(-1px);
+			box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3) !important;
+		}
+		#clear-notifications-btn:active {
+			transform: translateY(0);
+		}
 	</style>
 </head>
 <body>
@@ -404,6 +417,81 @@
 									<span style="color:#111827;font-weight:700;">{{ $env }}</span>
 								</div>
 							</div>
+
+							<!-- Operating Hours Section -->
+							<div style="margin-top:24px;padding-top:20px;border-top:1px solid #e5e7eb;">
+								<div style="margin-bottom:16px;">
+									<h4 style="color:#2563eb;font-weight:700;font-size:0.95rem;margin:0;display:flex;align-items:center;gap:8px;">
+										<i class="fas fa-clock"></i>
+										Operating Hours Control
+									</h4>
+									<p style="color:#6b7280;font-size:0.85rem;margin:4px 0 0 0;">Control when managers and cashiers can access the system</p>
+								</div>
+
+								<!-- Operating Hours Settings -->
+								<div style="display:grid;gap:16px;">
+									<!-- Operating Hours Enable/Disable -->
+									<div style="display:flex;justify-content:space-between;align-items:center;">
+										<div>
+											<label style="font-weight:600;color:#374151;font-size:0.9rem;">Enforce Operating Hours</label>
+											<p style="color:#6b7280;font-size:0.8rem;margin:2px 0 0 0;">Restrict manager/cashier access to operating hours only</p>
+										</div>
+										<label class="odash-switch">
+											<input type="checkbox" id="operating-hours-enabled" class="odash-switch-input">
+											<span class="odash-switch-track"></span>
+										</label>
+									</div>
+
+									<!-- Operating Hours Time Settings -->
+									<div id="operating-hours-times" style="display:grid;gap:12px;grid-template-columns:1fr 1fr;">
+										<div>
+											<label style="font-weight:600;color:#374151;font-size:0.9rem;display:block;margin-bottom:6px;">Opening Time</label>
+											<input type="time" id="operating-hours-start" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;width:100%;box-sizing:border-box;">
+										</div>
+										<div>
+											<label style="font-weight:600;color:#374151;font-size:0.9rem;display:block;margin-bottom:6px;">Closing Time</label>
+											<input type="time" id="operating-hours-end" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;width:100%;box-sizing:border-box;">
+										</div>
+									</div>
+								</div>
+
+								<!-- Emergency Access Section -->
+								<div style="margin-top:20px;padding-top:16px;border-top:1px solid #f3f4f6;">
+									<div style="margin-bottom:16px;">
+										<h5 style="color:#dc2626;font-weight:700;font-size:0.9rem;margin:0;display:flex;align-items:center;gap:8px;">
+											<i class="fas fa-shield-alt"></i>
+											Emergency Access
+										</h5>
+										<p style="color:#6b7280;font-size:0.8rem;margin:4px 0 0 0;">Grant temporary access outside operating hours</p>
+									</div>
+
+									<!-- Emergency Access Duration Setting -->
+									<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+										<label style="font-weight:600;color:#374151;font-size:0.9rem;">Duration (minutes):</label>
+										<input type="number" id="emergency-access-duration" min="1" max="480" value="30" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;width:80px;">
+									</div>
+
+									<!-- Emergency Access Control -->
+									<div id="emergency-access-control">
+										<!-- Will be populated by JavaScript -->
+									</div>
+								</div>
+							</div>
+
+							<!-- Dangerous Actions Section -->
+							<div style="margin-top:24px;padding-top:20px;border-top:1px solid #e5e7eb;">
+								<div style="margin-bottom:12px;">
+									<h4 style="color:#dc2626;font-weight:700;font-size:0.95rem;margin:0;display:flex;align-items:center;gap:8px;">
+										<i class="fas fa-exclamation-triangle"></i>
+										Dangerous Actions
+									</h4>
+									<p style="color:#6b7280;font-size:0.85rem;margin:4px 0 0 0;">These actions are irreversible and will affect all users.</p>
+								</div>
+								<button id="clear-notifications-btn" class="btn" style="background:#dc2626;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:8px;font-size:0.9rem;">
+									<i class="fas fa-trash-alt"></i>
+									Clear All Notifications
+								</button>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -499,6 +587,65 @@ document.addEventListener('DOMContentLoaded', function() {
 				<button type="submit" id="au-save" style="padding:10px 14px;border-radius:8px;background:#2a6aff;color:#fff;border:none;font-weight:700;">Save User</button>
 			</div>
 		</form>
+	</div>
+
+	<!-- Clear Notifications Modal -->
+	<div id="clear-notifications-modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;z-index:15000;"></div>
+	<div id="clear-notifications-modal" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:12px;box-shadow:0 25px 50px rgba(0,0,0,.3);width:min(480px,94vw);max-height:90vh;overflow:auto;display:none;z-index:15001;border:2px solid #dc2626;">
+		<div style="padding:20px 24px;border-bottom:1px solid #fecaca;background:#fef2f2;border-radius:12px 12px 0 0;display:flex;justify-content:space-between;align-items:center;">
+			<h3 style="margin:0;font-size:1.1rem;font-weight:800;color:#dc2626;display:flex;align-items:center;gap:10px;">
+				<i class="fas fa-exclamation-triangle" style="color:#dc2626;"></i>
+				Dangerous Action
+			</h3>
+			<button id="clear-notifications-close" style="background:none;border:none;font-size:1.3rem;cursor:pointer;line-height:1;color:#dc2626;">&times;</button>
+		</div>
+		<div style="padding:20px 24px;">
+			<div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:16px;margin-bottom:20px;">
+				<div style="display:flex;align-items:flex-start;gap:12px;">
+					<i class="fas fa-exclamation-triangle" style="color:#f59e0b;font-size:1.2rem;margin-top:2px;"></i>
+					<div>
+						<h4 style="margin:0 0 8px 0;color:#92400e;font-weight:700;font-size:0.95rem;">Warning: This action is irreversible!</h4>
+						<p style="margin:0;color:#92400e;font-size:0.9rem;line-height:1.4;">
+							This will permanently delete <strong>ALL notifications</strong> for <strong>ALL users</strong> in the system. 
+							This includes:
+						</p>
+						<ul style="margin:8px 0 0 0;color:#92400e;font-size:0.85rem;padding-left:16px;">
+							<li>Low stock alerts</li>
+							<li>New reservation notifications</li>
+							<li>System notifications</li>
+							<li>All notification read statuses</li>
+						</ul>
+					</div>
+				</div>
+			</div>
+			
+			<form id="clear-notifications-form" style="display:grid;gap:16px;">
+				<div style="display:grid;gap:8px;">
+					<label for="clear-notifications-password" style="font-weight:600;color:#374151;font-size:0.9rem;">
+						Enter your password to confirm this action:
+					</label>
+					<input id="clear-notifications-password" type="password" placeholder="Your current password" required autocomplete="current-password" style="padding:12px 14px;border:2px solid #e5e7eb;border-radius:8px;font-size:0.95rem;">
+					<small id="clear-notifications-password-error" style="color:#ef4444;display:none;font-weight:500;"></small>
+				</div>
+				
+				<div style="background:#f3f4f6;border-radius:8px;padding:12px;">
+					<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.9rem;color:#374151;">
+						<input type="checkbox" id="confirm-action" required style="margin:0;">
+						<span>I understand this action cannot be undone</span>
+					</label>
+				</div>
+				
+				<div style="display:flex;justify-content:flex-end;gap:12px;margin-top:8px;">
+					<button type="button" id="clear-notifications-cancel" style="padding:12px 20px;border-radius:8px;background:#6b7280;color:#fff;border:none;font-weight:600;cursor:pointer;">
+						Cancel
+					</button>
+					<button type="submit" id="clear-notifications-confirm" style="padding:12px 20px;border-radius:8px;background:#dc2626;color:#fff;border:none;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;" disabled>
+						<i class="fas fa-trash-alt"></i>
+						Clear All Notifications
+					</button>
+				</div>
+			</form>
+		</div>
 	</div>
 
 	<script>
@@ -1298,6 +1445,472 @@ document.addEventListener('DOMContentLoaded', function() {
 				alert('Failed to update password: ' + err.message);
 			}
 		});
+	})();
+
+	// Clear Notifications Modal functionality
+	(function initClearNotifications() {
+		const openBtn = document.getElementById('clear-notifications-btn');
+		const overlay = document.getElementById('clear-notifications-modal-overlay');
+		const modal = document.getElementById('clear-notifications-modal');
+		const closeBtn = document.getElementById('clear-notifications-close');
+		const cancelBtn = document.getElementById('clear-notifications-cancel');
+		const form = document.getElementById('clear-notifications-form');
+		const passwordInput = document.getElementById('clear-notifications-password');
+		const confirmCheckbox = document.getElementById('confirm-action');
+		const confirmBtn = document.getElementById('clear-notifications-confirm');
+		const passwordError = document.getElementById('clear-notifications-password-error');
+
+		function openModal() {
+			overlay.style.display = 'block';
+			modal.style.display = 'block';
+			passwordInput.focus();
+		}
+
+		function closeModal() {
+			modal.style.display = 'none';
+			overlay.style.display = 'none';
+			form.reset();
+			clearErrors();
+			updateConfirmButton();
+		}
+
+		function clearErrors() {
+			passwordError.style.display = 'none';
+			passwordError.textContent = '';
+			passwordInput.style.borderColor = '#e5e7eb';
+		}
+
+		function showPasswordError(message) {
+			passwordError.textContent = message;
+			passwordError.style.display = 'block';
+			passwordInput.style.borderColor = '#ef4444';
+		}
+
+		function updateConfirmButton() {
+			const hasPassword = passwordInput && passwordInput.value.trim();
+			const isChecked = confirmCheckbox && confirmCheckbox.checked;
+			const isValid = hasPassword && isChecked;
+			
+			if (confirmBtn) {
+				confirmBtn.disabled = !isValid;
+				confirmBtn.style.opacity = isValid ? '1' : '0.6';
+				confirmBtn.style.cursor = isValid ? 'pointer' : 'not-allowed';
+			}
+		}
+
+
+
+		// Event listeners
+		openBtn?.addEventListener('click', openModal);
+		closeBtn?.addEventListener('click', closeModal);
+		cancelBtn?.addEventListener('click', closeModal);
+		overlay?.addEventListener('click', closeModal);
+		
+		// Update button state when inputs change
+		passwordInput?.addEventListener('input', () => {
+			clearErrors();
+			updateConfirmButton();
+		});
+		
+		confirmCheckbox?.addEventListener('change', updateConfirmButton);
+
+		// Form submission
+		form?.addEventListener('submit', async (e) => {
+			e.preventDefault();
+			clearErrors();
+
+			const password = passwordInput.value.trim();
+			if (!password) {
+				showPasswordError('Password is required');
+				return;
+			}
+
+			if (!confirmCheckbox.checked) {
+				alert('Please confirm that you understand this action cannot be undone');
+				return;
+			}
+
+			// Double confirmation
+			const finalConfirm = confirm(
+				'FINAL CONFIRMATION:\n\n' +
+				'This will permanently delete ALL notifications for ALL users in the system.\n\n' +
+				'Are you absolutely sure you want to proceed?\n\n' +
+				'This action CANNOT be undone!'
+			);
+
+			if (!finalConfirm) {
+				return;
+			}
+
+			// Disable button and show loading
+			confirmBtn.disabled = true;
+			confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Clearing...';
+
+			try {
+				const response = await fetch('{{ route('owner.notifications.clear') }}', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+					},
+					body: JSON.stringify({
+						password: password
+					})
+				});
+
+				const result = await response.json();
+
+				if (response.ok && result.success) {
+					// Success
+					closeModal();
+					alert(
+						'All notifications have been cleared successfully!\n\n' +
+						'Notifications cleared: ' + (result.notifications_cleared || 0) + '\n' +
+						'Read statuses cleared: ' + (result.reads_cleared || 0)
+					);
+					
+					// Refresh the notification count in the header if present
+					const notificationCount = document.querySelector('.notification-count');
+					if (notificationCount) {
+						notificationCount.textContent = '0';
+						notificationCount.style.display = 'none';
+					}
+
+					// Clear notification dropdown if present
+					const notificationList = document.querySelector('.notification-list');
+					if (notificationList) {
+						notificationList.innerHTML = '<div class="notification-empty"><i class="fas fa-inbox"></i> No new notifications</div>';
+					}
+
+				} else {
+					// Handle errors
+					if (result.error === 'invalid_password') {
+						showPasswordError('Invalid password. Please try again.');
+					} else {
+						alert('Failed to clear notifications: ' + (result.message || 'Unknown error'));
+					}
+				}
+
+			} catch (error) {
+				alert('Failed to clear notifications. Please try again.');
+			} finally {
+				// Reset button
+				confirmBtn.disabled = false;
+				confirmBtn.innerHTML = '<i class="fas fa-trash-alt"></i> Clear All Notifications';
+				updateConfirmButton();
+			}
+		});
+
+		// Initial button state
+		updateConfirmButton();
+	})();
+
+	// Operating Hours Management
+	(function() {
+		let emergencyAccessTimer = null;
+		
+		// Load current settings
+		async function loadOperatingHoursSettings() {
+			try {
+				const response = await fetch('{{ route("owner.operating-hours.get") }}', {
+					headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
+				});
+				const data = await response.json();
+				
+				if (data.success) {
+					const settings = data.settings;
+					document.getElementById('operating-hours-enabled').checked = settings.operating_hours_enabled;
+					document.getElementById('operating-hours-start').value = settings.operating_hours_start;
+					document.getElementById('operating-hours-end').value = settings.operating_hours_end;
+					document.getElementById('emergency-access-duration').value = settings.emergency_access_duration;
+					
+					updateOperatingHoursUI();
+					updateEmergencyAccessUI(settings.emergency_access_enabled, settings.emergency_access_expires_at);
+				}
+			} catch (error) {
+				console.error('Failed to load operating hours settings:', error);
+			}
+		}
+
+		// Update operating hours settings
+		async function updateOperatingHoursSetting(key, value) {
+			try {
+				const response = await fetch('{{ route("owner.operating-hours.update") }}', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+					},
+					body: JSON.stringify({ key, value })
+				});
+				const data = await response.json();
+				
+				if (!data.success) {
+					alert('Failed to update setting: ' + (data.message || 'Unknown error'));
+				}
+			} catch (error) {
+				console.error('Failed to update operating hours setting:', error);
+				alert('Failed to update setting. Please try again.');
+			}
+		}
+
+		// Update UI based on operating hours enabled state
+		function updateOperatingHoursUI() {
+			const enabled = document.getElementById('operating-hours-enabled').checked;
+			const timesDiv = document.getElementById('operating-hours-times');
+			timesDiv.style.opacity = enabled ? '1' : '0.5';
+			
+			const timeInputs = timesDiv.querySelectorAll('input[type="time"]');
+			timeInputs.forEach(input => input.disabled = !enabled);
+			
+			// Update emergency access button state
+			showEmergencyAccessDisabled();
+		}
+
+		// Update emergency access UI
+		function updateEmergencyAccessUI(isActive, expiresAt) {
+			const control = document.getElementById('emergency-access-control');
+			
+			if (isActive && expiresAt) {
+				const now = new Date();
+				const expires = new Date(expiresAt);
+				const remainingMs = expires - now;
+				
+				if (remainingMs > 0) {
+					const remainingMin = Math.floor(remainingMs / 60000);
+					const remainingSec = Math.floor((remainingMs % 60000) / 1000);
+					control.innerHTML = `
+						<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px;">
+							<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+								<span style="color:#dc2626;font-weight:600;font-size:0.9rem;">
+									<i class="fas fa-shield-alt"></i> Emergency Access Active
+								</span>
+								<button id="disable-emergency-access" style="background:#dc2626;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:0.8rem;cursor:pointer;">
+									Disable
+								</button>
+							</div>
+							<div id="emergency-timer" style="color:#991b1b;font-weight:600;font-size:0.85rem;">
+								Time remaining: <span id="time-remaining">${remainingMin}:${remainingSec.toString().padStart(2, '0')}</span>
+							</div>
+						</div>
+					`;
+					
+					// Start countdown timer
+					startEmergencyTimer(expires);
+					
+					// Bind disable button
+					document.getElementById('disable-emergency-access').addEventListener('click', disableEmergencyAccess);
+				} else {
+					// Expired, show as disabled
+					showEmergencyAccessDisabled();
+				}
+			} else {
+				showEmergencyAccessDisabled();
+			}
+		}
+
+		// Show emergency access as disabled
+		function showEmergencyAccessDisabled() {
+			const control = document.getElementById('emergency-access-control');
+			const operatingHoursEnabled = document.getElementById('operating-hours-enabled').checked;
+			const isDisabled = !operatingHoursEnabled;
+			
+			control.innerHTML = `
+				<button id="enable-emergency-access" style="background:${isDisabled ? '#9ca3af' : '#dc2626'};color:#fff;border:none;padding:10px 16px;border-radius:8px;font-weight:600;cursor:${isDisabled ? 'not-allowed' : 'pointer'};transition:all 0.2s;display:flex;align-items:center;gap:8px;font-size:0.9rem;" ${isDisabled ? 'disabled' : ''}>
+					<i class="fas fa-shield-alt"></i>
+					Enable Emergency Access
+				</button>
+				${isDisabled ? '<p style="color:#6b7280;font-size:0.8rem;margin:8px 0 0 0;font-style:italic;">Emergency access is only available when operating hours are enforced</p>' : ''}
+			`;
+			
+			if (!isDisabled) {
+				document.getElementById('enable-emergency-access').addEventListener('click', enableEmergencyAccess);
+			}
+		}
+
+		// Start emergency access countdown timer
+		function startEmergencyTimer(expiresAt) {
+			if (emergencyAccessTimer) {
+				clearInterval(emergencyAccessTimer);
+			}
+			
+			emergencyAccessTimer = setInterval(() => {
+				const now = new Date();
+				const remainingMs = expiresAt - now;
+				
+				if (remainingMs <= 0) {
+					clearInterval(emergencyAccessTimer);
+					showEmergencyAccessDisabled();
+					showToast('Emergency access has expired', 'warning');
+					return;
+				}
+				
+				const remainingMin = Math.floor(remainingMs / 60000);
+				const remainingSec = Math.floor((remainingMs % 60000) / 1000);
+				const timeSpan = document.getElementById('time-remaining');
+				if (timeSpan) {
+					timeSpan.textContent = `${remainingMin}:${remainingSec.toString().padStart(2, '0')}`;
+				}
+			}, 1000);
+		}
+
+		// Enable emergency access
+		async function enableEmergencyAccess() {
+			const duration = parseInt(document.getElementById('emergency-access-duration').value);
+			
+			if (!duration || duration < 1) {
+				showToast('Please enter a valid duration in minutes', 'error');
+				return;
+			}
+			
+			try {
+				const response = await fetch('{{ route("owner.emergency-access.enable") }}', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+					},
+					body: JSON.stringify({ duration })
+				});
+				const data = await response.json();
+				
+				if (data.success) {
+					updateEmergencyAccessUI(true, data.expires_at);
+					showToast(`Emergency access enabled for ${duration} minutes`, 'success');
+				} else {
+					showToast('Failed to enable emergency access: ' + (data.message || 'Unknown error'), 'error');
+				}
+			} catch (error) {
+				console.error('Failed to enable emergency access:', error);
+				showToast('Failed to enable emergency access. Please try again.', 'error');
+			}
+		}
+
+		// Disable emergency access
+		async function disableEmergencyAccess() {
+			if (!confirm('Are you sure you want to disable emergency access?')) {
+				return;
+			}
+			
+			try {
+				const response = await fetch('{{ route("owner.emergency-access.disable") }}', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+					}
+				});
+				const data = await response.json();
+				
+				if (data.success) {
+					if (emergencyAccessTimer) {
+						clearInterval(emergencyAccessTimer);
+					}
+					showEmergencyAccessDisabled();
+					showToast('Emergency access disabled', 'success');
+				} else {
+					showToast('Failed to disable emergency access: ' + (data.message || 'Unknown error'), 'error');
+				}
+			} catch (error) {
+				console.error('Failed to disable emergency access:', error);
+				showToast('Failed to disable emergency access. Please try again.', 'error');
+			}
+		}
+
+		// Toast notification system
+		function showToast(message, type = 'info') {
+			// Remove existing toast
+			const existingToast = document.getElementById('operating-hours-toast');
+			if (existingToast) {
+				existingToast.remove();
+			}
+
+			// Create toast
+			const toast = document.createElement('div');
+			toast.id = 'operating-hours-toast';
+			toast.style.cssText = `
+				position: fixed;
+				top: 20px;
+				right: 20px;
+				z-index: 10000;
+				padding: 12px 16px;
+				border-radius: 8px;
+				color: white;
+				font-weight: 600;
+				font-size: 0.9rem;
+				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+				transform: translateX(100%);
+				transition: transform 0.3s ease;
+				max-width: 300px;
+				display: flex;
+				align-items: center;
+				gap: 8px;
+			`;
+
+			// Set colors based on type
+			switch (type) {
+				case 'success':
+					toast.style.background = '#10b981';
+					toast.innerHTML = '<i class="fas fa-check-circle"></i>' + message;
+					break;
+				case 'error':
+					toast.style.background = '#dc2626';
+					toast.innerHTML = '<i class="fas fa-exclamation-circle"></i>' + message;
+					break;
+				case 'warning':
+					toast.style.background = '#f59e0b';
+					toast.innerHTML = '<i class="fas fa-exclamation-triangle"></i>' + message;
+					break;
+				default:
+					toast.style.background = '#3b82f6';
+					toast.innerHTML = '<i class="fas fa-info-circle"></i>' + message;
+			}
+
+			document.body.appendChild(toast);
+
+			// Animate in
+			setTimeout(() => {
+				toast.style.transform = 'translateX(0)';
+			}, 10);
+
+			// Auto remove after 3 seconds
+			setTimeout(() => {
+				toast.style.transform = 'translateX(100%)';
+				setTimeout(() => {
+					if (toast.parentNode) {
+						toast.remove();
+					}
+				}, 300);
+			}, 3000);
+		}
+
+		// Event listeners
+		document.getElementById('operating-hours-enabled').addEventListener('change', function() {
+			const enabled = this.checked;
+			updateOperatingHoursSetting('operating_hours_enabled', enabled);
+			updateOperatingHoursUI();
+			showEmergencyAccessDisabled(); // Update emergency access button state
+			showToast(enabled ? 'Operating hours enforcement enabled' : 'Operating hours enforcement disabled', 'success');
+		});
+
+		document.getElementById('operating-hours-start').addEventListener('change', function() {
+			const time = this.value;
+			updateOperatingHoursSetting('operating_hours_start', time);
+			showToast(`Opening time updated to ${time}`, 'success');
+		});
+
+		document.getElementById('operating-hours-end').addEventListener('change', function() {
+			const time = this.value;
+			updateOperatingHoursSetting('operating_hours_end', time);
+			showToast(`Closing time updated to ${time}`, 'success');
+		});
+
+		document.getElementById('emergency-access-duration').addEventListener('change', function() {
+			updateOperatingHoursSetting('emergency_access_duration', parseInt(this.value));
+		});
+
+		// Initialize on page load
+		document.addEventListener('DOMContentLoaded', loadOperatingHoursSettings);
 	})();
 	</script>
 <script src="{{ asset('js/notifications.js') }}"></script>

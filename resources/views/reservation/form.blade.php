@@ -1,10 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- SEO Meta Tags -->
+  @if(isset($meta))
+    <x-seo-meta :meta="$meta" />
+  @else
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Complete Your Reservation</title>
+  @endif
+  
   <meta name="csrf-token" content="{{ csrf_token() }}">
-  <title>Complete Your Reservation</title>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
   <link rel="stylesheet" href="{{ asset('css/reservation-portal.css') }}">
@@ -484,12 +490,9 @@
           // Clear cart
           localStorage.removeItem(cartKey);
           
-          // Show success message
-          alert(`Reservation created successfully! Reservation ID: ${result.reservation_id}\n\nYour receipt will be displayed next. You can download it as PDF if needed.`);
-          
           // Show receipt - when closed, will redirect to homepage
           setTimeout(() => {
-            openReceipt(payload);
+            openReceipt(payload, result.reservation_id);
           }, 100);
           
         } else {
@@ -610,19 +613,13 @@
     const sendEmailBtn = document.getElementById('sendEmailBtn');
     const closeReceiptBtn = document.getElementById('closeReceiptBtn');
 
-    function generateReceiptNumber(){
-      const now = new Date();
-      return 'SV-' + now.getFullYear().toString().slice(-2) + (now.getMonth()+1).toString().padStart(2,'0') + now.getDate().toString().padStart(2,'0') + '-' + Math.random().toString(36).substring(2,8).toUpperCase();
-    }
-
-    function openReceipt(payload){
+    function openReceipt(payload, reservationId){
       // payload: { customer, items, total }
-      const receiptNumber = generateReceiptNumber();
-      receiptIdEl.textContent = 'Receipt #' + receiptNumber;
+      receiptIdEl.textContent = 'Receipt #' + reservationId;
       
       // Store data for email sending
       currentReservationData = payload;
-      currentReceiptNumber = receiptNumber;
+      currentReceiptNumber = reservationId;
       
       const now = new Date();
       const dateStr = now.toLocaleDateString('en-PH',{year:'numeric',month:'short',day:'2-digit'});

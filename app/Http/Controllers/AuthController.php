@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use App\Models\User;
+use Carbon\Carbon;
 
 class AuthController extends Controller
 {
@@ -52,13 +53,47 @@ class AuthController extends Controller
         ]);
 
         if ($user && Hash::check($request->password, $user->password)) {
-            Log::info('Password check passed, attempting Auth::login()');
+            Log::info('Password check passed, checking operating hours');
             
-            Auth::login($user, $request->filled('remember'));
+            // Check operating hours for managers and cashiers before login
+            if (in_array($user->role, ['manager', 'cashier'])) {
+                if (!\App\Models\SystemSettings::canAccessSystem($user->role)) {
+                    $operatingStart = \App\Models\SystemSettings::get('operating_hours_start', '10:00');
+                    $operatingEnd = \App\Models\SystemSettings::get('operating_hours_end', '19:00');
+                    
+                    Log::warning('Login blocked - outside operating hours', [
+                        'user_id' => $user->user_id,
+                        'user_role' => $user->role,
+                        'current_time' => Carbon::now()->format('H:i:s'),
+                        'operating_hours' => "$operatingStart - $operatingEnd",
+                        'emergency_access_active' => \App\Models\SystemSettings::isEmergencyAccessActive()
+                    ]);
+
+                    if ($request->expectsJson()) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Access denied. The system is only accessible during operating hours ($operatingStart - $operatingEnd). Please contact the owner for emergency access.",
+                            'operating_hours' => [
+                                'start' => $operatingStart,
+                                'end' => $operatingEnd,
+                                'current_time' => Carbon::now()->format('H:i:s')
+                            ]
+                        ], 403);
+                    }
+
+                    return back()->withErrors([
+                        'access_denied' => "You cannot access the system outside operating hours ($operatingStart - $operatingEnd). Please try again during business hours or contact the owner for emergency access."
+                    ])->withInput($request->except('password'));
+                }
+            }
+            
+            // For employees (owner, manager, cashier), never use "remember me" - always require login after browser close
+            Auth::login($user, false);
             
             Log::info('Auth::login() completed', [
                 'authenticated' => Auth::check(),
-                'auth_user_id' => Auth::check() ? Auth::user()->user_id : null
+                'auth_user_id' => Auth::check() ? Auth::user()->user_id : null,
+                'remember_token_used' => false
             ]);
 
             // Check if user has default password

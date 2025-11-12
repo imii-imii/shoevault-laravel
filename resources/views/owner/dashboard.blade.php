@@ -160,19 +160,19 @@
         .odash-toggle button + button { border-left:1px solid #e5e7eb; }
 
             /* Predictive futuristic button */
-            .odash-predictive-btn { position:relative; display:inline-flex; align-items:center; gap:6px; padding:8px 14px; font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; border-radius:14px; border:1px solid rgba(59,130,246,.35); background:linear-gradient(135deg,#0f1e47 0%,#1d3b78 35%,#2b5bb4 70%,#3b82f6 100%); color:#f0f9ff; cursor:pointer; overflow:hidden; transition: all .35s cubic-bezier(.25,.8,.25,1); box-shadow:0 4px 14px -4px rgba(0,102,255,.45), inset 0 0 0 1px rgba(255,255,255,.08); backdrop-filter: blur(2px); }
+            .odash-predictive-btn { position:relative; display:inline-flex; align-items:center; gap:6px; padding:8px 14px; font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; border-radius:14px; border:1px solid #3b82f6; background:#ffffff; color:#3b82f6; cursor:pointer; overflow:hidden; transition: all .35s cubic-bezier(.25,.8,.25,1); box-shadow:0 4px 14px -4px rgba(59,130,246,.3), inset 0 0 0 1px rgba(59,130,246,.1); backdrop-filter: blur(2px); }
             .odash-predictive-btn .label { position:relative; z-index:2; }
             .odash-predictive-btn i { font-size:13px; position:relative; z-index:2; }
             .odash-predictive-btn::before, .odash-predictive-btn::after { content:""; position:absolute; inset:0; opacity:.0; transition:opacity .5s ease, transform .6s ease; }
-            .odash-predictive-btn::before { background: radial-gradient(circle at 20% 20%, rgba(255,255,255,.35), transparent 60%); mix-blend-mode:overlay; }
-            .odash-predictive-btn::after { background: linear-gradient(135deg, rgba(255,255,255,.15) 0%, rgba(255,255,255,0) 60%); }
-            .odash-predictive-btn:hover { filter:brightness(1.08); box-shadow:0 6px 20px -6px rgba(16,88,186,.55), 0 0 0 1px rgba(255,255,255,.15); }
-            .odash-predictive-btn:hover::before { opacity:.55; transform:scale(1.15); }
-            .odash-predictive-btn:hover::after { opacity:.5; }
-            .odash-predictive-btn:active { transform:translateY(1px); box-shadow:0 3px 10px -4px rgba(16,88,186,.6), inset 0 0 0 1px rgba(255,255,255,.2); }
-            .odash-predictive-btn.active { background:linear-gradient(135deg,#08213d 0%,#0d3e66 25%,#0f5fa2 55%,#1d7ce0 85%,#3b82f6 100%); border-color:#3b82f6; box-shadow:0 6px 24px -6px rgba(0,136,255,.6), 0 0 0 1px rgba(255,255,255,.18); }
-            .odash-predictive-btn.active::before { opacity:.75; transform:scale(1.25); }
-            .odash-predictive-btn.active::after { opacity:.6; }
+            .odash-predictive-btn::before { background: radial-gradient(circle at 20% 20%, rgba(59,130,246,.15), transparent 60%); mix-blend-mode:overlay; }
+            .odash-predictive-btn::after { background: linear-gradient(135deg, rgba(59,130,246,.1) 0%, rgba(59,130,246,0) 60%); }
+            .odash-predictive-btn:hover { filter:brightness(0.95); box-shadow:0 6px 20px -6px rgba(59,130,246,.4), 0 0 0 1px rgba(59,130,246,.2); }
+            .odash-predictive-btn:hover::before { opacity:.3; transform:scale(1.15); }
+            .odash-predictive-btn:hover::after { opacity:.2; }
+            .odash-predictive-btn:active { transform:translateY(1px); box-shadow:0 3px 10px -4px rgba(59,130,246,.5), inset 0 0 0 1px rgba(59,130,246,.3); }
+            .odash-predictive-btn.active { background:linear-gradient(135deg,#08213d 0%,#0d3e66 25%,#0f5fa2 55%,#1d7ce0 85%,#3b82f6 100%); border-color:#3b82f6; color:#f0f9ff; box-shadow:0 6px 24px -6px rgba(0,136,255,.6), 0 0 0 1px rgba(255,255,255,.18); }
+            .odash-predictive-btn.active::before { opacity:.75; transform:scale(1.25); background: radial-gradient(circle at 20% 20%, rgba(255,255,255,.35), transparent 60%); }
+            .odash-predictive-btn.active::after { opacity:.6; background: linear-gradient(135deg, rgba(255,255,255,.15) 0%, rgba(255,255,255,0) 60%); }
             .odash-predictive-btn:focus-visible { outline:2px solid #93c5fd; outline-offset:2px; }
 
         /* Futuristic gauge styles (refined for semicircular segmented look) */
@@ -532,6 +532,15 @@ window.forecastDebounceTimer = null;
 window.currentForecastRequest = null;
 window.refreshDebounceTimer = null;
 window.currentDashboardRequest = null;
+
+// Helper function to check if predictive mode is active
+const isPredictiveModeActive = () => {
+    const predictiveToggle = document.getElementById('odash-predictive-mode');
+    return predictiveToggle && predictiveToggle.classList.contains('active');
+};
+
+// Make it globally accessible
+window.isPredictiveModeActive = isPredictiveModeActive;
 
 // Pass Laravel data to JavaScript
 window.laravelData = {
@@ -1092,10 +1101,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     predictiveLabel.style.display = 'none';
                 }
                 // Switch off predictive mode if it's on
-                if (predictiveToggle && predictiveToggle.checked) {
-                    predictiveToggle.checked = false;
-                    // Trigger change event to ensure forecast updates to historical mode
-                    predictiveToggle.dispatchEvent(new Event('change'));
+                if (predictiveToggle && predictiveToggle.classList.contains('active')) {
+                    predictiveToggle.classList.remove('active');
+                    predictiveToggle.setAttribute('aria-pressed', 'false');
+                    console.log('Predictive Mode switched OFF: Entering day view');
+                    // Update forecast to historical mode
+                    updateForecastTitle();
+                    const typeSelect = document.getElementById('odash-forecast-type');
+                    const activeMode = (typeSelect && typeSelect.value) ? typeSelect.value : (window.currentForecastMode || 'sales');
+                    updateForecast(r, activeMode);
                 }
             } else {
                 // Show predictive mode toggle for other views
@@ -1185,8 +1199,7 @@ document.addEventListener('DOMContentLoaded', function() {
             refreshDashboardKPIs();
             
             // Only update forecast if not in predictive mode (predictive mode uses current date)
-            const predictiveToggle = document.getElementById('odash-predictive-mode');
-            const isPredictive = predictiveToggle && predictiveToggle.checked;
+            const isPredictive = isPredictiveModeActive();
             
             if (!isPredictive) {
                 const typeSelect = document.getElementById('odash-forecast-type');
@@ -1219,8 +1232,7 @@ document.addEventListener('DOMContentLoaded', function() {
             refreshDashboardKPIs();
             
             // Only update forecast if not in predictive mode (predictive mode uses current date)
-            const predictiveToggle = document.getElementById('odash-predictive-mode');
-            const isPredictive = predictiveToggle && predictiveToggle.checked;
+            const isPredictive = isPredictiveModeActive();
             
             if (!isPredictive) {
                 const typeSelect = document.getElementById('odash-forecast-type');
@@ -1239,8 +1251,7 @@ document.addEventListener('DOMContentLoaded', function() {
             refreshDashboardKPIs();
             
             // Only update forecast if not in predictive mode (predictive mode uses current date)
-            const predictiveToggle = document.getElementById('odash-predictive-mode');
-            const isPredictive = predictiveToggle && predictiveToggle.checked;
+            const isPredictive = isPredictiveModeActive();
             
             if (!isPredictive) {
                 const typeSelect = document.getElementById('odash-forecast-type');
@@ -1263,7 +1274,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Only update forecast if not in predictive mode (predictive mode uses current date)
             const predictiveToggle = document.getElementById('odash-predictive-mode');
-            const isPredictive = predictiveToggle && predictiveToggle.checked;
+            const isPredictive = isPredictiveModeActive();
             
             if (!isPredictive) {
                 const typeSelect = document.getElementById('odash-forecast-type');
@@ -1289,7 +1300,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Only update forecast if not in predictive mode (predictive mode uses current date)
             const predictiveToggle = document.getElementById('odash-predictive-mode');
-            const isPredictive = predictiveToggle && predictiveToggle.checked;
+            const isPredictive = isPredictiveModeActive();
             
             if (!isPredictive) {
                 const typeSelect = document.getElementById('odash-forecast-type');
@@ -1344,6 +1355,8 @@ document.addEventListener('DOMContentLoaded', function() {
         updateWindowText(initialRange);
         updateNavigationButtons(initialRange);
         
+
+
         // Initialize predictive mode toggle visibility
         const predictiveToggle = document.getElementById('odash-predictive-mode');
         const predictiveLabel = predictiveToggle ? predictiveToggle.closest('label') : null;
@@ -1351,8 +1364,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (initialRange === 'day') {
                 predictiveLabel.style.display = 'none';
                 // Ensure predictive mode is off for day view
-                if (predictiveToggle && predictiveToggle.checked) {
-                    predictiveToggle.checked = false;
+                if (predictiveToggle && predictiveToggle.classList.contains('active')) {
+                    predictiveToggle.classList.remove('active');
+                    predictiveToggle.setAttribute('aria-pressed', 'false');
                 }
             } else {
                 predictiveLabel.style.display = 'flex';
@@ -2478,7 +2492,7 @@ function performKPIRefresh() {
     
     // Show loading state - check if in predictive mode to avoid chart loading overlay
     const predictiveToggle = document.getElementById('odash-predictive-mode');
-    const isPredictive = predictiveToggle && predictiveToggle.checked;
+    const isPredictive = isPredictiveModeActive();
     
     if (isPredictive) {
         showKPILoadingOnly(); // Only show KPI loading, not chart loading
@@ -2533,7 +2547,7 @@ function performKPIRefresh() {
         if (!abortController.signal.aborted) {
             // Use the same predictive mode check as when showing loading
             const predictiveToggle = document.getElementById('odash-predictive-mode');
-            const isPredictive = predictiveToggle && predictiveToggle.checked;
+            const isPredictive = isPredictiveModeActive();
             
             if (isPredictive) {
                 hideKPILoadingOnly(); // Only hide KPI loading, not chart loading
@@ -3052,17 +3066,17 @@ function initOwnerForecastCharts() {
     const predictiveToggle = document.getElementById('odash-predictive-mode');
     if (predictiveToggle) {
         const setPredictiveState = (enabled) => {
-            predictiveToggle.classList.toggle('active', enabled);
-            predictiveToggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
             const rangeSelect = document.getElementById('dbf-range');
             const range = rangeSelect ? rangeSelect.value : 'day';
             
             // Prevent predictive mode on day view
-            if (range === 'day' && predictiveToggle.checked) {
-                predictiveToggle.checked = false;
+            if (range === 'day' && enabled) {
                 console.log('Predictive Mode disabled: Day view does not support predictions');
                 return;
             }
+            
+            predictiveToggle.classList.toggle('active', enabled);
+            predictiveToggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
             
             console.log('Predictive Mode:', enabled ? 'ON' : 'OFF');
             // Update the forecast title and chart data

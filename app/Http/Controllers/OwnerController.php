@@ -1843,4 +1843,274 @@ class OwnerController extends Controller
             ]);
         }
     }
+
+    /**
+     * Clear all notifications and notification reads
+     */
+    public function clearNotifications(Request $request)
+    {
+        try {
+            // Validate request
+            $request->validate([
+                'password' => 'required|string'
+            ]);
+
+            // Verify the user's password
+            $user = Auth::user();
+            if (!Hash::check($request->password, $user->password)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'invalid_password',
+                    'message' => 'Invalid password provided'
+                ], 400);
+            }
+
+            // Only allow owner role to perform this action
+            if ($user->role !== 'owner') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized. Only owners can perform this action.'
+                ], 403);
+            }
+
+            DB::beginTransaction();
+
+            try {
+                // Count records before deletion for reporting
+                $notificationsCount = DB::table('notifications')->count();
+                $readsCount = DB::table('notification_reads')->count();
+
+                // Clear all notification reads first (foreign key constraint)
+                // Use DELETE instead of TRUNCATE to work within transactions
+                DB::table('notification_reads')->delete();
+
+                // Clear all notifications
+                DB::table('notifications')->delete();
+
+                // Note: Auto-increment reset is not critical for this operation
+                // so we'll skip it to avoid potential issues
+
+                DB::commit();
+
+                // Log this action
+                Log::warning('All notifications cleared by owner', [
+                    'user_id' => $user->user_id,
+                    'username' => $user->username,
+                    'notifications_cleared' => $notificationsCount,
+                    'reads_cleared' => $readsCount,
+                    'timestamp' => Carbon::now()->toDateTimeString(),
+                    'ip_address' => $request->ip()
+                ]);
+
+
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'All notifications have been cleared successfully',
+                    'notifications_cleared' => $notificationsCount,
+                    'reads_cleared' => $readsCount
+                ]);
+
+            } catch (\Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error clearing notifications', [
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to clear notifications. Please try again.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get operating hours settings
+     */
+    public function getOperatingHoursSettings()
+    {
+        try {
+            $settings = [
+                'operating_hours_enabled' => \App\Models\SystemSettings::get('operating_hours_enabled', true),
+                'operating_hours_start' => \App\Models\SystemSettings::get('operating_hours_start', '10:00'),
+                'operating_hours_end' => \App\Models\SystemSettings::get('operating_hours_end', '19:00'),
+                'emergency_access_enabled' => \App\Models\SystemSettings::get('emergency_access_enabled', false),
+                'emergency_access_expires_at' => \App\Models\SystemSettings::get('emergency_access_expires_at'),
+                'emergency_access_duration' => \App\Models\SystemSettings::get('emergency_access_duration', 30)
+            ];
+
+            return response()->json([
+                'success' => true,
+                'settings' => $settings
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error getting operating hours settings', [
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to get operating hours settings'
+            ], 500);
+        }
+    }
+
+    /**
+     * Update operating hours setting
+     */
+    public function updateOperatingHoursSetting(Request $request)
+    {
+        try {
+            $request->validate([
+                'key' => 'required|string|in:operating_hours_enabled,operating_hours_start,operating_hours_end,emergency_access_duration',
+                'value' => 'required'
+            ]);
+
+            $key = $request->key;
+            $value = $request->value;
+            $type = 'string';
+
+            // Determine the correct type based on the key
+            switch ($key) {
+                case 'operating_hours_enabled':
+                    $type = 'boolean';
+                    $value = (bool) $value;
+                    break;
+                case 'emergency_access_duration':
+                    $type = 'integer';
+                    $value = max(1, min(480, (int) $value)); // Clamp between 1 and 480 minutes
+                    break;
+                case 'operating_hours_start':
+                case 'operating_hours_end':
+                    // Validate time format
+                    if (!preg_match('/^([01]?\d|2[0-3]):([0-5]?\d)$/', $value)) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Invalid time format. Use HH:MM format.'
+                        ], 422);
+                    }
+                    break;
+            }
+
+            \App\Models\SystemSettings::set($key, $value, $type);
+
+            Log::info('Operating hours setting updated', [
+                'key' => $key,
+                'value' => $value,
+                'user_id' => Auth::id()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Setting updated successfully'
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error updating operating hours setting', [
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id(),
+                'key' => $request->key ?? null
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update setting'
+            ], 500);
+        }
+    }
+
+    /**
+     * Enable emergency access
+     */
+    public function enableEmergencyAccess(Request $request)
+    {
+        try {
+            $request->validate([
+                'duration' => 'required|integer|min:1|max:480'
+            ]);
+
+            $duration = $request->duration;
+            $expiresAt = Carbon::now()->addMinutes($duration);
+
+            \App\Models\SystemSettings::enableEmergencyAccess($duration);
+
+            Log::info('Emergency access enabled', [
+                'duration_minutes' => $duration,
+                'expires_at' => $expiresAt->toDateTimeString(),
+                'user_id' => Auth::id()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => "Emergency access enabled for {$duration} minutes",
+                'expires_at' => $expiresAt->toISOString(),
+                'duration' => $duration
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error enabling emergency access', [
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to enable emergency access'
+            ], 500);
+        }
+    }
+
+    /**
+     * Disable emergency access
+     */
+    public function disableEmergencyAccess()
+    {
+        try {
+            \App\Models\SystemSettings::disableEmergencyAccess();
+
+            Log::info('Emergency access disabled', [
+                'user_id' => Auth::id()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Emergency access disabled'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error disabling emergency access', [
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to disable emergency access'
+            ], 500);
+        }
+    }
 }

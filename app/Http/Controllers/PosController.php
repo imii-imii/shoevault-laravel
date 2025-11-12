@@ -7,13 +7,13 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 use App\Models\Product;
 use App\Models\ProductSize;
 use App\Models\Transaction;
 use App\Models\TransactionItem;
 use App\Models\Reservation;
 use App\Models\Employee;
-use Carbon\Carbon;
 
 class PosController extends Controller
 {
@@ -38,7 +38,7 @@ class PosController extends Controller
             $reservations = collect([]);
         }
         $reservationStats = [
-            'incomplete' => Reservation::where('status', 'pending')->count(),
+            'incomplete' => Reservation::whereIn('status', ['pending', 'for_cancellation'])->count(),
             'completed' => Reservation::where('status', 'completed')->count(),
             'cancelled' => Reservation::where('status', 'cancelled')->count()
         ];
@@ -52,11 +52,11 @@ class PosController extends Controller
     $tomorrow = Carbon::tomorrow();
     $soonEnd = Carbon::today()->addDays(3);
 
-        $expiringToday = Reservation::where('status', 'pending')
+        $expiringToday = Reservation::whereIn('status', ['pending', 'for_cancellation'])
             ->whereDate('pickup_date', $today)
             ->count();
 
-        $expiringSoon = Reservation::where('status', 'pending')
+        $expiringSoon = Reservation::whereIn('status', ['pending', 'for_cancellation'])
             ->whereDate('pickup_date', '>=', $today)
             ->whereDate('pickup_date', '<=', $soonEnd)
             ->count();
@@ -644,5 +644,141 @@ class PosController extends Controller
         }
         
         return asset($profileObject->profile_picture);
+    }
+
+    /**
+     * Get recent transactions for void functionality
+     */
+    public function getRecentTransactions()
+    {
+        try {
+            // Get transactions from the last 30 minutes with sale_type = 'pos'
+            $tenMinutesAgo = Carbon::now()->subMinutes(30);
+            
+            $transactions = \App\Models\Transaction::with(['items', 'user.employee', 'user.customer'])
+                ->where('sale_type', 'pos')
+                ->where('created_at', '>=', $tenMinutesAgo)
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'transactions' => $transactions->map(function($transaction) {
+                    return [
+                        'transaction_id' => $transaction->transaction_id,
+                        'total_amount' => $transaction->total_amount,
+                        'created_at' => $transaction->created_at->format('Y-m-d H:i:s'),
+                        'created_at_human' => $transaction->created_at->format('M d, Y g:i A'),
+                        'cashier_name' => $transaction->user ? $transaction->user->name : 'Unknown Cashier',
+                        'items_count' => $transaction->items->count(),
+                        'items' => $transaction->items->map(function($item) {
+                            return [
+                                'product_name' => $item->product_name,
+                                'product_brand' => $item->product_brand,
+                                'product_color' => $item->product_color,
+                                'size' => $item->size,
+                                'quantity' => $item->quantity,
+                                'unit_price' => $item->unit_price,
+                                'subtotal' => $item->quantity * $item->unit_price
+                            ];
+                        })
+                    ];
+                })
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve transactions: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Authenticate manager for void transaction
+     */
+    public function authenticateManager(Request $request)
+    {
+        try {
+            $request->validate([
+                'username' => 'required|string',
+                'password' => 'required|string'
+            ]);
+
+            // Check if user exists and is a manager
+            $manager = \App\Models\User::where('username', $request->username)
+                ->where('role', 'manager')
+                ->first();
+
+            if (!$manager || !Hash::check($request->password, $manager->password)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid manager credentials'
+                ], 401);
+            }
+
+            return response()->json([
+                'success' => true,
+                'manager' => [
+                    'user_id' => $manager->user_id,
+                    'full_name' => $manager->name,
+                    'email' => $manager->email
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Authentication failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Void a transaction
+     */
+    public function voidTransaction($id)
+    {
+        try {
+            DB::beginTransaction();
+
+            // Find the transaction with items
+            $transaction = \App\Models\Transaction::with(['items.productSize'])
+                ->where('transaction_id', $id)
+                ->where('sale_type', 'pos')
+                ->first();
+
+            if (!$transaction) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Transaction not found or not a POS transaction'
+                ], 404);
+            }
+
+            // Restore stock for each item
+            foreach ($transaction->items as $item) {
+                if ($item->productSize) {
+                    $item->productSize->increment('stock', $item->quantity);
+                }
+            }
+
+            // Delete transaction items first (foreign key constraint)
+            $transaction->items()->delete();
+            
+            // Delete the transaction
+            $transaction->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Transaction voided successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to void transaction: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

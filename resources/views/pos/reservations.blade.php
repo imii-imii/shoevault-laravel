@@ -570,6 +570,11 @@
             color: #991b1b;
         }
 
+        .status-for_cancellation {
+            background: #fed7aa;
+            color: #c2410c;
+        }
+
         /* Action Button Styles */
         .complete-btn {
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
@@ -835,8 +840,8 @@
                         <div class="card-value" id="card-expiring-today">{{ $reservationCards['expiring_today'] ?? 0 }}</div>
                     </div>
                     <div class="reservation-card total-reservations">
-                        <div class="card-title">Total Pending Reservations</div>
-                        <div class="card-value" id="card-total-reservations">{{ $reservationCards['pending_total'] ?? collect($reservations ?? [])->filter(function($r){ $status = is_array($r) ? ($r['status'] ?? '') : ($r->status ?? ''); return strtolower((string)$status) === 'pending'; })->count() }}</div>
+                        <div class="card-title">Total Active Reservations</div>
+                        <div class="card-value" id="card-total-reservations">{{ $reservationCards['pending_total'] ?? collect($reservations ?? [])->filter(function($r){ $status = is_array($r) ? ($r['status'] ?? '') : ($r->status ?? ''); $statusLower = strtolower((string)$status); return $statusLower === 'pending' || $statusLower === 'for_cancellation'; })->count() }}</div>
                     </div>
                 </div>
                 <!-- Search -->
@@ -854,13 +859,14 @@
                 <!-- Reservation List (from Inventory Reservation Reports) -->
                 <div style="width: 100%; display: grid; gap: 12px; max-height: calc(100vh - 320px); overflow-y: auto; padding-right: 8px;" id="reservations-container">
                     @php
-                        // Ensure we only render reservations with status 'pending'
+                        // Include both 'pending' and 'for_cancellation' reservations
                         $pendingReservations = collect($reservations ?? [])->filter(function($r) {
                             // support both arrays and objects
                             $status = null;
                             if (is_array($r) && array_key_exists('status', $r)) $status = $r['status'];
                             elseif (is_object($r) && isset($r->status)) $status = $r->status;
-                            return strtolower((string)($status ?? '')) === 'pending';
+                            $statusLower = strtolower((string)($status ?? ''));
+                            return $statusLower === 'pending' || $statusLower === 'for_cancellation';
                         });
                     @endphp
                     @forelse($pendingReservations as $reservation)
@@ -894,11 +900,20 @@
                                     $statusColors = [
                                         'pending' => 'background-color: #FEF3C7; color: #92400E;',
                                         'completed' => 'background-color: #DCFCE7; color: #166534;',
-                                        'cancelled' => 'background-color: #FEE2E2; color: #991B1B;'
+                                        'cancelled' => 'background-color: #FEE2E2; color: #991B1B;',
+                                        'for_cancellation' => 'background-color: #FED7AA; color: #C2410C;'
                                     ];
                                 @endphp
                                 <span class="status-pill" style="display: inline-block; padding: 3px 10px; border-radius: 9999px; {{ $statusColors[$reservation->status] ?? $statusColors['pending'] }} font-weight: 600; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 8px;">
-                                    {{ ucfirst($reservation->status) }}
+                                    @php
+                                        $statusLabels = [
+                                            'pending' => 'Pending',
+                                            'completed' => 'Completed',
+                                            'cancelled' => 'Cancelled',
+                                            'for_cancellation' => 'For Cancellation'
+                                        ];
+                                    @endphp
+                                    {{ $statusLabels[$reservation->status] ?? ucfirst($reservation->status) }}
                                 </span>
                                 <div>
                                     <button class="view-reservation-btn" data-id="{{ $reservation->id }}" style="width: 50%; padding: 7px 14px; border-radius: 6px; background-color: #2563EB; color: white; border: none; cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: background-color 0.2s;">View</button>
@@ -1066,12 +1081,19 @@
                 if (card) {
                     const pill = card.querySelector('.status-pill');
                     if (pill) {
-                        const label = status.charAt(0).toUpperCase() + status.slice(1);
+                        const labelMap = {
+                            'pending': 'Pending',
+                            'completed': 'Completed',
+                            'cancelled': 'Cancelled',
+                            'for_cancellation': 'For Cancellation'
+                        };
+                        const label = labelMap[status] || status.charAt(0).toUpperCase() + status.slice(1);
                         pill.textContent = label;
                         const styleMap = {
                             pending: 'background-color: #FEF3C7; color: #92400E;',
                             completed: 'background-color: #DCFCE7; color: #166534;',
-                            cancelled: 'background-color: #FEE2E2; color: #991B1B;'
+                            cancelled: 'background-color: #FEE2E2; color: #991B1B;',
+                            for_cancellation: 'background-color: #FED7AA; color: #C2410C;'
                         };
                         pill.setAttribute('style', `display:inline-block;padding:4px 12px;border-radius:9999px;${styleMap[status] || styleMap.pending}font-weight:500;font-size:0.9rem;`);
                     }
@@ -1245,7 +1267,7 @@
         function renderReservationModalActions(reservationId, status) {
             const actions = document.getElementById('reservation-modal-actions');
             if (!actions) return;
-            if (status === 'pending') {
+            if (status === 'pending' || status === 'for_cancellation') {
                 actions.innerHTML = `
                     <button onclick=\"openTransactionModal('${reservationId}')\" style=\"min-width:120px;padding:10px 16px;border-radius:8px;background:#059669;color:#fff;border:none;font-weight:700;\">Complete</button>
                 `;

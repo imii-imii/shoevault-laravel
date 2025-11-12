@@ -13,6 +13,16 @@ use App\Http\Controllers\OwnerUsersController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ForecastController;
+use App\Http\Controllers\SitemapController;
+
+// SEO Routes
+Route::get('/sitemap.xml', [SitemapController::class, 'sitemap'])->name('sitemap');
+Route::get('/robots.txt', [SitemapController::class, 'robots'])->name('robots');
+
+// SEO-friendly product and category routes
+Route::get('/product/{product}', [ReservationController::class, 'showProduct'])->name('product.show');
+Route::get('/category/{category}', [ReservationController::class, 'showCategory'])->name('category.show');
+Route::get('/brand/{brand}', [ReservationController::class, 'showBrand'])->name('brand.show');
 
 // Authentication routes
 
@@ -39,6 +49,23 @@ Route::get('/debug/customers', function() {
             'email_verified' => $customer->hasVerifiedEmail(),
         ];
     });
+});
+
+// Debug route for session behavior
+Route::get('/debug/session', function(Request $request) {
+    return [
+        'customer_authenticated' => Auth::guard('customer')->check(),
+        'customer_id' => Auth::guard('customer')->id(),
+        'staff_authenticated' => Auth::check(),
+        'staff_user' => Auth::user() ? ['id' => Auth::user()->user_id, 'role' => Auth::user()->role] : null,
+        'customer_remember_me_flag' => $request->session()->get('customer_remember_me', 'not_set'),
+        'session_config' => [
+            'driver' => config('session.driver'),
+            'lifetime' => config('session.lifetime'),
+            'expire_on_close' => config('session.expire_on_close'),
+        ],
+        'session_id' => $request->session()->getId(),
+    ];
 });
 
 // Authentication routes
@@ -214,7 +241,7 @@ Route::prefix('customer')->name('customer.')->group(function () {
 });
 
 // POS routes (for cashiers only)
-Route::middleware(['auth', 'role:cashier', 'force.password.change'])->prefix('pos')->name('pos.')->group(function () {
+Route::middleware(['auth', 'role:cashier', 'force.password.change', 'operating.hours'])->prefix('pos')->name('pos.')->group(function () {
     Route::get('/dashboard', [PosController::class, 'dashboard'])->name('dashboard');
     Route::get('/reservations', [PosController::class, 'reservations'])->name('reservations');
     Route::get('/settings', [PosController::class, 'settings'])->name('settings');
@@ -223,6 +250,11 @@ Route::middleware(['auth', 'role:cashier', 'force.password.change'])->prefix('po
     Route::post('/password/update', [PosController::class, 'updatePassword'])->name('password.update');
     Route::get('/products', [PosController::class, 'getProducts'])->name('products');
     Route::post('/process-sale', [PosController::class, 'processSale'])->name('process-sale');
+    
+    // Void transaction routes
+    Route::get('/void/recent-transactions', [PosController::class, 'getRecentTransactions'])->name('void.recent-transactions');
+    Route::post('/void/authenticate-manager', [PosController::class, 'authenticateManager'])->name('void.authenticate-manager');
+    Route::delete('/void/transaction/{id}', [PosController::class, 'voidTransaction'])->name('void.transaction');
 
     // POS reservation management endpoints (reuse same database)
     Route::post('/reservations/{id}/status', [InventoryController::class, 'updateReservationStatus'])->name('reservations.update-status');
@@ -231,7 +263,7 @@ Route::middleware(['auth', 'role:cashier', 'force.password.change'])->prefix('po
 });
 
 // Inventory routes (for managers only)
-Route::middleware(['auth', 'role:manager', 'force.password.change'])->prefix('inventory')->name('inventory.')->group(function () {
+Route::middleware(['auth', 'role:manager', 'force.password.change', 'operating.hours'])->prefix('inventory')->name('inventory.')->group(function () {
     Route::get('/dashboard', [InventoryController::class, 'dashboard'])->name('dashboard');
     Route::get('/enhanced', function() {
         // Hard-coded products data for UI testing
@@ -402,6 +434,7 @@ Route::middleware(['auth', 'role:owner', 'force.password.change'])->prefix('owne
     Route::post('/profile/update', [OwnerController::class, 'updateProfile'])->name('profile.update');
     Route::delete('/profile/picture', [OwnerController::class, 'removeProfilePicture'])->name('profile.picture.remove');
     Route::post('/password/update', [OwnerController::class, 'updatePassword'])->name('password.update');
+    Route::post('/notifications/clear', [OwnerController::class, 'clearNotifications'])->name('notifications.clear');
     
     // API routes for dashboard data
     Route::post('/api/dashboard-data', [OwnerController::class, 'getDashboardData'])->name('api.dashboard-data');
@@ -426,6 +459,12 @@ Route::middleware(['auth', 'role:owner', 'force.password.change'])->prefix('owne
     // Customer management APIs
     Route::get('/customers', [OwnerUsersController::class, 'customersIndex'])->name('customers.index');
     Route::post('/customers/toggle', [OwnerUsersController::class, 'customersToggle'])->name('customers.toggle');
+    
+    // Operating hours management APIs
+    Route::get('/operating-hours', [OwnerController::class, 'getOperatingHoursSettings'])->name('operating-hours.get');
+    Route::post('/operating-hours', [OwnerController::class, 'updateOperatingHoursSetting'])->name('operating-hours.update');
+    Route::post('/emergency-access/enable', [OwnerController::class, 'enableEmergencyAccess'])->name('emergency-access.enable');
+    Route::post('/emergency-access/disable', [OwnerController::class, 'disableEmergencyAccess'])->name('emergency-access.disable');
 });
 
 // Analytics routes (for owners only) - Future implementation  

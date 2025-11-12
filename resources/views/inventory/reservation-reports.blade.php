@@ -165,6 +165,7 @@
                     <option value="pending">Pending</option>
                     <option value="completed">Completed</option>
                     <option value="cancelled">Cancelled</option>
+                    <option value="for_cancellation">For Cancellation</option>
                 </select>
             </div>
 
@@ -202,11 +203,20 @@
                                 $statusColors = [
                                     'pending' => 'background-color: #FEF3C7; color: #92400E;',
                                     'completed' => 'background-color: #DCFCE7; color: #166534;',
-                                    'cancelled' => 'background-color: #FEE2E2; color: #991B1B;'
+                                    'cancelled' => 'background-color: #FEE2E2; color: #991B1B;',
+                                    'for_cancellation' => 'background-color: #FED7AA; color: #C2410C;'
                                 ];
                             @endphp
                             <span class="status-pill" style="display: inline-block; padding: 4px 12px; border-radius: 9999px; {{ $statusColors[$reservation->status] ?? $statusColors['pending'] }} font-weight: 500; font-size: 0.9rem;">
-                                {{ ucfirst($reservation->status) }}
+                                @php
+                                    $statusLabels = [
+                                        'pending' => 'Pending',
+                                        'completed' => 'Completed',
+                                        'cancelled' => 'Cancelled',
+                                        'for_cancellation' => 'For Cancellation'
+                                    ];
+                                @endphp
+                                {{ $statusLabels[$reservation->status] ?? ucfirst($reservation->status) }}
                             </span>
                             <div style="margin-top: 12px; display:flex; justify-content:flex-end;">
                                 <button class="view-reservation-btn" data-id="{{ $reservation->reservation_id }}" style="min-width: 110px; padding: 8px 16px; border-radius: 8px; background-color: #2563EB; color: white; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 600;">View</button>
@@ -369,12 +379,19 @@ function updateReservationStatus(reservationId, status, options = { reload: true
         if (card) {
             const pill = card.querySelector('.status-pill');
             if (pill) {
-                const label = status.charAt(0).toUpperCase() + status.slice(1);
+                const labelMap = {
+                    'pending': 'Pending',
+                    'completed': 'Completed',
+                    'cancelled': 'Cancelled',
+                    'for_cancellation': 'For Cancellation'
+                };
+                const label = labelMap[status] || status.charAt(0).toUpperCase() + status.slice(1);
                 pill.textContent = label;
                 const styleMap = {
                     pending: 'background-color: #FEF3C7; color: #92400E;',
                     completed: 'background-color: #DCFCE7; color: #166534;',
-                    cancelled: 'background-color: #FEE2E2; color: #991B1B;'
+                    cancelled: 'background-color: #FEE2E2; color: #991B1B;',
+                    for_cancellation: 'background-color: #FED7AA; color: #C2410C;'
                 };
                 pill.setAttribute('style', `display:inline-block;padding:4px 12px;border-radius:9999px;${styleMap[status] || styleMap.pending}font-weight:500;font-size:0.9rem;`);
             }
