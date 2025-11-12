@@ -230,7 +230,7 @@
     <!-- Mobile Gradient Hero (shown on small screens) -->
     <div class="mobile-hero" aria-hidden="true">
       <div class="mh-content">
-        <img src="{{ asset('images/logo.png') }}" alt="ShoeVault" />
+        <img src="{{ asset('images/shoevault-logo.png') }}" alt="ShoeVault" />
         <div class="mh-title">Welcome to ShoeVault</div>
       </div>
     </div>
@@ -241,7 +241,7 @@
     <div class="card">
       <div class="left">
         <div class="brand">
-          <img src="{{ asset('images/logo.png') }}" alt="ShoeVault" />
+          <img src="{{ asset('images/shoevault-logo.png') }}" alt="ShoeVault" />
           <h1>ShoeVault Account</h1>
         </div>
         <div class="tag">Sign in or create an account to manage your reservations and get seamless checkout.</div>
@@ -328,7 +328,7 @@
       <div class="right">
         <div class="hero">
           <div class="hero-graphic">
-            <img src="{{ asset('images/logo.png') }}" alt="ShoeVault" style="width:200;height:200px;object-fit:contain;border-radius:12px;background:rgba(255,255,255,0.06);padding:10px;" />
+            <img src="{{ asset('images/shoevault-logo.png') }}" alt="ShoeVault" style="width:200;height:200px;object-fit:contain;border-radius:12px;background:rgba(255,255,255,0.06);padding:10px;" />
           </div>
           <h2>Step into seamless reservations</h2>
           <p>Keep your sizes secure, and checkout faster across devices.</p>

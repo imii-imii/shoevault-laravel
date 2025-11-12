@@ -142,7 +142,7 @@
 <!-- section-scoped loaders are created dynamically inside the active section -->
 <nav class="sidebar">
     <div class="logo">
-        <img src="{{ asset('images/logo.png') }}" alt="ShoeVault Batangas" class="logo-img">
+        <img src="{{ asset('images/shoevault-logo.png') }}" alt="ShoeVault Batangas" class="logo-img">
         <div class="logo-text"><h2>ShoeVault Batangas</h2></div>
     </div>
     <ul class="sidebar-nav">

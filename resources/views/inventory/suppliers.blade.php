@@ -94,7 +94,7 @@
 <!-- Sidebar Navigation -->
 <nav class="sidebar">
     <div class="logo">
-        <img src="{{ asset('assets/images/logo.png') }}" alt="ShoeVault Batangas" class="logo-img">
+        <img src="{{ asset('assets/images/shoevault-logo.png') }}" alt="ShoeVault Batangas" class="logo-img">
         <div class="logo-text">
         </div>
     </div>

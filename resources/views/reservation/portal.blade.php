@@ -90,7 +90,7 @@
 </head>
 <body>
   <nav class="res-portal-navbar">
-    <img src="{{ asset('reservation-assets/logo.png') }}" alt="Logo" class="res-portal-logo">
+    <img src="{{ asset('reservation-assets/shoevault-logo.png') }}" alt="Logo" class="res-portal-logo">
     <div class="res-portal-search desktop-only">
       <i class="fas fa-search"></i>
       <input type="text" placeholder="Search for shoes, brands, or models...">

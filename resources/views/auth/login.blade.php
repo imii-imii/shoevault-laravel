@@ -20,7 +20,7 @@
         <!-- Logo Section -->
         <div class="logo-section">
             <div class="logo-container">
-                <img src="{{ asset('assets/images/logo.png') }}" alt="ShoeVault Batangas" class="logo-img">
+                <img src="{{ asset('assets/images/shoevault-logo.png') }}" alt="ShoeVault Batangas" class="logo-img">
             </div>
             <div class="brand-info">
                 <h1 class="brand-name">ShoeVault Batangas</h1>

@@ -74,7 +74,7 @@
     <!-- TOP NAV -->
     <div class="navbar">
         <a href="#" class="logo">
-            <img src="{{ asset('reservation-assets/logo.png') }}" alt="Nike">
+            <img src="{{ asset('reservation-assets/shoevault-logo.png') }}" alt="Nike">
         </a>
         <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">
             <span class="nav-toggle-bar"></span>
