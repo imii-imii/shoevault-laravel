@@ -20,6 +20,44 @@
             document.head.appendChild(script);
         }
     </script>
+    <style>
+        /* Mobile fallback: hide shoe showcase and show store background */
+        @media (max-width: 780px) {
+            .shoe-showcase { display: none !important; }
+            #slider::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-image: url('../assets/images/physical store.jpg');
+                background-size: cover;
+                height: 100%;
+                background-position: top;
+                background-repeat: no-repeat;
+                opacity: 0.4;
+                z-index: 0;
+            }
+            #slider::after {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: linear-gradient(
+                    135deg,
+                    rgba(238, 242, 250, 0.84) 0%,
+                    rgba(244, 248, 253, 0.85) 50%,
+                    rgba(233, 243, 252, 0.82) 100%
+                );
+                z-index: 1;
+            }
+            .slider-content { align-items: center; }
+            .welcome-info { width: 100%; }
+        }
+    </style>
 </head>
 
 <body>

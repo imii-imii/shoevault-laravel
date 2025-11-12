@@ -229,7 +229,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (section.id !== 'slider') {
                     section.style.display = 'none';
                 } else {
-                    section.style.display = 'block';
+                    section.style.display = 'contents';
                 }
             });
 
@@ -259,7 +259,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                         // Show target section with smooth transition
                         if (targetId === '#slider') {
-                            targetSection.style.display = 'block';
+                            targetSection.style.display = 'contents';
                             document.body.classList.remove('section-view'); // Remove scroll class for slider
                         } else {
                             targetSection.style.display = 'flex';
