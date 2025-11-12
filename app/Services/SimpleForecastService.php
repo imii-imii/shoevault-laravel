@@ -20,9 +20,23 @@ class SimpleForecastService
     public function generateStatisticalForecast(string $range = 'weekly', string $type = 'sales', int $periods = null, string $saleType = 'all')
     {
         try {
+            // Day view doesn't support predictions - return empty structure
+            if ($range === 'day') {
+                return [
+                    'labels' => [],
+                    'datasets' => [
+                        'pos' => [],
+                        'reservation' => [],
+                        'trend' => [],
+                        'peaks' => []
+                    ]
+                ];
+            }
+
             // Get appropriate historical data period based on forecast range
             $historicalDays = $this->getHistoricalDaysForRange($range);
-            $historicalData = $this->getHistoricalData($historicalDays, $saleType);
+            // Always get ALL historical data for proper base metrics calculation
+            $historicalData = $this->getHistoricalData($historicalDays, 'all');
             
             Log::info("Forecast Data Check", [
                 'type' => $type,
@@ -50,7 +64,7 @@ class SimpleForecastService
             $metrics = $this->calculateHistoricalMetrics($historicalData);
             
             // Generate forecast based on statistical patterns
-            $forecast = $this->generateStatisticalPredictions($range, $type, $periods, $metrics);
+            $forecast = $this->generateStatisticalPredictions($range, $type, $periods, $metrics, $saleType);
             
             $response = [
                 'success' => true,
@@ -153,6 +167,9 @@ class SimpleForecastService
         // Calculate weekday patterns
         $weekdayPatterns = $this->calculateWeekdayPatterns($data);
 
+        // Calculate POS vs Reservation ratios from historical data
+        $saleTypeRatios = $this->calculateSaleTypeRatios();
+
         // Simple seasonal factor (could be enhanced with more data)
         $seasonalFactor = 1.0;
 
@@ -160,7 +177,8 @@ class SimpleForecastService
             'daily_avg' => $dailyAvg,
             'growth_rate' => $growthRate,
             'seasonal_factor' => $seasonalFactor,
-            'weekday_patterns' => $weekdayPatterns
+            'weekday_patterns' => $weekdayPatterns,
+            'sale_type_ratios' => $saleTypeRatios
         ];
     }
 
@@ -187,8 +205,8 @@ class SimpleForecastService
         // Calculate daily growth rate
         $growthRate = ($lastWeekAvg - $firstWeekAvg) / $firstWeekAvg / count($data) * 7;
 
-        // Cap growth rate between -5% and +10% per period
-        return max(-0.05, min(0.10, $growthRate));
+        // Cap growth rate between -5% and +20% per period (more optimistic for yearly forecasts)
+        return max(-0.05, min(0.20, $growthRate));
     }
 
     /**
@@ -228,11 +246,78 @@ class SimpleForecastService
     }
 
     /**
+     * Calculate actual POS vs Reservation ratios from historical data
+     */
+    private function calculateSaleTypeRatios(): array
+    {
+        try {
+            $endDate = Carbon::now();
+            // Use a full year of data for more accurate ratios, especially for yearly predictions
+            $startDate = $endDate->copy()->subDays(365);
+
+            // Get total sales by sale type
+            $salesByType = DB::table('transactions')
+                ->selectRaw('
+                    CASE 
+                        WHEN sale_type = "pos" OR reservation_id IS NULL THEN "pos"
+                        WHEN sale_type = "reservation" OR reservation_id IS NOT NULL THEN "reservation"
+                        ELSE "pos"
+                    END as type,
+                    SUM(total_amount) as total_sales,
+                    COUNT(*) as transaction_count
+                ')
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->whereNotNull('total_amount')
+                ->where('total_amount', '>', 0)
+                ->groupBy('type')
+                ->get()
+                ->keyBy('type')
+                ->toArray();
+
+            $posSales = isset($salesByType['pos']) ? (float)$salesByType['pos']->total_sales : 0;
+            $reservationSales = isset($salesByType['reservation']) ? (float)$salesByType['reservation']->total_sales : 0;
+            $totalSales = $posSales + $reservationSales;
+
+            if ($totalSales == 0) {
+                // Fallback ratios if no data
+                return ['pos' => 0.85, 'reservation' => 0.15];
+            }
+
+            $posRatio = $posSales / $totalSales;
+            $reservationRatio = $reservationSales / $totalSales;
+
+            Log::info("Historical sale type ratios calculated (365 days)", [
+                'pos_sales' => $posSales,
+                'reservation_sales' => $reservationSales,
+                'pos_ratio' => $posRatio,
+                'reservation_ratio' => $reservationRatio,
+                'days_analyzed' => 365
+            ]);
+
+            return [
+                'pos' => $posRatio,
+                'reservation' => $reservationRatio
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Failed to calculate sale type ratios: ' . $e->getMessage());
+            // Fallback ratios
+            return ['pos' => 0.85, 'reservation' => 0.15];
+        }
+    }
+
+    /**
      * Generate statistical predictions
      */
-    private function generateStatisticalPredictions(string $range, string $type, ?int $periods, array $metrics): array
+    private function generateStatisticalPredictions(string $range, string $type, ?int $periods, array $metrics, string $saleType = 'all'): array
     {
         $periods = $periods ?? $this->getDefaultPeriods($range);
+        
+        // Ensure quarterly mode never exceeds 3 periods (3 months)
+        if ($range === 'quarterly' && $periods > 3) {
+            Log::info("Quarterly forecast periods capped to 3 months", ['original_periods' => $periods]);
+            $periods = 3;
+        }
         
         // Handle demand forecasting differently than sales
         if ($type === 'demand') {
@@ -246,10 +331,14 @@ class SimpleForecastService
         $trendData = [];
         $peaks = [];
 
-        $baseValue = $metrics['daily_avg'];
+        $dailyAvg = $metrics['daily_avg'];
         $growthRate = $metrics['growth_rate'];
         $seasonalFactor = $metrics['seasonal_factor'];
         $weekdayPatterns = $metrics['weekday_patterns'];
+        $saleTypeRatios = $metrics['sale_type_ratios'];
+
+        // Adjust base value according to time range aggregation level
+        $baseValue = $this->getBaseValueForRange($range, $dailyAvg);
 
         $startDate = Carbon::now()->addDay(); // Start from tomorrow
 
@@ -263,14 +352,17 @@ class SimpleForecastService
             // Calculate base prediction
             $prediction = $baseValue;
 
-            // Apply growth
-            $prediction *= (1 + ($growthRate * $i));
+            // Apply growth - ensure growth factor doesn't go below 0.5 (50% of base)
+            // For yearly forecasts, allow more optimistic growth compounding
+            $growthFactor = max(0.5, (1 + ($growthRate * $i)));
+            $prediction *= $growthFactor;
 
             // Apply seasonal factor
             $prediction *= $seasonalFactor;
 
-            // Apply weekday pattern for daily/weekly ranges
-            if (in_array($range, ['day', 'weekly', 'monthly'])) {
+            // Apply patterns based on time range  
+            if (in_array($range, ['weekly', 'monthly'])) {
+                // Apply weekday pattern for weekly/monthly ranges
                 $dayOfWeek = $currentDate->dayOfWeek; // 0 = Sunday, 6 = Saturday
                 $patternIndex = $dayOfWeek == 0 ? 6 : $dayOfWeek - 1; // Convert to our array index
                 $prediction *= $weekdayPatterns[$patternIndex] ?? 1.0;
@@ -283,8 +375,20 @@ class SimpleForecastService
             // Ensure non-negative
             $prediction = max(0, $prediction);
 
-            $posData[] = round($prediction);
-            $reservationData[] = round($prediction * 0.15); // 15% of sales
+            // Apply sale type filtering for specific requests
+            if ($saleType === 'pos') {
+                // For POS-only requests, apply POS ratio to the total prediction
+                $posData[] = round($prediction * $saleTypeRatios['pos']);
+                $reservationData[] = 0; // No reservation data
+            } else if ($saleType === 'reservation') {
+                // For Reservation-only requests, apply reservation ratio to the total prediction
+                $posData[] = 0; // No POS data
+                $reservationData[] = round($prediction * $saleTypeRatios['reservation']);
+            } else {
+                // For 'all' requests, split the prediction using historical ratios
+                $posData[] = round($prediction * $saleTypeRatios['pos']);
+                $reservationData[] = round($prediction * $saleTypeRatios['reservation']);
+            }
             $trendData[] = round($prediction * 1.1); // Trend line slightly higher
 
             // Identify peaks
@@ -293,15 +397,99 @@ class SimpleForecastService
             }
         }
 
-        return [
-            'labels' => $labels,
-            'datasets' => [
-                'pos' => $posData,
-                'reservation' => $reservationData,
-                'trend' => $trendData,
-                'peaks' => $peaks
-            ]
-        ];
+        // Adjust return data based on sale type request
+        if ($saleType === 'pos') {
+            return [
+                'labels' => $labels,
+                'datasets' => [
+                    'pos' => $posData,
+                    'reservation' => $reservationData, // Keep structure consistent
+                    'trend' => $trendData,
+                    'peaks' => $peaks
+                ]
+            ];
+        } else if ($saleType === 'reservation') {
+            return [
+                'labels' => $labels,
+                'datasets' => [
+                    'pos' => $reservationData, // Put reservation data in 'pos' field for frontend compatibility
+                    'reservation' => $reservationData, // Also in reservation field for consistency
+                    'trend' => $trendData,
+                    'peaks' => $peaks
+                ]
+            ];
+        } else {
+            // For 'all' requests, return both datasets normally
+            return [
+                'labels' => $labels,
+                'datasets' => [
+                    'pos' => $posData,
+                    'reservation' => $reservationData,
+                    'trend' => $trendData,
+                    'peaks' => $peaks
+                ]
+            ];
+        }
+    }
+
+    /**
+     * Get appropriate base value for different time ranges
+     */
+    private function getBaseValueForRange(string $range, float $dailyAvg): float
+    {
+        switch ($range) {
+            case 'day':
+                // Day view doesn't support predictions
+                return 0;
+            case 'weekly':
+                // Daily data for weekly view - use daily average as is
+                return $dailyAvg;
+            case 'monthly':
+                // Daily data for monthly view - use daily average (same as weekly)
+                return $dailyAvg;
+            case 'quarterly':
+                // Monthly data for quarterly view - use actual historical monthly average
+                return $this->getHistoricalMonthlyAverage();
+            case 'yearly':
+                // Monthly data for yearly view - use actual historical monthly average
+                return $this->getHistoricalMonthlyAverage();
+            default:
+                return $dailyAvg;
+        }
+    }
+
+
+
+    /**
+     * Get actual historical monthly average for more accurate yearly/quarterly predictions
+     */
+    private function getHistoricalMonthlyAverage(): float
+    {
+        try {
+            $endDate = Carbon::now();
+            $startDate = $endDate->copy()->subMonths(12);
+
+            $monthlyAvg = DB::table('transactions')
+                ->selectRaw('AVG(monthly_total) as avg_monthly')
+                ->fromSub(function ($query) use ($startDate, $endDate) {
+                    $query->from('transactions')
+                        ->selectRaw('
+                            YEAR(created_at) as year,
+                            MONTH(created_at) as month,
+                            SUM(total_amount) as monthly_total
+                        ')
+                        ->whereBetween('created_at', [$startDate, $endDate])
+                        ->whereNotNull('total_amount')
+                        ->where('total_amount', '>', 0)
+                        ->groupBy('year', 'month');
+                }, 'monthly_totals')
+                ->value('avg_monthly');
+
+            return $monthlyAvg ?? 500000; // Fallback if no data
+        } catch (\Exception $e) {
+            Log::error("Error calculating historical monthly average", ['error' => $e->getMessage()]);
+            return 500000; // Fallback value
+        }
     }
 
     /**
@@ -317,7 +505,7 @@ class SimpleForecastService
             case 'monthly':
                 return $startDate->copy()->addDays($index);
             case 'quarterly':
-                return $startDate->copy()->addWeeks($index);
+                return $startDate->copy()->addMonths($index);
             case 'yearly':
                 return $startDate->copy()->addMonths($index);
             default:
@@ -338,7 +526,7 @@ class SimpleForecastService
             case 'monthly':
                 return $date->format('M j');
             case 'quarterly':
-                return 'Week ' . ($index + 1);
+                return $date->format('M Y'); // Show month and year (e.g., "Dec 2025", "Jan 2026")
             case 'yearly':
                 return $date->format('M Y');
             default:
@@ -355,7 +543,7 @@ class SimpleForecastService
             'day' => 10,        // Business hours: 10 AM - 7 PM
             'weekly' => 7,      // 7 days
             'monthly' => 30,    // 30 days
-            'quarterly' => 12,  // 12 weeks
+            'quarterly' => 3,   // 3 months
             'yearly' => 12,     // 12 months
             default => 30
         };

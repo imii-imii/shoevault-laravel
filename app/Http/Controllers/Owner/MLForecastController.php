@@ -222,7 +222,7 @@ class MLForecastController extends Controller
             'day' => 10,      // Business hours: 10 AM - 7 PM (10 hours)
             'weekly' => 7,    // 7 days
             'monthly' => 30,  // 30 days
-            'quarterly' => 12, // 12 weeks
+            'quarterly' => 3, // 3 months
             'yearly' => 12,   // 12 months
             default => 30
         };

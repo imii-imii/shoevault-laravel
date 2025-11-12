@@ -1064,6 +1064,28 @@ document.addEventListener('DOMContentLoaded', function() {
             const r = rangeSelect.value;
             setVisibility(r);
             
+            // Handle predictive mode for day view
+            const predictiveToggle = document.getElementById('odash-predictive-mode');
+            const predictiveLabel = predictiveToggle ? predictiveToggle.closest('label') : null;
+            
+            if (r === 'day') {
+                // Hide predictive mode toggle for day view
+                if (predictiveLabel) {
+                    predictiveLabel.style.display = 'none';
+                }
+                // Switch off predictive mode if it's on
+                if (predictiveToggle && predictiveToggle.checked) {
+                    predictiveToggle.checked = false;
+                    // Trigger change event to ensure forecast updates to historical mode
+                    predictiveToggle.dispatchEvent(new Event('change'));
+                }
+            } else {
+                // Show predictive mode toggle for other views
+                if (predictiveLabel) {
+                    predictiveLabel.style.display = 'flex';
+                }
+            }
+            
             // Preserve the current anchor date when changing ranges, only adjust if needed
             // Use the existing anchorDate instead of defaulting to current date
             const preservedDate = new Date(anchorDate.getTime());
@@ -1089,6 +1111,10 @@ document.addEventListener('DOMContentLoaded', function() {
             updateInputsFromAnchor(r);
             updateWindowText(r);
             updateNavigationButtons(r);
+            
+            // Refresh KPIs when range changes
+            refreshDashboardKPIs();
+            
             document.dispatchEvent(new CustomEvent('odash:filter-range-changed',{ detail:{ range:r, anchorDate }}));
             // Note: Dashboard data refresh is handled by the odash:filter-range-changed event listener
             // which preserves the current forecast mode
@@ -1137,11 +1163,18 @@ document.addEventListener('DOMContentLoaded', function() {
             window.forecastAnchorDate = anchorDate; // Sync global state
             updateWindowText('day'); 
             document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:'day', anchorDate }}));
-            // Don't call refreshDashboardData() - it uses wrong API and loses forecast mode
-            // Instead update forecast with current mode preserved
-            const typeSelect = document.getElementById('odash-forecast-type');
-            const currentMode = (typeSelect && typeSelect.value) ? typeSelect.value : (window.currentForecastMode || 'sales');
-            updateForecast('day', currentMode);
+            // Update KPIs (always needed for historical data)
+            refreshDashboardKPIs();
+            
+            // Only update forecast if not in predictive mode (predictive mode uses current date)
+            const predictiveToggle = document.getElementById('odash-predictive-mode');
+            const isPredictive = predictiveToggle && predictiveToggle.checked;
+            
+            if (!isPredictive) {
+                const typeSelect = document.getElementById('odash-forecast-type');
+                const currentMode = (typeSelect && typeSelect.value) ? typeSelect.value : (window.currentForecastMode || 'sales');
+                updateForecast('day', currentMode);
+            }
         });
         weekInput.addEventListener('change', ()=>{
             if (!weekInput.value) return; // format YYYY-W##
@@ -1164,10 +1197,18 @@ document.addEventListener('DOMContentLoaded', function() {
             window.forecastAnchorDate = anchorDate; // Sync global state
             updateWindowText('weekly'); 
             document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:'weekly', anchorDate }}));
-            // Preserve forecast mode instead of calling refreshDashboardData()
-            const typeSelect = document.getElementById('odash-forecast-type');
-            const currentMode = (typeSelect && typeSelect.value) ? typeSelect.value : (window.currentForecastMode || 'sales');
-            updateForecast('weekly', currentMode);
+            // Update KPIs (always needed for historical data)
+            refreshDashboardKPIs();
+            
+            // Only update forecast if not in predictive mode (predictive mode uses current date)
+            const predictiveToggle = document.getElementById('odash-predictive-mode');
+            const isPredictive = predictiveToggle && predictiveToggle.checked;
+            
+            if (!isPredictive) {
+                const typeSelect = document.getElementById('odash-forecast-type');
+                const currentMode = (typeSelect && typeSelect.value) ? typeSelect.value : (window.currentForecastMode || 'sales');
+                updateForecast('weekly', currentMode);
+            }
         });
         monthInput.addEventListener('change', ()=>{
             if (!monthInput.value) return; // YYYY-MM
@@ -1176,10 +1217,18 @@ document.addEventListener('DOMContentLoaded', function() {
             window.forecastAnchorDate = anchorDate; // Sync global state
             updateWindowText('monthly'); 
             document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:'monthly', anchorDate }}));
-            // Preserve forecast mode instead of calling refreshDashboardData()
-            const typeSelect = document.getElementById('odash-forecast-type');
-            const currentMode = (typeSelect && typeSelect.value) ? typeSelect.value : (window.currentForecastMode || 'sales');
-            updateForecast('monthly', currentMode);
+            // Update KPIs (always needed for historical data)
+            refreshDashboardKPIs();
+            
+            // Only update forecast if not in predictive mode (predictive mode uses current date)
+            const predictiveToggle = document.getElementById('odash-predictive-mode');
+            const isPredictive = predictiveToggle && predictiveToggle.checked;
+            
+            if (!isPredictive) {
+                const typeSelect = document.getElementById('odash-forecast-type');
+                const currentMode = (typeSelect && typeSelect.value) ? typeSelect.value : (window.currentForecastMode || 'sales');
+                updateForecast('monthly', currentMode);
+            }
         });
 
         // Quarter and Year inputs
@@ -1191,10 +1240,18 @@ document.addEventListener('DOMContentLoaded', function() {
             window.forecastAnchorDate = anchorDate; // Sync global state
             updateWindowText('quarterly');
             document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:'quarterly', anchorDate }}));
-            // Preserve forecast mode instead of calling refreshDashboardData()
-            const typeSelect = document.getElementById('odash-forecast-type');
-            const currentMode = (typeSelect && typeSelect.value) ? typeSelect.value : (window.currentForecastMode || 'sales');
-            updateForecast('quarterly', currentMode);
+            // Update KPIs (always needed for historical data)
+            refreshDashboardKPIs();
+            
+            // Only update forecast if not in predictive mode (predictive mode uses current date)
+            const predictiveToggle = document.getElementById('odash-predictive-mode');
+            const isPredictive = predictiveToggle && predictiveToggle.checked;
+            
+            if (!isPredictive) {
+                const typeSelect = document.getElementById('odash-forecast-type');
+                const currentMode = (typeSelect && typeSelect.value) ? typeSelect.value : (window.currentForecastMode || 'sales');
+                updateForecast('quarterly', currentMode);
+            }
         });
         yearInput.addEventListener('change', ()=>{
             const r = rangeSelect.value;
@@ -1209,10 +1266,18 @@ document.addEventListener('DOMContentLoaded', function() {
             window.forecastAnchorDate = anchorDate; // Sync global state
             updateWindowText(r);
             document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:r, anchorDate }}));
-            // Preserve forecast mode instead of calling refreshDashboardData()
-            const typeSelect = document.getElementById('odash-forecast-type');
-            const currentMode = (typeSelect && typeSelect.value) ? typeSelect.value : (window.currentForecastMode || 'sales');
-            updateForecast(r, currentMode);
+            // Update KPIs (always needed for historical data)
+            refreshDashboardKPIs();
+            
+            // Only update forecast if not in predictive mode (predictive mode uses current date)
+            const predictiveToggle = document.getElementById('odash-predictive-mode');
+            const isPredictive = predictiveToggle && predictiveToggle.checked;
+            
+            if (!isPredictive) {
+                const typeSelect = document.getElementById('odash-forecast-type');
+                const currentMode = (typeSelect && typeSelect.value) ? typeSelect.value : (window.currentForecastMode || 'sales');
+                updateForecast(r, currentMode);
+            }
         });
 
         // Initialize default - ensure anchorDate is properly set first
@@ -1260,6 +1325,21 @@ document.addEventListener('DOMContentLoaded', function() {
         updateInputsFromAnchor(initialRange);
         updateWindowText(initialRange);
         updateNavigationButtons(initialRange);
+        
+        // Initialize predictive mode toggle visibility
+        const predictiveToggle = document.getElementById('odash-predictive-mode');
+        const predictiveLabel = predictiveToggle ? predictiveToggle.closest('label') : null;
+        if (predictiveLabel) {
+            if (initialRange === 'day') {
+                predictiveLabel.style.display = 'none';
+                // Ensure predictive mode is off for day view
+                if (predictiveToggle && predictiveToggle.checked) {
+                    predictiveToggle.checked = false;
+                }
+            } else {
+                predictiveLabel.style.display = 'flex';
+            }
+        }
         
         // Add periodic sync check to ensure date picker and window text stay synchronized
         setInterval(() => {
@@ -1424,7 +1504,7 @@ async function fetchForecast(range, mode, anchor, abortSignal = null) {
                     labels: posData.data.labels, // Use labels from POS data (should be same for both)
                     datasets: {
                         pos: posData.data.datasets.pos || [],
-                        reservation: reservationData.data.datasets.pos || [], // Use 'pos' field from reservation API response
+                        reservation: reservationData.data.datasets.pos || [], // Reservation API returns data in 'pos' field when sale_type=reservation
                         posTrend: posData.data.datasets.trend || [],
                         reservationTrend: reservationData.data.datasets.trend || []
                     }
@@ -1788,8 +1868,12 @@ async function performForecastUpdate(range, mode) {
         }
     }
     
-    const posValues = (aggregatedPayload.datasets && Array.isArray(aggregatedPayload.datasets.pos)) ? aggregatedPayload.datasets.pos : [];
-    const resvValues = (aggregatedPayload.datasets && Array.isArray(aggregatedPayload.datasets.reservation)) ? aggregatedPayload.datasets.reservation : [];
+    const posValues = (aggregatedPayload.datasets && Array.isArray(aggregatedPayload.datasets.pos)) 
+        ? aggregatedPayload.datasets.pos.map(value => Math.max(0, value)) 
+        : [];
+    const resvValues = (aggregatedPayload.datasets && Array.isArray(aggregatedPayload.datasets.reservation)) 
+        ? aggregatedPayload.datasets.reservation.map(value => Math.max(0, value)) 
+        : [];
     // Find the single highest value in each array
     const posPeakIndex = findMaxIndex(posValues);
     const resvPeakIndex = findMaxIndex(resvValues);
@@ -1886,7 +1970,7 @@ async function performForecastUpdate(range, mode) {
                         callbacks: {
                             label: function(context) {
                                 const value = context.parsed.y;
-                                return `${context.dataset.label}: ₱${value.toLocaleString()}`;
+                                return `${context.dataset.label}: ₱${value.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                             }
                         }
                     }
@@ -1897,7 +1981,8 @@ async function performForecastUpdate(range, mode) {
                         ticks: { color: '#64748b', font: { size: 11 } }
                     },
                     y: { 
-                        beginAtZero: true, 
+                        beginAtZero: true,
+                        min: 0,
                         grid: { color: 'rgba(59, 130, 246, 0.08)' },
                         ticks: { color: '#64748b' }
                     }
@@ -2259,8 +2344,15 @@ function performKPIRefresh() {
         return `${year}-${month}-${day}`;
     };
     
-    // Show loading state
-    showDashboardLoading();
+    // Show loading state - check if in predictive mode to avoid chart loading overlay
+    const predictiveToggle = document.getElementById('odash-predictive-mode');
+    const isPredictive = predictiveToggle && predictiveToggle.checked;
+    
+    if (isPredictive) {
+        showKPILoadingOnly(); // Only show KPI loading, not chart loading
+    } else {
+        showDashboardLoading(); // Show full dashboard loading including chart
+    }
     
     // Create AbortController for request cancellation
     const abortController = new AbortController();
@@ -2307,7 +2399,15 @@ function performKPIRefresh() {
     .finally(() => {
         // Only hide loading if this request wasn't cancelled
         if (!abortController.signal.aborted) {
-            hideDashboardLoading();
+            // Use the same predictive mode check as when showing loading
+            const predictiveToggle = document.getElementById('odash-predictive-mode');
+            const isPredictive = predictiveToggle && predictiveToggle.checked;
+            
+            if (isPredictive) {
+                hideKPILoadingOnly(); // Only hide KPI loading, not chart loading
+            } else {
+                hideDashboardLoading(); // Hide full dashboard loading including chart
+            }
         }
         // Clear the current request reference
         if (window.currentKPIRequest === abortController) {
@@ -2410,6 +2510,26 @@ function showDashboardLoading() {
         }
         scrim.style.display = 'flex';
     }
+}
+
+// Show loading state only for KPIs (not chart) - used in predictive mode
+function showKPILoadingOnly() {
+    // Add loading state to KPI cards only
+    const kpiCards = document.querySelectorAll('.odash-kpi-value');
+    kpiCards.forEach(card => {
+        card.style.opacity = '0.5';
+    });
+    // Don't show chart loading overlay in predictive mode
+}
+
+// Hide loading state only for KPIs
+function hideKPILoadingOnly() {
+    // Remove loading state from KPI cards only
+    const kpiCards = document.querySelectorAll('.odash-kpi-value');
+    kpiCards.forEach(card => {
+        card.style.opacity = '1';
+    });
+    // Don't touch chart loading overlay
 }
 
 // Hide loading state for dashboard
@@ -2798,16 +2918,24 @@ function initOwnerForecastCharts() {
     const predictiveToggle = document.getElementById('odash-predictive-mode');
     if (predictiveToggle) {
         predictiveToggle.addEventListener('change', () => {
+            const rangeSelect = document.getElementById('dbf-range');
+            const range = rangeSelect ? rangeSelect.value : 'day';
+            
+            // Prevent predictive mode on day view
+            if (range === 'day' && predictiveToggle.checked) {
+                predictiveToggle.checked = false;
+                console.log('Predictive Mode disabled: Day view does not support predictions');
+                return;
+            }
+            
             console.log('Predictive Mode:', predictiveToggle.checked ? 'ON' : 'OFF');
             
             // Update the forecast title
             updateForecastTitle();
             
             // Update the forecast chart data
-            const rangeSelect = document.getElementById('dbf-range');
             const typeSelect = document.getElementById('odash-forecast-type');
             const activeMode = (typeSelect && typeSelect.value) ? typeSelect.value : (window.currentForecastMode || 'sales');
-            const range = rangeSelect ? rangeSelect.value : 'day';
             
             updateForecast(range, activeMode);
         });
@@ -3073,16 +3201,39 @@ function animateKpiCounts(){
 function linearRegressionSeries(y) {
     // Simple linear regression y = a + b*x for x = 0..n-1; returns predicted y for each x
     const n = y.length;
+    if (n === 0) return [];
+    
+    // Handle single data point case
+    if (n === 1) return [y[0]];
+    
     const x = Array.from({length:n}, (_, i) => i);
     const sum = (arr) => arr.reduce((a,b) => a+b, 0);
     const sumX = sum(x);
     const sumY = sum(y);
     const sumXY = sum(x.map((xi, i) => xi * y[i]));
     const sumXX = sum(x.map((xi) => xi * xi));
-    const denom = n * sumXX - sumX * sumX || 1;
+    const denom = n * sumXX - sumX * sumX;
+    
+    // If denominator is zero or very small, return flat line at average
+    if (Math.abs(denom) < 1e-10) {
+        const avg = sumY / n;
+        return new Array(n).fill(avg);
+    }
+    
     const b = (n * sumXY - sumX * sumY) / denom;
     const a = (sumY - b * sumX) / n;
-    return x.map((xi) => a + b * xi);
+    
+    // Calculate the maximum data value to cap unreasonable extrapolations
+    const maxDataValue = Math.max(...y);
+    const avgDataValue = sumY / n;
+    
+    return x.map((xi) => {
+        const trendValue = a + b * xi;
+        // Cap trend values to prevent unreasonable extrapolations
+        // Don't let trend go more than 3x the max data value or 10x the average
+        const cappedValue = Math.min(trendValue, maxDataValue * 3, avgDataValue * 10);
+        return Math.max(0, cappedValue);
+    });
 }
 
 // Simple function to find the index of the maximum value in an array
