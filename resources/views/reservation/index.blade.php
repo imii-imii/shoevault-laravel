@@ -9,9 +9,12 @@
         <title>Welcome to ShoeVault Batangas!</title>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <!-- Favicon -->
+        <!-- Favicon (Multiple formats for immediate display) -->
+        <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
         <link rel="icon" type="image/png" href="{{ asset('images/shoevault-logo.png') }}">
-        <link rel="shortcut icon" href="{{ asset('images/shoevault-logo.png') }}" type="image/png">
+        <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
+        <link rel="shortcut icon" href="{{ asset('favicon.ico') }}" type="image/x-icon">
+        <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
     @endif
     
     <link href='https://unpkg.com/boxicons@2.0.7/css/boxicons.min.css' rel='stylesheet'>

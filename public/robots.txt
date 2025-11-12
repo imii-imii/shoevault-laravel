@@ -28,13 +28,18 @@ Disallow: /bootstrap/
 Disallow: /config/
 Disallow: /database/
 
-# Allow crawling of static assets
+# Allow crawling of static assets and favicon files
 Allow: /css/
 Allow: /js/
 Allow: /images/
 Allow: /assets/
+Allow: /favicon.ico
+Allow: /favicon-*.png
+Allow: /apple-touch-icon.png
+Allow: /site.webmanifest
 
 # Crawl-delay to be nice to the server
 Crawl-delay: 1
 
 # Sitemap location
+Sitemap: https://shoevaultbatangas.com/sitemap.xml

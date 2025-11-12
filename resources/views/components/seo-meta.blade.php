@@ -45,12 +45,28 @@
 <meta name="theme-color" content="#3498db">
 <meta name="msapplication-TileColor" content="#3498db">
 
-<!-- Favicon -->
+<!-- Favicon (Immediate Display + Google Search optimized) -->
+<!-- Primary favicon for immediate browser display -->
+<link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
 <link rel="icon" type="image/png" href="{{ asset('images/shoevault-logo.png') }}">
-<link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/shoevault-logo.png') }}">
-<link rel="icon" type="image/png" sizes="16x16" href="{{ asset('images/shoevault-logo.png') }}">
-<link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/shoevault-logo.png') }}">
-<link rel="shortcut icon" href="{{ asset('images/shoevault-logo.png') }}" type="image/png">
+
+<!-- Standard ICO favicon for compatibility -->
+<link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
+<link rel="shortcut icon" href="{{ asset('favicon.ico') }}" type="image/x-icon">
+
+<!-- Sized PNG favicons -->
+<link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon-32x32.png') }}">
+<link rel="icon" type="image/png" sizes="16x16" href="{{ asset('favicon-16x16.png') }}">
+
+<!-- Apple and mobile device icons -->
+<link rel="apple-touch-icon" sizes="180x180" href="{{ asset('apple-touch-icon.png') }}">
+<link rel="apple-touch-icon" href="{{ asset('images/shoevault-logo.png') }}">
+
+<!-- Web App Manifest (for PWA) -->
+<link rel="manifest" href="{{ asset('site.webmanifest') }}">
+
+<!-- Microsoft tiles -->
+<meta name="msapplication-TileImage" content="{{ asset('images/shoevault-logo.png') }}">
 
 <!-- Structured Data (JSON-LD) -->
 @if($structuredData)
