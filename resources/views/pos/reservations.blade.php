@@ -835,8 +835,8 @@
                         <div class="card-value" id="card-expiring-today">{{ $reservationCards['expiring_today'] ?? 0 }}</div>
                     </div>
                     <div class="reservation-card total-reservations">
-                        <div class="card-title">Total Reservations</div>
-                        <div class="card-value" id="card-total-reservations">{{ $reservationCards['total'] ?? ($reservations ? count($reservations) : 0) }}</div>
+                        <div class="card-title">Total Pending Reservations</div>
+                        <div class="card-value" id="card-total-reservations">{{ $reservationCards['pending_total'] ?? collect($reservations ?? [])->filter(function($r){ $status = is_array($r) ? ($r['status'] ?? '') : ($r->status ?? ''); return strtolower((string)$status) === 'pending'; })->count() }}</div>
                     </div>
                 </div>
                 <!-- Search -->
