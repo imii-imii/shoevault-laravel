@@ -1379,9 +1379,8 @@
                     // Print the preview content
                     const paper = document.getElementById('res-receipt-paper');
                     if (paper) {
-                        const w = window.open('', '_blank', 'width=480,height=640');
-                        w.document.write('<html><head><title>Receipt</title><style>body{font-family:-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; padding:8px;} .receipt-paper{width:320px;margin:0 auto;border:1px dashed #e5e7eb;padding:12px;border-radius:8px;} .receipt-sep{border-top:1px dotted #9ca3af;margin:8px 0} table{width:100%;border-collapse:collapse} th,td{font-size:12px;text-align:left;padding:2px 0} th:last-child, td:last-child{text-align:right} th:nth-child(2), td:nth-child(2){text-align:center}</style></head><body>' + paper.outerHTML + '<script>window.onload=function(){window.print(); setTimeout(()=>window.close(), 300);}<\/script></body></html>');
-                        w.document.close();
+                        // Print the preview directly, with @media print styles hiding non-receipt elements
+                        window.print();
                     }
                     // Close modals and refresh
                     const modal = document.getElementById('res-receipt-modal');
@@ -1416,6 +1415,13 @@
                         .receipt-info-row{ display:flex; justify-content:space-between; font-size:12px; }
                         .receipt-row{ display:flex; justify-content:space-between; }
                         .receipt-totals .total{ font-weight:800; }
+                        /* Print only the receipt paper, hide controls */
+                        @media print {
+                            body * { visibility: hidden !important; }
+                            #res-receipt-paper, #res-receipt-paper * { visibility: visible !important; }
+                            #res-receipt-paper { position: absolute; inset: 0 auto auto 0; margin: 0 !important; box-shadow: none !important; width: auto !important; }
+                            .no-print { display: none !important; }
+                        }
                     </style>
                     <div style="background:#fff;border-radius:12px;box-shadow:0 20px 40px rgba(0,0,0,.2);width:min(460px,94vw);padding:14px;">
                         <div id="res-receipt-paper" class="receipt-paper">
@@ -1440,7 +1446,7 @@
                             <div class="receipt-sep"></div>
                             <div style="text-align:center;color:#6b7280;font-size:11px;">THANK YOU! — Glad to see you again!</div>
                         </div>
-                        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px;">
+                        <div class="no-print" style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px;">
                             <button id="res-receipt-cancel" style="padding:8px 12px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;font-weight:700;">Cancel</button>
                             <button id="res-receipt-print" style="padding:8px 12px;border-radius:8px;background:#2a6aff;color:#fff;border:none;font-weight:700;">Print</button>
                         </div>
