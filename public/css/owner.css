@@ -1266,14 +1266,14 @@ body {
 }
 
 .settings-grid {
-    display: grid;
+    display: block;
     grid-template-columns: 1fr 1fr;
     gap: var(--spacing-md);
 }
 
 .settings-panel#settings-panel-profile .settings-grid {
     grid-template-columns: 1fr;
-    max-width: 780px;
+    max-width: 100%;
     margin: 0 auto;
 }
 

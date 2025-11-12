@@ -159,6 +159,22 @@
         .odash-toggle button.active { background:linear-gradient(135deg,#dbeafe,#bfdbfe); color:#0f172a; }
         .odash-toggle button + button { border-left:1px solid #e5e7eb; }
 
+            /* Predictive futuristic button */
+            .odash-predictive-btn { position:relative; display:inline-flex; align-items:center; gap:6px; padding:8px 14px; font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; border-radius:14px; border:1px solid rgba(59,130,246,.35); background:linear-gradient(135deg,#0f1e47 0%,#1d3b78 35%,#2b5bb4 70%,#3b82f6 100%); color:#f0f9ff; cursor:pointer; overflow:hidden; transition: all .35s cubic-bezier(.25,.8,.25,1); box-shadow:0 4px 14px -4px rgba(0,102,255,.45), inset 0 0 0 1px rgba(255,255,255,.08); backdrop-filter: blur(2px); }
+            .odash-predictive-btn .label { position:relative; z-index:2; }
+            .odash-predictive-btn i { font-size:13px; position:relative; z-index:2; }
+            .odash-predictive-btn::before, .odash-predictive-btn::after { content:""; position:absolute; inset:0; opacity:.0; transition:opacity .5s ease, transform .6s ease; }
+            .odash-predictive-btn::before { background: radial-gradient(circle at 20% 20%, rgba(255,255,255,.35), transparent 60%); mix-blend-mode:overlay; }
+            .odash-predictive-btn::after { background: linear-gradient(135deg, rgba(255,255,255,.15) 0%, rgba(255,255,255,0) 60%); }
+            .odash-predictive-btn:hover { filter:brightness(1.08); box-shadow:0 6px 20px -6px rgba(16,88,186,.55), 0 0 0 1px rgba(255,255,255,.15); }
+            .odash-predictive-btn:hover::before { opacity:.55; transform:scale(1.15); }
+            .odash-predictive-btn:hover::after { opacity:.5; }
+            .odash-predictive-btn:active { transform:translateY(1px); box-shadow:0 3px 10px -4px rgba(16,88,186,.6), inset 0 0 0 1px rgba(255,255,255,.2); }
+            .odash-predictive-btn.active { background:linear-gradient(135deg,#08213d 0%,#0d3e66 25%,#0f5fa2 55%,#1d7ce0 85%,#3b82f6 100%); border-color:#3b82f6; box-shadow:0 6px 24px -6px rgba(0,136,255,.6), 0 0 0 1px rgba(255,255,255,.18); }
+            .odash-predictive-btn.active::before { opacity:.75; transform:scale(1.25); }
+            .odash-predictive-btn.active::after { opacity:.6; }
+            .odash-predictive-btn:focus-visible { outline:2px solid #93c5fd; outline-offset:2px; }
+
         /* Futuristic gauge styles (refined for semicircular segmented look) */
         .f-gauge { position: relative; display:flex; align-items:center; justify-content:center; }
         .f-gauge svg { overflow: visible; }
@@ -371,8 +387,10 @@
                                         <option value="demand">Demand</option>
                                     </select>
                                     <label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer; user-select:none;">
-                                        <input type="checkbox" id="odash-predictive-mode" style="accent-color:#3b82f6; transform:scale(0.9);">
-                                        <span>Predictive Mode</span>
+                                        <button id="odash-predictive-mode" type="button" class="odash-predictive-btn" aria-pressed="false" title="Toggle Predictive Mode">
+                                            <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+                                            <span class="label">Predictive</span>
+                                        </button>
                                     </label>
                                     <!-- Removed internal range select (#odash-forecast-range); global #dbf-range now controls forecast -->
                                 </div>
@@ -1127,7 +1145,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Check if predictive mode is active
                 const predictiveToggle = document.getElementById('odash-predictive-mode');
-                const isPredictive = predictiveToggle && predictiveToggle.checked;
+                const isPredictive = predictiveToggle && predictiveToggle.classList.contains('active');
                 
                 // Only update forecast if not in predictive mode (predictive mode ignores navigation)
                 if (!isPredictive) {
@@ -1145,7 +1163,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Check if predictive mode is active
                 const predictiveToggle = document.getElementById('odash-predictive-mode');
-                const isPredictive = predictiveToggle && predictiveToggle.checked;
+                const isPredictive = predictiveToggle && predictiveToggle.classList.contains('active');
                 
                 // Only update forecast if not in predictive mode (predictive mode ignores navigation)
                 if (!isPredictive) {
@@ -1400,7 +1418,7 @@ function handleForecastError(errorMessage) {
 async function fetchForecast(range, mode, anchor, abortSignal = null) {
     try {
         const predictiveToggle = document.getElementById('odash-predictive-mode');
-        const isPredictive = predictiveToggle && predictiveToggle.checked;
+        const isPredictive = predictiveToggle && predictiveToggle.classList.contains('active');
         
         if (isPredictive) {
             // For predictive mode, use ML forecast API
@@ -1567,18 +1585,25 @@ async function fetchForecast(range, mode, anchor, abortSignal = null) {
 }
 
 // Function to update forecast title based on predictive mode and range
-function updateForecastTitle() {
+function updateForecastTitle(modeOverride) {
     const titleElement = document.getElementById('odash-forecast-title');
     const predictiveToggle = document.getElementById('odash-predictive-mode');
     const rangeSelect = document.getElementById('dbf-range');
     
     if (!titleElement || !predictiveToggle || !rangeSelect) return;
     
-    const isPredictive = predictiveToggle.checked;
+    const isPredictive = predictiveToggle.classList.contains('active');
     const range = rangeSelect.value;
+    const mode = modeOverride || (window.currentForecastMode || 'sales');
     
     if (!isPredictive) {
-        titleElement.textContent = 'Historical Data';
+        // Non-predictive titles depend on current mode
+        if (mode === 'sales') {
+            titleElement.textContent = 'Sales Revenue Across Timelines';
+        } else {
+            titleElement.textContent = 'Total items sold per Brand Across Timelines';
+        }
+        return;
     } else {
         let forecastPeriod;
         switch (range) {
@@ -1648,7 +1673,7 @@ async function performForecastUpdate(range, mode) {
     
     // Check if predictive mode is active
     const predictiveToggle = document.getElementById('odash-predictive-mode');
-    const isPredictive = predictiveToggle && predictiveToggle.checked;
+    const isPredictive = predictiveToggle && predictiveToggle.classList.contains('active');
     
     // For predictive mode, always use current date instead of anchor date
     const dateToUse = isPredictive ? new Date() : anchorDate;
@@ -1728,9 +1753,37 @@ async function performForecastUpdate(range, mode) {
     
     // Destroy chart if switching modes to change dataset structure
     if (forecastChart && currentMode !== mode) {
-        forecastChart.destroy();
-        forecastChart = null;
-        window.forecastChart = null;
+        // Smooth fade out animation before destroying
+        if (window.anime && forecastShell) {
+            anime({
+                targets: forecastShell,
+                opacity: [1, 0.3],
+                scale: [1, 0.97],
+                duration: 200,
+                easing: 'easeInQuad',
+                complete: () => {
+                    if (forecastChart) {
+                        forecastChart.destroy();
+                        forecastChart = null;
+                        window.forecastChart = null;
+                    }
+                    // Fade back in for new chart
+                    anime({
+                        targets: forecastShell,
+                        opacity: [0.3, 1],
+                        scale: [0.97, 1],
+                        duration: 400,
+                        easing: 'easeOutQuad'
+                    });
+                }
+            });
+        } else {
+            forecastChart.destroy();
+            forecastChart = null;
+            window.forecastChart = null;
+        }
+        // Small delay to allow fade animation
+        await new Promise(resolve => setTimeout(resolve, 250));
     }
 
 
@@ -1740,10 +1793,27 @@ async function performForecastUpdate(range, mode) {
         const brands = (aggregatedPayload.datasets && Array.isArray(aggregatedPayload.datasets.brands)) ? aggregatedPayload.datasets.brands : [];
         const quantities = (aggregatedPayload.datasets && Array.isArray(aggregatedPayload.datasets.quantities)) ? aggregatedPayload.datasets.quantities : [];
         
-        // Find the brand with highest sales for highlighting
+        // Find the brand with highest sales for highlighting (green for top performer)
         const maxIndex = findMaxIndex(quantities);
-        const backgroundColors = quantities.map((_, i) => i === maxIndex ? '#ef4444' : '#3b82f6');
-        const borderColors = quantities.map((_, i) => i === maxIndex ? '#dc2626' : '#2563eb');
+        
+        // Create vibrant, dynamic gradient backgrounds for each bar
+        const createGradient = (ctx, chartArea, isTop) => {
+            const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+            if (isTop) {
+                // Vibrant green gradient for top seller - emerald to mint
+                gradient.addColorStop(0, '#02c081ff'); // emerald-500
+                gradient.addColorStop(0.5, '#009b62ff'); // emerald-400
+                gradient.addColorStop(1, '#00bd71ff');   // emerald-300
+            } else {
+                // Dynamic blue gradient for others - deep blue to bright cyan
+                gradient.addColorStop(0, '#006e81ff'); // blue-600
+                gradient.addColorStop(0.5, '#0485adff'); // blue-500
+                gradient.addColorStop(1, '#03a5d6ff');    // blue-400
+            }
+            return gradient;
+        };
+        
+        const backgroundColors = quantities.map((_, i) => i === maxIndex ? '#10b981' : '#3b82f6');
 
         // Handle scrollable container for 6+ brands
         const isScrollable = brands.length >= 6;
@@ -1769,27 +1839,71 @@ async function performForecastUpdate(range, mode) {
                     datasets: [{
                         label: 'Items Sold',
                         data: quantities,
-                        backgroundColor: backgroundColors,
-                        borderColor: borderColors,
-                        borderWidth: 2
+                        backgroundColor: function(context) {
+                            const chart = context.chart;
+                            const {ctx, chartArea} = chart;
+                            if (!chartArea) return backgroundColors[context.dataIndex];
+                            return createGradient(ctx, chartArea, context.dataIndex === maxIndex);
+                        },
+                        borderWidth: 0,
+                        borderRadius: 8,
+                        barThickness: 'flex',
+                        maxBarThickness: 40,
+                        hoverBackgroundColor: function(context) {
+                            return context.dataIndex === maxIndex ? '#059669' : '#1d4ed8';
+                        },
+                        hoverBorderWidth: 0
                     }]
                 },
                 options: {
                     indexAxis: 'y', // This makes it horizontal
                     maintainAspectRatio: false,
                     responsive: true,
+                    animation: {
+                        duration: 800,
+                        easing: 'easeOutQuart',
+                        onComplete: () => {
+                            // Subtle entrance animation after bars render
+                            if (window.anime && forecastChart) {
+                                anime({
+                                    targets: '.odash-chart-shell',
+                                    opacity: [0.85, 1],
+                                    duration: 400,
+                                    easing: 'easeOutQuad'
+                                });
+                            }
+                        }
+                    },
                     plugins: {
                         legend: { display: false },
                         tooltip: { 
-                            backgroundColor:'#1e3a8a', 
-                            titleColor:'#fff', 
-                            bodyColor:'#bfdbfe', 
-                            borderColor:'#3b82f6', 
-                            borderWidth:1,
+                            backgroundColor:'rgba(15, 23, 42, 0.95)', 
+                            titleColor:'#f1f5f9', 
+                            bodyColor:'#cbd5e1', 
+                            borderColor: function(context) {
+                                return context.tooltip.dataPoints[0].dataIndex === maxIndex ? '#10b981' : '#3b82f6';
+                            },
+                            borderWidth:2,
+                            padding: 12,
+                            cornerRadius: 8,
+                            displayColors: true,
+                            boxWidth: 12,
+                            boxHeight: 12,
+                            boxPadding: 6,
                             callbacks: {
+                                title: (items) => items[0].label,
                                 label: function(context) {
                                     const value = context.parsed.x;
-                                    return `${context.label}: ${value} items sold`;
+                                    const isTop = context.dataIndex === maxIndex;
+                                    return `${isTop ? '🏆 ' : ''}${value.toLocaleString()} items sold`;
+                                },
+                                labelColor: function(context) {
+                                    return {
+                                        borderColor: context.dataIndex === maxIndex ? '#10b981' : '#3b82f6',
+                                        backgroundColor: context.dataIndex === maxIndex ? '#10b981' : '#3b82f6',
+                                        borderWidth: 2,
+                                        borderRadius: 4
+                                    };
                                 }
                             }
                         }
@@ -1797,28 +1911,42 @@ async function performForecastUpdate(range, mode) {
                     scales: {
                         x: { 
                             beginAtZero: true, 
-                            grid: { color:'rgba(59, 130, 246, 0.08)' }, 
-                            ticks: { color:'#64748b', font:{ size:11 } },
+                            grid: { color:'rgba(59, 130, 246, 0.08)', lineWidth: 1 }, 
+                            ticks: { color:'#64748b', font:{ size:11, weight: '500' }, padding: 8 },
                             title: {
-                                display: true,
-                                text: 'Items Sold',
-                                color: '#64748b',
-                                font: { size: 12, weight: 'bold' }
+                                display: false
+                            },
+                            border: {
+                                display: false
                             }
                         },
                         y: { 
                             grid: { display: false }, 
-                            ticks: { color:'#64748b', font:{ size:11 } },
+                            ticks: { 
+                                color:'#1e3a8a', 
+                                font:{ size:12, weight: '600' },
+                                padding: 10,
+                                callback: function(value, index) {
+                                    const label = this.getLabelForValue(value);
+                                    // Star for top seller
+                                    return index === maxIndex ? `★ ${label}` : label;
+                                }
+                            },
                             title: {
-                                display: true,
-                                text: 'Brands',
-                                color: '#64748b',
-                                font: { size: 12, weight: 'bold' }
+                                display: false
+                            },
+                            border: {
+                                display: false
                             }
                         }
                     },
                     layout: {
-                        padding: isScrollable ? { top: 10, bottom: 10, left: 10, right: 10 } : undefined
+                        padding: {
+                            left: 10,
+                            right: 20,
+                            top: 10,
+                            bottom: 10
+                        }
                     }
                 }
             });
@@ -1827,8 +1955,12 @@ async function performForecastUpdate(range, mode) {
             // Update existing chart
             forecastChart.data.labels = brands;
             forecastChart.data.datasets[0].data = quantities;
-            forecastChart.data.datasets[0].backgroundColor = backgroundColors;
-            forecastChart.data.datasets[0].borderColor = borderColors;
+            forecastChart.data.datasets[0].backgroundColor = function(context) {
+                const chart = context.chart;
+                const {ctx, chartArea} = chart;
+                if (!chartArea) return backgroundColors[context.dataIndex];
+                return createGradient(ctx, chartArea, context.dataIndex === maxIndex);
+            };
             
             // Update chart height and container if needed
             if (forecastShell) {
@@ -2904,9 +3036,11 @@ function initOwnerForecastCharts() {
     }
     if (typeSelect) {
         typeSelect.addEventListener('change', () => {
-            // Do NOT update currentMode here. Let updateForecast decide destruction based on previous mode.
+            // Capture new mode but DO NOT set window.currentForecastMode yet (needed for destruction logic)
             const newMode = typeSelect.value;
             setLegend(newMode);
+            // Immediately update title using new mode (non-predictive branch uses this)
+            updateForecastTitle(newMode);
             offset = 0; // reset window when type changes
             updateForecast(rangeSelect ? rangeSelect.value : 'day', newMode);
             updateWindowText(rangeSelect ? rangeSelect.value : 'day', offset);
@@ -2914,10 +3048,12 @@ function initOwnerForecastCharts() {
         });
     }
     
-    // Predictive Mode toggle (frontend-only for now)
+    // Predictive Mode toggle (frontend-only for now) - button replaces checkbox
     const predictiveToggle = document.getElementById('odash-predictive-mode');
     if (predictiveToggle) {
-        predictiveToggle.addEventListener('change', () => {
+        const setPredictiveState = (enabled) => {
+            predictiveToggle.classList.toggle('active', enabled);
+            predictiveToggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
             const rangeSelect = document.getElementById('dbf-range');
             const range = rangeSelect ? rangeSelect.value : 'day';
             
@@ -2928,9 +3064,8 @@ function initOwnerForecastCharts() {
                 return;
             }
             
-            console.log('Predictive Mode:', predictiveToggle.checked ? 'ON' : 'OFF');
-            
-            // Update the forecast title
+            console.log('Predictive Mode:', enabled ? 'ON' : 'OFF');
+            // Update the forecast title and chart data
             updateForecastTitle();
             
             // Update the forecast chart data
@@ -2938,6 +3073,10 @@ function initOwnerForecastCharts() {
             const activeMode = (typeSelect && typeSelect.value) ? typeSelect.value : (window.currentForecastMode || 'sales');
             
             updateForecast(range, activeMode);
+        };
+        predictiveToggle.addEventListener('click', () => {
+            const nowActive = !predictiveToggle.classList.contains('active');
+            setPredictiveState(nowActive);
         });
     }
 
@@ -2952,7 +3091,7 @@ function initOwnerForecastCharts() {
         
         // Check if predictive mode is active - if so, don't update forecast based on anchor date
         const predictiveToggle = document.getElementById('odash-predictive-mode');
-        const isPredictive = predictiveToggle && predictiveToggle.checked;
+    const isPredictive = predictiveToggle && predictiveToggle.classList.contains('active');
         
         // Get current mode from dropdown or global state to ensure consistency
         const activeMode = (typeSelect && typeSelect.value) ? typeSelect.value : (window.currentForecastMode || 'sales');
