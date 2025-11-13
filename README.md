@@ -1,6 +1,3 @@
-Here’s a polished **README** version of your ShoeVault User Manual, suitable for a GitHub or project repository:
-
----
 
 # ShoeVault – Web-Based Operations Management System
 
