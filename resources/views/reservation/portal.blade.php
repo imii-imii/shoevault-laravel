@@ -16,6 +16,16 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
   <style>
+    .res-portal-logo-link {
+      display: inline-block;
+      text-decoration: none;
+      transition: transform 0.2s ease;
+    }
+    
+    .res-portal-logo-link:hover {
+      transform: scale(1.05);
+    }
+    
     .no-products-message {
       grid-column: 1 / -1;
       text-align: center;
@@ -90,7 +100,9 @@
 </head>
 <body>
   <nav class="res-portal-navbar">
-    <img src="{{ asset('reservation-assets/shoevault-logo.png') }}" alt="Logo" class="res-portal-logo">
+    <a href="{{ route('reservation.home') }}" class="res-portal-logo-link">
+      <img src="{{ asset('reservation-assets/shoevault-logo.png') }}" alt="Logo" class="res-portal-logo">
+    </a>
     <div class="res-portal-search desktop-only">
       <i class="fas fa-search"></i>
       <input type="text" placeholder="Search for shoes, brands, or models...">

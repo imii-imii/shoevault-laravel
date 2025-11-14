@@ -24,6 +24,8 @@ use App\Models\ProductSize;
  * - Monthly revenue target: 50k-600k PHP
  * - Daily revenue calculated from monthly target
  * - 10% chance store is closed on any given day
+ * - Store closed during: Holy Week (Thu-Sat only), January 1, November 1
+ * - Sales drop in August and September (40% reduction)
  * - Reservations: 1-5 items, connected to customers, status: completed/cancelled
  * - POS transactions: 1-3 items per transaction
  * - Reservation transactions: must match existing reservation records
@@ -58,19 +60,12 @@ class MockTransactionsSeeder extends Seeder
         '12' => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31],
         // Valentine's Day period
         '02' => [12, 13, 14, 15, 16],
-        // Holy Week (March/April - using March for simplicity)
-        '03' => [28, 29, 30, 31],
-        '04' => [1, 2, 3],
         // Mother's Day (May 2nd Sunday)
         '05' => [8, 9, 10, 11, 12, 13, 14],
         // Back to School (June)
         '06' => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
         // Father's Day (June 3rd Sunday)
         '06' => [15, 16, 17, 18, 19, 20, 21],
-        // Independence Day
-        '06' => [12],
-        // All Saints' Day
-        '11' => [1, 2],
         // New Year
         '01' => [1, 2, 3]
     ];
@@ -129,7 +124,7 @@ class MockTransactionsSeeder extends Seeder
         
         // Date range: January 1, 2022 to November 7, 2025
         $startDate = Carbon::createFromDate(2022, 1, 1)->startOfDay();
-        $endDate = Carbon::createFromDate(2025, 11, 10)->endOfDay();
+        $endDate = Carbon::createFromDate(2025, 11, 16)->endOfDay();
 
         echo "[MockTransactionsSeeder] Generating transactions and reservations from {$startDate->toDateString()} to {$endDate->toDateString()}...\n";
 
@@ -141,6 +136,13 @@ class MockTransactionsSeeder extends Seeder
         $totalItems = 0;
 
         while ($currentDate->lte($endDate)) {
+            // Skip excluded dates (Holy Week, November 1, January 1)
+            if ($this->isExcludedDate($currentDate)) {
+                echo "[MockTransactionsSeeder] {$currentDate->toDateString()}: Store closed (Excluded date)\n";
+                $currentDate->addDay();
+                continue;
+            }
+            
             // Calculate target monthly revenue (50k-600k)
             $monthlyTarget = rand(50000, 600000);
             $daysInMonth = $currentDate->daysInMonth;
@@ -219,8 +221,13 @@ class MockTransactionsSeeder extends Seeder
                 $dailyRevenue += $txn->total_amount;
             }
             
-            if ($currentDate->day === 1 || $transactionsCreated % 50 === 0 || $itemsCreatedToday > 0 || $holidayMultiplier > 1.2) {
-                $holidayNote = $holidayMultiplier > 1.2 ? " (Holiday boost: x{$holidayMultiplier})" : "";
+            if ($currentDate->day === 1 || $transactionsCreated % 50 === 0 || $itemsCreatedToday > 0 || $holidayMultiplier > 1.2 || $holidayMultiplier < 1.0) {
+                $holidayNote = "";
+                if ($holidayMultiplier > 1.2) {
+                    $holidayNote = " (Holiday boost: x{$holidayMultiplier})";
+                } elseif ($holidayMultiplier < 1.0) {
+                    $holidayNote = " (Sales drop: x{$holidayMultiplier})";
+                }
                 echo "[MockTransactionsSeeder] {$currentDate->toDateString()}: {$itemsCreatedToday} items, ₱" . number_format($dailyRevenue, 2) . " revenue{$holidayNote}, {$transactionsCreated} total txn, {$reservationsCreated} reservations\n";
             }
             
@@ -326,12 +333,86 @@ class MockTransactionsSeeder extends Seeder
     }
 
     /**
+     * Check if a date should be excluded from transaction generation
+     */
+    protected function isExcludedDate(Carbon $date): bool
+    {
+        $month = (int) $date->format('m');
+        $day = (int) $date->format('d');
+        
+        // Skip January 1 (New Year's Day)
+        if ($month === 1 && $day === 1) {
+            return true;
+        }
+        
+        // Skip November 1 (All Saints' Day)
+        if ($month === 11 && $day === 1) {
+            return true;
+        }
+        
+        // Skip Holy Week (dynamically calculated)
+        if ($this->isHolyWeek($date)) {
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Check if a date falls within Holy Week (Thursday, Friday, Saturday only)
+     */
+    protected function isHolyWeek(Carbon $date): bool
+    {
+        $year = $date->year;
+        $easter = $this->calculateEaster($year);
+        
+        // Holy Week: Only Thursday, Friday, and Saturday before Easter
+        $holyThursday = $easter->copy()->subDays(3); // Maundy Thursday
+        $goodFriday = $easter->copy()->subDays(2);   // Good Friday  
+        $blackSaturday = $easter->copy()->subDays(1); // Black Saturday
+        
+        // Check if date is one of these three days
+        return $date->isSameDay($holyThursday) || 
+               $date->isSameDay($goodFriday) || 
+               $date->isSameDay($blackSaturday);
+    }
+    
+    /**
+     * Calculate Easter Sunday for a given year using the algorithm
+     */
+    protected function calculateEaster(int $year): Carbon
+    {
+        // Using the algorithm for calculating Easter
+        $a = $year % 19;
+        $b = intval($year / 100);
+        $c = $year % 100;
+        $d = intval($b / 4);
+        $e = $b % 4;
+        $f = intval(($b + 8) / 25);
+        $g = intval(($b - $f + 1) / 3);
+        $h = (19 * $a + $b - $d - $g + 15) % 30;
+        $i = intval($c / 4);
+        $k = $c % 4;
+        $l = (32 + 2 * $e + 2 * $i - $h - $k) % 7;
+        $m = intval(($a + 11 * $h + 22 * $l) / 451);
+        $month = intval(($h + $l - 7 * $m + 114) / 31);
+        $day = (($h + $l - 7 * $m + 114) % 31) + 1;
+        
+        return Carbon::createFromDate($year, $month, $day);
+    }
+
+    /**
      * Check if a date is a Philippine holiday period with sales boost
      */
     protected function getHolidaySalesMultiplier(Carbon $date): float
     {
         $month = $date->format('m');
         $day = (int) $date->format('d');
+        
+        // August and September - significant sales drop
+        if ($month === '08' || $month === '09') {
+            return 0.6; // 40% drop in sales during these months
+        }
         
         // Christmas season gets the biggest boost
         if ($month === '12') {
@@ -347,11 +428,6 @@ class MockTransactionsSeeder extends Seeder
             return 1.8; // 180% boost
         }
         
-        // Holy Week
-        if (($month === '03' && $day >= 28) || ($month === '04' && $day <= 3)) {
-            return 1.6; // 160% boost
-        }
-        
         // Mother's Day period (2nd Sunday of May)
         if ($month === '05' && $day >= 8 && $day <= 14) {
             return 1.7; // 170% boost
@@ -362,13 +438,13 @@ class MockTransactionsSeeder extends Seeder
             return 1.9; // 190% boost
         }
         
-        // All Saints' Day
-        if ($month === '11' && ($day === 1 || $day === 2)) {
+        // All Saints' Day period (November 2, since November 1 is excluded)
+        if ($month === '11' && $day === 2) {
             return 1.4; // 140% boost
         }
         
-        // New Year period
-        if ($month === '01' && $day >= 1 && $day <= 3) {
+        // New Year period (January 2-3, since January 1 is excluded)
+        if ($month === '01' && $day >= 2 && $day <= 3) {
             return 1.5; // 150% boost
         }
         

@@ -135,7 +135,7 @@
         
         <div class="footer">
             <p>© {{ date('Y') }} ShoeVault Batangas. All rights reserved.</p>
-            <p>Questions? Contact us at shoevaulb@gmail.com</p>
+            <p>Questions? Contact us at shoevaul2020@gmail.com</p>
         </div>
     </div>
 </body>

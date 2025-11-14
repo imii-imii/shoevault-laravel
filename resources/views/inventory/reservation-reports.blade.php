@@ -274,6 +274,32 @@
         <button id="transaction-pay-btn" disabled style="padding:10px 14px;border-radius:8px;background:#2a6aff;color:#fff;border:none;font-weight:700;">Pay & Receipt</button>
     </div>
 </div>
+
+<!-- Cancellation Confirmation Modal -->
+<div id="cancellation-modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;z-index:10020;"></div>
+<div id="cancellation-modal" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:12px;box-shadow:0 20px 40px rgba(0,0,0,.2);width:min(500px,94vw);display:none;z-index:10021;">
+    <div style="padding:20px 24px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+        <h3 style="margin:0;font-size:1.1rem;font-weight:800;color:#DC2626;">Cancel Reservation</h3>
+        <button id="cancellation-modal-close" style="background:none;border:none;font-size:1.2rem;cursor:pointer;">&times;</button>
+    </div>
+    <div style="padding:20px 24px;">
+        <p style="margin:0 0 16px 0;color:#374151;">Please provide a reason for cancelling this reservation. This will be sent to the customer via email.</p>
+        <div style="margin-bottom:16px;">
+            <label for="cancellation-reason" style="display:block;margin-bottom:8px;font-weight:600;color:#374151;">Cancellation Reason:</label>
+            <textarea id="cancellation-reason" rows="4" placeholder="Enter the reason for cancellation..." style="width:100%;padding:12px;border:1px solid #D1D5DB;border-radius:8px;font-size:14px;font-family:inherit;resize:vertical;" required></textarea>
+        </div>
+        <div style="margin-bottom:16px;">
+            <h4 style="margin:0 0 8px 0;font-size:0.9rem;font-weight:600;color:#374151;">Customer Information:</h4>
+            <div id="cancellation-customer-info" style="background:#F9FAFB;padding:12px;border-radius:8px;font-size:14px;">
+                <!-- Customer info will be populated via JavaScript -->
+            </div>
+        </div>
+    </div>
+    <div style="padding:16px 24px;border-top:1px solid #f1f5f9;display:flex;justify-content:flex-end;gap:12px;">
+        <button id="cancellation-cancel-btn" style="padding:10px 16px;border-radius:8px;background:#6B7280;color:#fff;border:none;font-weight:700;cursor:pointer;">Cancel</button>
+        <button id="cancellation-confirm-btn" style="padding:10px 16px;border-radius:8px;background:#DC2626;color:#fff;border:none;font-weight:700;cursor:pointer;">Confirm Cancellation</button>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -402,6 +428,180 @@ function updateReservationStatus(reservationId, status, options = { reload: true
             // if card not in DOM, still try to update analytics if possible
             updateAnalyticsCounts(oldStatus, status);
         }
+        // Update modal actions and close modal if needed
+        renderReservationModalActions(reservationId, status);
+        // Re-sort list so Pending stays on top
+        sortReservations();
+
+        // Optionally reload the page to fetch fresh data from server
+        if (options.reload) {
+            // show short notice then reload so user sees the change
+            setTimeout(() => { location.reload(); }, 700);
+        }
+
+        return data;
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Failed to update reservation status');
+        throw err;
+    });
+}
+
+// Cancellation Modal Logic
+let cancellationContext = { reservationId: null, customerInfo: null };
+
+function openCancellationModal(reservationId) {
+    const card = document.querySelector(`.reservation-card[data-res-id="${reservationId}"]`);
+    if (!card) {
+        alert('Reservation not found');
+        return;
+    }
+
+    // Store context information
+    cancellationContext = {
+        reservationId: reservationId,
+        customerInfo: {
+            name: card.dataset.customerName || 'N/A',
+            email: card.dataset.customerEmail || 'N/A',
+            phone: card.dataset.customerPhone || 'N/A'
+        }
+    };
+
+    // Populate customer info in the modal
+    const customerInfoEl = document.getElementById('cancellation-customer-info');
+    if (customerInfoEl) {
+        customerInfoEl.innerHTML = `
+            <div style="margin-bottom:4px;"><strong>Name:</strong> ${cancellationContext.customerInfo.name}</div>
+            <div style="margin-bottom:4px;"><strong>Email:</strong> ${cancellationContext.customerInfo.email}</div>
+            <div><strong>Phone:</strong> ${cancellationContext.customerInfo.phone}</div>
+        `;
+    }
+
+    // Clear previous reason
+    const reasonTextarea = document.getElementById('cancellation-reason');
+    if (reasonTextarea) {
+        reasonTextarea.value = '';
+    }
+
+    // Show the modal
+    const modal = document.getElementById('cancellation-modal');
+    const overlay = document.getElementById('cancellation-modal-overlay');
+    if (modal && overlay) {
+        overlay.style.display = 'block';
+        modal.style.display = 'block';
+    }
+}
+
+function closeCancellationModal() {
+    const modal = document.getElementById('cancellation-modal');
+    const overlay = document.getElementById('cancellation-modal-overlay');
+    if (modal && overlay) {
+        overlay.style.display = 'none';
+        modal.style.display = 'none';
+    }
+    // Clear context
+    cancellationContext = { reservationId: null, customerInfo: null };
+}
+
+function confirmCancellation() {
+    const reasonTextarea = document.getElementById('cancellation-reason');
+    const reason = reasonTextarea ? reasonTextarea.value.trim() : '';
+    
+    if (!reason) {
+        alert('Please provide a reason for cancellation.');
+        reasonTextarea?.focus();
+        return;
+    }
+
+    if (!cancellationContext.reservationId) {
+        alert('Invalid reservation context.');
+        return;
+    }
+
+    // Call the updated version of updateReservationStatus with cancellation reason
+    updateReservationStatusWithReason(cancellationContext.reservationId, 'cancelled', reason)
+        .then(() => {
+            closeCancellationModal();
+            // Close the reservation details modal if it's open
+            const reservationModal = document.getElementById('reservation-modal');
+            const reservationOverlay = document.getElementById('reservation-modal-overlay');
+            if (reservationModal && reservationOverlay) {
+                reservationModal.style.display = 'none';
+                reservationOverlay.style.display = 'none';
+            }
+        })
+        .catch(err => {
+            console.error('Failed to cancel reservation:', err);
+            alert('Failed to cancel reservation. Please try again.');
+        });
+}
+
+// Updated reservation status function that includes cancellation reason
+function updateReservationStatusWithReason(reservationId, status, reason = null, options = { reload: true }) {
+    const allowed = ['pending','completed','cancelled'];
+    if (!allowed.includes(status)) {
+        alert('Invalid status');
+        return Promise.reject(new Error('Invalid status'));
+    }
+    
+    // Prepare request body
+    const requestBody = { status };
+    
+    // Add cancellation reason if provided
+    if (reason && status === 'cancelled') {
+        requestBody.cancellation_reason = reason;
+    }
+    
+    if (options.amount_paid !== undefined) {
+        requestBody.amount_paid = options.amount_paid;
+    }
+    if (options.change_given !== undefined) {
+        requestBody.change_given = options.change_given;
+    }
+    
+    return fetch(`{{ route('inventory.reservations.update-status', ['id' => 'RES_ID']) }}`.replace('RES_ID', reservationId), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify(requestBody)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success) throw new Error(data.message || 'Failed');
+        
+        // Update UI: card status pill, modal footer
+        const card = document.querySelector(`.reservation-card[data-res-id="${reservationId}"]`);
+        const oldStatus = card ? card.dataset.status : null;
+        if (card) {
+            const pill = card.querySelector('.status-pill');
+            if (pill) {
+                const labelMap = {
+                    'pending': 'Pending',
+                    'completed': 'Completed',
+                    'cancelled': 'Cancelled',
+                    'for_cancellation': 'For Cancellation'
+                };
+                const label = labelMap[status] || status.charAt(0).toUpperCase() + status.slice(1);
+                pill.textContent = label;
+                const styleMap = {
+                    pending: 'background-color: #FEF3C7; color: #92400E;',
+                    completed: 'background-color: #DCFCE7; color: #166534;',
+                    cancelled: 'background-color: #FEE2E2; color: #991B1B;',
+                    for_cancellation: 'background-color: #FED7AA; color: #C2410C;'
+                };
+                pill.setAttribute('style', `display:inline-block;padding:4px 12px;border-radius:9999px;${styleMap[status] || styleMap.pending}font-weight:500;font-size:0.9rem;`);
+            }
+            // update analytics counts based on old/new status
+            updateAnalyticsCounts(oldStatus, status);
+            card.dataset.status = status;
+        } else {
+            // if card not in DOM, still try to update analytics if possible
+            updateAnalyticsCounts(oldStatus, status);
+        }
+        
         // Update modal actions and close modal if needed
         renderReservationModalActions(reservationId, status);
         // Re-sort list so Pending stays on top
@@ -557,7 +757,7 @@ function renderReservationModalActions(reservationId, status) {
     if (status === 'pending') {
         actions.innerHTML = `
             <button onclick=\"openTransactionModal('${reservationId}')\" style=\"min-width:120px;padding:10px 16px;border-radius:8px;background:#059669;color:#fff;border:none;font-weight:700;\">Complete</button>
-            <button onclick=\"updateReservationStatus('${reservationId}','cancelled')\" style=\"min-width:120px;padding:10px 16px;border-radius:8px;background:#DC2626;color:#fff;border:none;font-weight:700;\">Cancel</button>
+            <button onclick=\"openCancellationModal('${reservationId}')\" style=\"min-width:120px;padding:10px 16px;border-radius:8px;background:#DC2626;color:#fff;border:none;font-weight:700;\">Cancel</button>
         `;
     } else if (status === 'completed') {
         // Revert action removed: no modal actions for already completed reservations
@@ -758,6 +958,18 @@ function closeReservationModal() {
 
 if (modalCloseEl) modalCloseEl.addEventListener('click', closeReservationModal);
 if (modalOverlayEl) modalOverlayEl.addEventListener('click', closeReservationModal);
+
+// Cancellation modal event listeners
+const cancellationModal = document.getElementById('cancellation-modal');
+const cancellationOverlay = document.getElementById('cancellation-modal-overlay');
+const cancellationClose = document.getElementById('cancellation-modal-close');
+const cancellationCancel = document.getElementById('cancellation-cancel-btn');
+const cancellationConfirm = document.getElementById('cancellation-confirm-btn');
+
+if (cancellationClose) cancellationClose.addEventListener('click', closeCancellationModal);
+if (cancellationOverlay) cancellationOverlay.addEventListener('click', closeCancellationModal);
+if (cancellationCancel) cancellationCancel.addEventListener('click', closeCancellationModal);
+if (cancellationConfirm) cancellationConfirm.addEventListener('click', confirmCancellation);
 
 // Bind View buttons
 document.querySelectorAll('.view-reservation-btn').forEach(btn => {

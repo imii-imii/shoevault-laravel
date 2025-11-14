@@ -225,8 +225,7 @@
                     <option value="amount-asc">Amount (Low-High)</option>
                 </select>
                 <div class="export-group" aria-label="Export" style="margin-left:auto;">
-                    <button type="button" class="export-btn" data-format="csv" title="Export CSV"><i class="fas fa-download"></i><span class="hide-sm">CSV</span></button>
-                    <button type="button" class="export-btn" data-format="xls" title="Export Excel"><i class="fas fa-file-excel"></i><span class="hide-sm">Excel</span></button>
+                    <button type="button" class="export-btn" id="open-export-modal" title="Export Sales Data"><i class="fas fa-download"></i><span class="hide-sm">Export</span></button>
                 </div>
             </div>
             <div class="table-container">
@@ -276,8 +275,7 @@
                     <button type="button" class="switch-tab" data-status="cancelled">Cancelled</button>
                 </div>
                 <div class="export-group" aria-label="Export">
-                    <button type="button" class="export-btn" data-format="csv" title="Export CSV"><i class="fas fa-download"></i><span class="hide-sm">CSV</span></button>
-                    <button type="button" class="export-btn" data-format="xls" title="Export Excel"><i class="fas fa-file-excel"></i><span class="hide-sm">Excel</span></button>
+                    <button type="button" class="export-btn" id="open-reservation-export-modal" title="Export Reservation Data"><i class="fas fa-download"></i><span class="hide-sm">Export</span></button>
                 </div>
             </div>
             <!-- Card list -->
@@ -311,8 +309,7 @@
                     <option value="id-asc">Log ID (Ascending)</option>
                 </select>
                 <div class="export-group" aria-label="Export" style="margin-left:auto;">
-                    <button type="button" class="export-btn" data-format="csv" title="Export CSV"><i class="fas fa-download"></i><span class="hide-sm">CSV</span></button>
-                    <button type="button" class="export-btn" data-format="xls" title="Export Excel"><i class="fas fa-file-excel"></i><span class="hide-sm">Excel</span></button>
+                    <button type="button" class="export-btn" id="open-supply-export-modal" title="Export Supply Data"><i class="fas fa-download"></i><span class="hide-sm">Export</span></button>
                 </div>
             </div>
             <div class="table-container">
@@ -372,8 +369,7 @@
                     <option value="stock-asc">Stock (Low-High)</option>
                 </select>
                 <div class="export-group" aria-label="Export" style="margin-left:auto;">
-                    <button type="button" class="export-btn" data-format="csv" title="Export CSV"><i class="fas fa-download"></i><span class="hide-sm">CSV</span></button>
-                    <button type="button" class="export-btn" data-format="xls" title="Export Excel"><i class="fas fa-file-excel"></i><span class="hide-sm">Excel</span></button>
+                    <button type="button" class="export-btn" data-format="csv" title="Export CSV"><i class="fas fa-download"></i><span class="hide-sm">Export CSV</span></button>
                 </div>
             </div>
             <style>
@@ -438,6 +434,215 @@
                 </div>
             </div>
         </section>
+    </div>
+
+    <!-- Export Sales Modal -->
+    <div id="export-sales-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;z-index:10000;">
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:16px;box-shadow:0 20px 40px rgba(0,0,0,.3);width:min(600px,95vw);max-height:90vh;overflow:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 24px;border-bottom:1px solid #eef2f7;">
+                <h3 style="margin:0;font-size:1.2rem;font-weight:800;color:#0f172a;">Export Sales Data</h3>
+                <button id="close-export-modal" style="background:none;border:none;font-size:1.5rem;line-height:1;cursor:pointer;color:#6b7280;padding:4px;">&times;</button>
+            </div>
+            <div style="padding:24px;">
+                <form id="export-form">
+                    <!-- Export All Checkbox -->
+                    <div style="margin-bottom:20px;">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="export-all" checked style="width:16px;height:16px;">
+                            <span style="font-weight:600;color:#0f172a;">Export All Transactions</span>
+                        </label>
+                        <p style="margin:6px 0 0 24px;font-size:12px;color:#64748b;">Check this to export all transaction data in the database</p>
+                    </div>
+
+                    <!-- Date Range Filter -->
+                    <div id="date-range-filter" style="margin-bottom:20px;">
+                        <label style="display:block;font-weight:600;color:#0f172a;margin-bottom:8px;">Date Range</label>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                            <div>
+                                <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px;">Start Date</label>
+                                <input type="date" id="export-start-date" style="width:100%;padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                            </div>
+                            <div>
+                                <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px;">End Date</label>
+                                <input type="date" id="export-end-date" style="width:100%;padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sale Type Filter -->
+                    <div id="sale-type-filter" style="margin-bottom:20px;">
+                        <label style="display:block;font-weight:600;color:#0f172a;margin-bottom:8px;">Sale Type</label>
+                        <div style="display:flex;gap:16px;">
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                <input type="radio" name="sale-type" value="both" checked style="width:16px;height:16px;">
+                                <span style="color:#0f172a;">Both</span>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                <input type="radio" name="sale-type" value="pos" style="width:16px;height:16px;">
+                                <span style="color:#0f172a;">POS Only</span>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                <input type="radio" name="sale-type" value="reservation" style="width:16px;height:16px;">
+                                <span style="color:#0f172a;">Reservation Only</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Processed By Filter -->
+                    <div id="processed-by-filter" style="margin-bottom:24px;">
+                        <label style="display:block;font-weight:600;color:#0f172a;margin-bottom:8px;">Processed By</label>
+                        <div id="users-list" style="max-height:120px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:8px;padding:8px;">
+                            <!-- Users will be populated here via JavaScript -->
+                        </div>
+                    </div>
+
+                    <!-- Export Button -->
+                    <div style="display:flex;justify-content:flex-end;gap:12px;border-top:1px solid #eef2f7;padding-top:20px;">
+                        <button type="button" id="export-csv" class="export-btn" style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:linear-gradient(135deg,#059669,#047857);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                            <i class="fas fa-download"></i>
+                            <span>Export CSV</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reservation Export Modal -->
+    <div id="reservation-export-modal-overlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:none;z-index:1000;">
+        <div id="reservation-export-modal" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:16px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1),0 10px 10px -5px rgba(0,0,0,0.04);width:90%;max-width:500px;max-height:90vh;overflow-y:auto;">
+            <div style="padding:24px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+                    <h3 style="margin:0;font-size:18px;font-weight:700;color:#0f172a;">Export Reservation Data</h3>
+                    <button type="button" id="close-reservation-export-modal" style="background:none;border:none;font-size:20px;color:#6b7280;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;">&times;</button>
+                </div>
+                <form id="reservation-export-form">
+                    <!-- Export All Toggle -->
+                    <div style="margin-bottom:20px;padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="reservation-export-all" checked style="width:16px;height:16px;">
+                            <span style="font-weight:600;color:#0f172a;">Export All Reservations</span>
+                        </label>
+                        <p style="margin:6px 0 0 24px;font-size:12px;color:#64748b;">Check this to export all reservation data in the database</p>
+                    </div>
+
+                    <!-- Date Range Filter -->
+                    <div id="reservation-date-range-filter" style="margin-bottom:20px;">
+                        <label style="display:block;font-weight:600;color:#0f172a;margin-bottom:8px;">Date Range (Reservation Date)</label>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                            <div>
+                                <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px;">Start Date</label>
+                                <input type="date" id="reservation-export-start-date" style="width:100%;padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                            </div>
+                            <div>
+                                <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px;">End Date</label>
+                                <input type="date" id="reservation-export-end-date" style="width:100%;padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Status Filter -->
+                    <div id="reservation-status-filter" style="margin-bottom:24px;">
+                        <label style="display:block;font-weight:600;color:#0f172a;margin-bottom:8px;">Status</label>
+                        <div style="display:flex;gap:16px;">
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                <input type="radio" name="reservation-status" value="all" checked style="width:16px;height:16px;">
+                                <span style="color:#0f172a;">All</span>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                <input type="radio" name="reservation-status" value="completed" style="width:16px;height:16px;">
+                                <span style="color:#0f172a;">Completed</span>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                <input type="radio" name="reservation-status" value="cancelled" style="width:16px;height:16px;">
+                                <span style="color:#0f172a;">Cancelled</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Export Button -->
+                    <div style="display:flex;justify-content:flex-end;gap:12px;border-top:1px solid #eef2f7;padding-top:20px;">
+                        <button type="button" id="reservation-export-csv" class="export-btn" style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:linear-gradient(135deg,#059669,#047857);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                            <i class="fas fa-download"></i>
+                            <span>Export CSV</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Supply Export Modal -->
+    <div id="supply-export-modal-overlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:none;z-index:1000;">
+        <div id="supply-export-modal" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:16px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1),0 10px 10px -5px rgba(0,0,0,0.04);width:90%;max-width:500px;max-height:90vh;overflow-y:auto;">
+            <div style="padding:24px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+                    <h3 style="margin:0;font-size:18px;font-weight:700;color:#0f172a;">Export Supply Data</h3>
+                    <button type="button" id="close-supply-export-modal" style="background:none;border:none;font-size:20px;color:#6b7280;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;">&times;</button>
+                </div>
+                <form id="supply-export-form">
+                    <!-- Export All Toggle -->
+                    <div style="margin-bottom:20px;padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="supply-export-all" checked style="width:16px;height:16px;">
+                            <span style="font-weight:600;color:#0f172a;">Export All Supply Logs</span>
+                        </label>
+                        <p style="margin:6px 0 0 24px;font-size:12px;color:#64748b;">Check this to export all supply log data in the database</p>
+                    </div>
+
+                    <!-- Date Range Filter -->
+                    <div id="supply-date-range-filter" style="margin-bottom:20px;">
+                        <label style="display:block;font-weight:600;color:#0f172a;margin-bottom:8px;">Date Range (Received Date)</label>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                            <div>
+                                <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px;">Start Date</label>
+                                <input type="date" id="supply-export-start-date" style="width:100%;padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                            </div>
+                            <div>
+                                <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px;">End Date</label>
+                                <input type="date" id="supply-export-end-date" style="width:100%;padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Supplier Filter -->
+                    <div id="supply-supplier-filter" style="margin-bottom:20px;">
+                        <label style="display:block;font-weight:600;color:#0f172a;margin-bottom:8px;">Supplier</label>
+                        <div style="margin-bottom:8px;">
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                <input type="checkbox" id="select-all-suppliers" checked style="width:16px;height:16px;">
+                                <span style="font-weight:600;color:#0f172a;">Select All Suppliers</span>
+                            </label>
+                        </div>
+                        <div id="suppliers-list" style="max-height:120px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:8px;padding:8px;">
+                            <!-- Suppliers will be populated here via JavaScript -->
+                        </div>
+                    </div>
+
+                    <!-- Brand Filter -->
+                    <div id="supply-brand-filter" style="margin-bottom:24px;">
+                        <label style="display:block;font-weight:600;color:#0f172a;margin-bottom:8px;">Brand</label>
+                        <div style="margin-bottom:8px;">
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                <input type="checkbox" id="select-all-brands" checked style="width:16px;height:16px;">
+                                <span style="font-weight:600;color:#0f172a;">Select All Brands</span>
+                            </label>
+                        </div>
+                        <div id="brands-list" style="max-height:120px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:8px;padding:8px;">
+                            <!-- Brands will be populated here via JavaScript -->
+                        </div>
+                    </div>
+
+                    <!-- Export Button -->
+                    <div style="display:flex;justify-content:flex-end;gap:12px;border-top:1px solid #eef2f7;padding-top:20px;">
+                        <button type="button" id="supply-export-csv" class="export-btn" style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:linear-gradient(135deg,#059669,#047857);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                            <i class="fas fa-download"></i>
+                            <span>Export CSV</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 </main>
 
@@ -828,11 +1033,7 @@
             return lines.join('\n');
         }
 
-        function toExcelHTML(headers, rows){
-            const thead = headers && headers.length ? `<thead><tr>${headers.map(h=>`<th>${String(h).replace(/[<>]/g,'')}</th>`).join('')}</tr></thead>` : '';
-            const tbody = `<tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${String(c??'').replace(/[<>]/g,'')}</td>`).join('')}</tr>`).join('')}</tbody>`;
-            return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><table>${thead}${tbody}</table></body></html>`;
-        }
+
 
         function tableToArrays(table){
             const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
@@ -844,8 +1045,7 @@
             const table = document.getElementById('sales-history-table');
             if (!table) return alert('No sales table to export.');
             const { headers, rows } = tableToArrays(table);
-            if (format === 'xls') download(toExcelHTML(headers, rows), 'application/vnd.ms-excel', filenameWithDate('sales_history', 'xls'));
-            else download(toCSV(headers, rows), 'text/csv', filenameWithDate('sales_history', 'csv'));
+            download(toCSV(headers, rows), 'text/csv', filenameWithDate('sales_history', 'csv'));
         }
 
         function exportReservations(format){
@@ -869,16 +1069,14 @@
                     status ? (status.charAt(0).toUpperCase()+status.slice(1)) : ''
                 ]);
             });
-            if (format === 'xls') download(toExcelHTML(headers, rows), 'application/vnd.ms-excel', filenameWithDate('reservation_logs', 'xls'));
-            else download(toCSV(headers, rows), 'text/csv', filenameWithDate('reservation_logs', 'csv'));
+            download(toCSV(headers, rows), 'text/csv', filenameWithDate('reservation_logs', 'csv'));
         }
 
         function exportSupply(format){
             const table = document.getElementById('supply-logs-table');
             if (!table) return alert('No supply table to export.');
             const { headers, rows } = tableToArrays(table);
-            if (format === 'xls') download(toExcelHTML(headers, rows), 'application/vnd.ms-excel', filenameWithDate('supply_logs', 'xls'));
-            else download(toCSV(headers, rows), 'text/csv', filenameWithDate('supply_logs', 'csv'));
+            download(toCSV(headers, rows), 'text/csv', filenameWithDate('supply_logs', 'csv'));
         }
 
         async function exportInventory(format){
@@ -899,8 +1097,7 @@
                 const items = Array.isArray(data.items) ? data.items : [];
                 const headers = ['Product','Brand','Category','Color','Price','Total Stock','Sizes'];
                 const rows = items.map(i => [i.name||'', i.brand||'', i.category||'', i.color||'', i.price||'', i.total_stock||0, i.sizes||'']);
-                if (format === 'xls') download(toExcelHTML(headers, rows), 'application/vnd.ms-excel', filenameWithDate('inventory_overview', 'xls'));
-                else download(toCSV(headers, rows), 'text/csv', filenameWithDate('inventory_overview', 'csv'));
+                download(toCSV(headers, rows), 'text/csv', filenameWithDate('inventory_overview', 'csv'));
             }catch(e){
                 // Fallback: try to scrape current cards
                 const cards = document.querySelectorAll('#reports-inventory-overview .inv-card');
@@ -913,8 +1110,7 @@
                     (c.querySelector('.inv-price')?.textContent||'').trim(),
                     (c.querySelector('.inv-stock')?.textContent||'').trim(),
                 ]);
-                if (format === 'xls') download(toExcelHTML(headers, rows), 'application/vnd.ms-excel', filenameWithDate('inventory_overview', 'xls'));
-                else download(toCSV(headers, rows), 'text/csv', filenameWithDate('inventory_overview', 'csv'));
+                download(toCSV(headers, rows), 'text/csv', filenameWithDate('inventory_overview', 'csv'));
             }
         }
 
@@ -927,20 +1123,705 @@
             return active ? active.id : '';
         }
 
-        function exportActive(format){
+        function exportActive(){
             const id = activeSectionId();
-            if (id === 'reports-sales-history') return exportSales(format);
-            if (id === 'reports-reservation-logs') return exportReservations(format);
-            if (id === 'reports-supply-logs') return exportSupply(format);
-            if (id === 'reports-inventory-overview') return exportInventory(format);
+            if (id === 'reports-sales-history') return exportSales();
+            if (id === 'reports-reservation-logs') return exportReservations();
+            if (id === 'reports-supply-logs') return exportSupply();
+            if (id === 'reports-inventory-overview') return exportInventory();
             alert('No report section selected to export.');
         }
 
-        // Wire buttons (all sections share the same handlers)
-        document.querySelectorAll('.export-btn').forEach(btn => {
+        // ===== New Export Modal System =====
+        
+        // Updated filename function for the new format
+        function generateExportFilename(ext) {
+            const d = new Date();
+            const pad = (n) => String(n).padStart(2, '0');
+            const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+            return `ShoeVault_sales_record_${dateStr}.${ext}`;
+        }
+
+        // Load users for the processed by filter
+        async function loadUsersForExport() {
+            try {
+                const response = await fetch('/owner/api/users-with-transactions', {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await response.json();
+                const usersList = document.getElementById('users-list');
+                
+                if (data && data.users && data.users.length > 0) {
+                    usersList.innerHTML = data.users.map(user => `
+                        <label style="display:flex;align-items:center;gap:8px;padding:6px;cursor:pointer;">
+                            <input type="checkbox" value="${user.id}" class="user-checkbox" style="width:16px;height:16px;">
+                            <span style="color:#0f172a;">${user.name} (${user.role || 'User'})</span>
+                        </label>
+                    `).join('');
+                } else {
+                    usersList.innerHTML = '<p style="color:#6b7280;text-align:center;padding:16px;">No users with transactions found</p>';
+                }
+            } catch (error) {
+                console.error('Error loading users:', error);
+                document.getElementById('users-list').innerHTML = '<p style="color:#ef4444;text-align:center;padding:16px;">Failed to load users</p>';
+            }
+        }
+
+        // Export functionality with filters (CSV only)
+        async function exportWithFilters() {
+            console.log('exportWithFilters called for CSV export');
+            
+            const exportAll = document.getElementById('export-all').checked;
+            const startDate = document.getElementById('export-start-date').value;
+            const endDate = document.getElementById('export-end-date').value;
+            const saleType = document.querySelector('input[name="sale-type"]:checked').value;
+            const selectedUsers = Array.from(document.querySelectorAll('.user-checkbox:checked')).map(cb => cb.value);
+            
+            console.log('Export parameters:', { exportAll, startDate, endDate, saleType, selectedUsers });
+
+            // Validate date range if not exporting all
+            if (!exportAll && (!startDate || !endDate)) {
+                alert('Please select both start and end dates, or check "Export All"');
+                return;
+            }
+
+            if (!exportAll && new Date(startDate) > new Date(endDate)) {
+                alert('Start date cannot be later than end date');
+                return;
+            }
+
+            try {
+                // Build the export URL
+                const url = new URL('/owner/api/export-sales', window.location.origin);
+                url.searchParams.set('format', 'csv');
+                url.searchParams.set('export_all', exportAll ? '1' : '0');
+                
+                if (!exportAll) {
+                    url.searchParams.set('start_date', startDate);
+                    url.searchParams.set('end_date', endDate);
+                }
+                
+                if (saleType !== 'both') {
+                    url.searchParams.set('sale_type', saleType);
+                }
+                
+                if (selectedUsers.length > 0) {
+                    url.searchParams.set('users', selectedUsers.join(','));
+                }
+
+                // Show loading state
+                const exportBtn = document.getElementById('export-csv');
+                const originalText = exportBtn.innerHTML;
+                exportBtn.innerHTML = '<div class="loader" style="width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top:2px solid #fff;border-radius:50%;animation:spin 1s linear infinite;"></div> Exporting...';
+                exportBtn.disabled = true;
+
+                try {
+                    // Fetch the data
+                    const response = await fetch(url.toString(), {
+                        headers: { 'Accept': 'application/json' }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Export failed: ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    
+                    console.log('Export API Response:', data); // Debug log
+                    
+                    if (!data.success) {
+                        throw new Error(data.message || 'Export failed');
+                    }
+
+                    if (!data.transactions || data.transactions.length === 0) {
+                        alert('No transactions found for the selected criteria.');
+                        return;
+                    }
+
+                    console.log(`Processing ${data.transactions.length} transactions for export`); // Debug log
+
+                    // Generate the file content matching the exact table structure
+                    const headers = ['Transaction ID', 'Sale Type', 'Processed By', 'Products', 'Subtotal', 'Discount', 'Total', 'Amount Paid', 'Change', 'Date & Time'];
+                    
+                    // Format money values like the frontend does
+                    const fmt = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 2 });
+                    const money = (v) => {
+                        const n = Number(v ?? 0);
+                        try { return fmt.format(n); } catch { return `₱${n.toFixed(2)}`; }
+                    };
+                    const formatDateTime = (value) => {
+                        if (!value) return 'N/A';
+                        const d = new Date(value);
+                        const date = d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+                        const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        return `${date} ${time}`;
+                    };
+                    
+                    const rows = data.transactions.map(t => [
+                        t.transaction_id || '',                         // Transaction ID
+                        (t.sale_type || '').toString().toUpperCase(),   // Sale Type  
+                        t.cashier_name || '',                           // Processed By
+                        t.products || '',                               // Products
+                        money(t.subtotal),                              // Subtotal
+                        money(t.discount_amount),                       // Discount
+                        money(t.total_amount),                          // Total
+                        money(t.amount_paid),                           // Amount Paid
+                        money(t.change_given),                          // Change
+                        formatDateTime(t.sale_datetime)                 // Date & Time
+                    ]);
+
+                    // Download the CSV file
+                    const filename = generateExportFilename('csv');
+                    download(toCSV(headers, rows), 'text/csv', filename);
+
+                    // Close modal and show success
+                    document.getElementById('export-sales-modal').style.display = 'none';
+                    
+                    // Show success message (you can customize this)
+                    setTimeout(() => {
+                        alert(`Export completed successfully! File: ${filename}`);
+                    }, 100);
+
+                } catch (error) {
+                    console.error('Export error:', error);
+                    alert('Export failed: ' + error.message);
+                } finally {
+                    // Reset button state
+                    exportBtn.innerHTML = originalText;
+                    exportBtn.disabled = false;
+                }
+
+            } catch (outerError) {
+                console.error('Export setup error:', outerError);
+                alert('Export setup failed: ' + outerError.message);
+            }
+        }
+
+        // Modal controls
+        const exportModal = document.getElementById('export-sales-modal');
+        const openModalBtn = document.getElementById('open-export-modal');
+        const closeModalBtn = document.getElementById('close-export-modal');
+        const exportAllCheckbox = document.getElementById('export-all');
+        const dateRangeFilter = document.getElementById('date-range-filter');
+        const saleTypeFilter = document.getElementById('sale-type-filter');
+        const processedByFilter = document.getElementById('processed-by-filter');
+
+        // Open modal
+        openModalBtn?.addEventListener('click', () => {
+            console.log('Opening export modal');
+            exportModal.style.display = 'flex';
+            loadUsersForExport();
+            
+            // Set default dates (last 30 days)
+            const today = new Date();
+            const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+            document.getElementById('export-end-date').value = today.toISOString().split('T')[0];
+            document.getElementById('export-start-date').value = thirtyDaysAgo.toISOString().split('T')[0];
+            
+            // Trigger the export-all checkbox change event to apply the initial state
+            const exportAllEvent = new Event('change');
+            exportAllCheckbox.dispatchEvent(exportAllEvent);
+        });
+
+        // Close modal
+        closeModalBtn?.addEventListener('click', () => {
+            exportModal.style.display = 'none';
+        });
+
+        // Close modal when clicking outside
+        exportModal?.addEventListener('click', (e) => {
+            if (e.target === exportModal) {
+                exportModal.style.display = 'none';
+            }
+        });
+
+        // Handle export all checkbox
+        exportAllCheckbox?.addEventListener('change', (e) => {
+            const isChecked = e.target.checked;
+            console.log('Export all checkbox changed:', isChecked);
+            
+            dateRangeFilter.style.opacity = isChecked ? '0.5' : '1';
+            saleTypeFilter.style.opacity = isChecked ? '0.5' : '1';
+            processedByFilter.style.opacity = isChecked ? '0.5' : '1';
+            
+            // Disable/enable form elements
+            document.getElementById('export-start-date').disabled = isChecked;
+            document.getElementById('export-end-date').disabled = isChecked;
+            document.querySelectorAll('input[name="sale-type"]').forEach(radio => radio.disabled = isChecked);
+            document.querySelectorAll('.user-checkbox').forEach(checkbox => checkbox.disabled = isChecked);
+        });
+
+        // Export button handler
+        document.getElementById('export-csv')?.addEventListener('click', () => exportWithFilters());
+
+        // ===== Reservation Export Modal System =====
+        
+        const reservationExportModal = document.getElementById('reservation-export-modal-overlay');
+        const openReservationModalBtn = document.getElementById('open-reservation-export-modal');
+        const closeReservationModalBtn = document.getElementById('close-reservation-export-modal');
+        const reservationExportAllCheckbox = document.getElementById('reservation-export-all');
+        const reservationDateRangeFilter = document.getElementById('reservation-date-range-filter');
+        const reservationStatusFilter = document.getElementById('reservation-status-filter');
+        
+        // Generate filename for reservation export
+        function generateReservationExportFilename(ext) {
+            const d = new Date();
+            const pad = (n) => String(n).padStart(2, '0');
+            const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+            return `ShoeVault_reservation_record_${dateStr}.${ext}`;
+        }
+
+
+
+        // Export reservations with filters
+        async function exportReservationsWithFilters() {
+            const isExportAll = document.getElementById('reservation-export-all')?.checked;
+
+            if (!isExportAll) {
+                // Validate date range if not exporting all
+                const startDate = document.getElementById('reservation-export-start-date')?.value;
+                const endDate = document.getElementById('reservation-export-end-date')?.value;
+                
+                if (!startDate || !endDate) {
+                    alert('Please select both start and end dates.');
+                    return;
+                }
+                
+                if (new Date(startDate) > new Date(endDate)) {
+                    alert('Start date cannot be later than end date.');
+                    return;
+                }
+            }
+
+            // Prepare API URL and parameters
+            const url = new URL('/owner/api/export-reservations', window.location.origin);
+            
+            if (isExportAll) {
+                url.searchParams.set('export_all', 'true');
+            } else {
+                // Date range
+                const startDate = document.getElementById('reservation-export-start-date')?.value;
+                const endDate = document.getElementById('reservation-export-end-date')?.value;
+                if (startDate) url.searchParams.set('start_date', startDate);
+                if (endDate) url.searchParams.set('end_date', endDate);
+                
+                // Status filter
+                const selectedStatus = document.querySelector('input[name="reservation-status"]:checked')?.value;
+                if (selectedStatus && selectedStatus !== 'all') {
+                    url.searchParams.set('status', selectedStatus);
+                }
+            }
+
+            // Show loading state
+            const exportBtn = document.getElementById('reservation-export-csv');
+            const originalText = exportBtn.innerHTML;
+            exportBtn.innerHTML = '<div class="loader" style="width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top:2px solid #fff;border-radius:50%;animation:spin 1s linear infinite;"></div> Exporting...';
+            exportBtn.disabled = true;
+
+            try {
+                // Fetch the data
+                const response = await fetch(url.toString(), {
+                    headers: { 'Accept': 'application/json' }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Export failed: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.message || 'Export failed');
+                }
+
+                if (!data.reservations || data.reservations.length === 0) {
+                    alert('No reservations found for the selected criteria.');
+                    return;
+                }
+
+                console.log(`Processing ${data.reservations.length} reservations for export`);
+
+                // Generate the file content matching the table structure
+                const headers = ['Reservation ID', 'Reservation Date', 'Customer Name', 'Pickup Date', 'Email', 'Phone', 'Status'];
+                
+                const formatDateTime = (value) => {
+                    if (!value) return 'N/A';
+                    const d = new Date(value);
+                    const date = d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+                    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    return `${date} ${time}`;
+                };
+                
+                const formatDate = (value) => {
+                    if (!value) return 'N/A';
+                    const d = new Date(value);
+                    return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+                };
+                
+                const rows = data.reservations.map(reservation => [
+                    reservation.reservation_id || 'N/A',
+                    formatDateTime(reservation.reservation_date || reservation.created_at),
+                    reservation.customer_name || 'N/A',
+                    formatDate(reservation.pickup_date),
+                    reservation.customer_email || 'N/A',
+                    reservation.customer_phone || 'N/A',
+                    (reservation.status || '').charAt(0).toUpperCase() + (reservation.status || '').slice(1)
+                ]);
+
+                // Generate and download CSV
+                const csvContent = toCSV(headers, rows);
+                const filename = generateReservationExportFilename('csv');
+                
+                download(csvContent, 'text/csv', filename);
+                
+                // Close modal
+                reservationExportModal.style.display = 'none';
+                
+                console.log('Reservation export completed successfully');
+
+            } catch (error) {
+                console.error('Export error:', error);
+                alert('Export failed: ' + error.message);
+            } finally {
+                // Reset button state
+                exportBtn.innerHTML = originalText;
+                exportBtn.disabled = false;
+            }
+        }
+
+        // Open reservation export modal
+        openReservationModalBtn?.addEventListener('click', () => {
+            console.log('Opening reservation export modal');
+            reservationExportModal.style.display = 'flex';
+            
+            // Set default dates (last 30 days)
+            const today = new Date();
+            const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+            document.getElementById('reservation-export-end-date').value = today.toISOString().split('T')[0];
+            document.getElementById('reservation-export-start-date').value = thirtyDaysAgo.toISOString().split('T')[0];
+            
+            // Trigger the export-all checkbox change event to apply the initial state
+            const exportAllEvent = new Event('change');
+            reservationExportAllCheckbox.dispatchEvent(exportAllEvent);
+        });
+
+        // Close reservation export modal
+        closeReservationModalBtn?.addEventListener('click', () => {
+            reservationExportModal.style.display = 'none';
+        });
+
+        // Close modal when clicking outside
+        reservationExportModal?.addEventListener('click', (e) => {
+            if (e.target === reservationExportModal) {
+                reservationExportModal.style.display = 'none';
+            }
+        });
+
+        // Handle reservation export all checkbox
+        reservationExportAllCheckbox?.addEventListener('change', (e) => {
+            const isChecked = e.target.checked;
+            console.log('Reservation export all checkbox changed:', isChecked);
+            
+            reservationDateRangeFilter.style.opacity = isChecked ? '0.5' : '1';
+            reservationStatusFilter.style.opacity = isChecked ? '0.5' : '1';
+            
+            // Disable/enable form elements
+            document.getElementById('reservation-export-start-date').disabled = isChecked;
+            document.getElementById('reservation-export-end-date').disabled = isChecked;
+            document.querySelectorAll('input[name="reservation-status"]').forEach(radio => radio.disabled = isChecked);
+        });
+
+        // Reservation export button handler
+        document.getElementById('reservation-export-csv')?.addEventListener('click', () => exportReservationsWithFilters());
+
+        // ===== Supply Export Modal System =====
+        
+        const supplyExportModal = document.getElementById('supply-export-modal-overlay');
+        const openSupplyModalBtn = document.getElementById('open-supply-export-modal');
+        const closeSupplyModalBtn = document.getElementById('close-supply-export-modal');
+        const supplyExportAllCheckbox = document.getElementById('supply-export-all');
+        const supplyDateRangeFilter = document.getElementById('supply-date-range-filter');
+        const supplySupplierFilter = document.getElementById('supply-supplier-filter');
+        const supplyBrandFilter = document.getElementById('supply-brand-filter');
+        
+        // Generate filename for supply export
+        function generateSupplyExportFilename(ext) {
+            const d = new Date();
+            const pad = (n) => String(n).padStart(2, '0');
+            const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+            return `ShoeVault_supply_record_${dateStr}.${ext}`;
+        }
+
+        // Load suppliers and brands for the filters
+        async function loadSupplyFiltersData() {
+            try {
+                const response = await fetch('/owner/api/supply-filters', {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await response.json();
+                
+                // Load suppliers
+                const suppliersList = document.getElementById('suppliers-list');
+                if (data && data.suppliers && data.suppliers.length > 0) {
+                    suppliersList.innerHTML = data.suppliers.map(supplier => `
+                        <label style="display:flex;align-items:center;gap:8px;padding:6px;cursor:pointer;">
+                            <input type="checkbox" value="${supplier.name}" class="supplier-checkbox" style="width:16px;height:16px;">
+                            <span style="color:#0f172a;">${supplier.name}</span>
+                        </label>
+                    `).join('');
+                } else {
+                    suppliersList.innerHTML = '<div style="text-align:center;color:#6b7280;padding:12px;">No suppliers found</div>';
+                }
+                
+                // Load brands
+                const brandsList = document.getElementById('brands-list');
+                if (data && data.brands && data.brands.length > 0) {
+                    brandsList.innerHTML = data.brands.map(brand => `
+                        <label style="display:flex;align-items:center;gap:8px;padding:6px;cursor:pointer;">
+                            <input type="checkbox" value="${brand.name}" class="brand-checkbox" style="width:16px;height:16px;">
+                            <span style="color:#0f172a;">${brand.name}</span>
+                        </label>
+                    `).join('');
+                } else {
+                    brandsList.innerHTML = '<div style="text-align:center;color:#6b7280;padding:12px;">No brands found</div>';
+                }
+            
+                // Handle select all suppliers checkbox
+                const selectAllSuppliers = document.getElementById('select-all-suppliers');
+                const supplierCheckboxes = document.querySelectorAll('.supplier-checkbox');
+                
+                selectAllSuppliers?.addEventListener('change', (e) => {
+                    supplierCheckboxes.forEach(cb => cb.checked = e.target.checked);
+                });
+                
+                supplierCheckboxes.forEach(cb => {
+                    cb.addEventListener('change', () => {
+                        const allChecked = Array.from(supplierCheckboxes).every(checkbox => checkbox.checked);
+                        const noneChecked = Array.from(supplierCheckboxes).every(checkbox => !checkbox.checked);
+                        
+                        if (allChecked) {
+                            selectAllSuppliers.checked = true;
+                            selectAllSuppliers.indeterminate = false;
+                        } else if (noneChecked) {
+                            selectAllSuppliers.checked = false;
+                            selectAllSuppliers.indeterminate = false;
+                        } else {
+                            selectAllSuppliers.checked = false;
+                            selectAllSuppliers.indeterminate = true;
+                        }
+                    });
+                });
+                
+                // Handle select all brands checkbox
+                const selectAllBrands = document.getElementById('select-all-brands');
+                const brandCheckboxes = document.querySelectorAll('.brand-checkbox');
+                
+                selectAllBrands?.addEventListener('change', (e) => {
+                    brandCheckboxes.forEach(cb => cb.checked = e.target.checked);
+                });
+                
+                brandCheckboxes.forEach(cb => {
+                    cb.addEventListener('change', () => {
+                        const allChecked = Array.from(brandCheckboxes).every(checkbox => checkbox.checked);
+                        const noneChecked = Array.from(brandCheckboxes).every(checkbox => !checkbox.checked);
+                        
+                        if (allChecked) {
+                            selectAllBrands.checked = true;
+                            selectAllBrands.indeterminate = false;
+                        } else if (noneChecked) {
+                            selectAllBrands.checked = false;
+                            selectAllBrands.indeterminate = false;
+                        } else {
+                            selectAllBrands.checked = false;
+                            selectAllBrands.indeterminate = true;
+                        }
+                    });
+                });
+                
+            } catch (error) {
+                console.error('Failed to load supply filter data:', error);
+                document.getElementById('suppliers-list').innerHTML = '<div style="text-align:center;color:#ef4444;padding:12px;">Failed to load suppliers</div>';
+                document.getElementById('brands-list').innerHTML = '<div style="text-align:center;color:#ef4444;padding:12px;">Failed to load brands</div>';
+            }
+        }
+
+        // Export supply logs with filters
+        async function exportSupplyLogsWithFilters() {
+            const isExportAll = document.getElementById('supply-export-all')?.checked;
+
+            if (!isExportAll) {
+                // Validate date range if not exporting all
+                const startDate = document.getElementById('supply-export-start-date')?.value;
+                const endDate = document.getElementById('supply-export-end-date')?.value;
+                
+                if (!startDate || !endDate) {
+                    alert('Please select both start and end dates.');
+                    return;
+                }
+                
+                if (new Date(startDate) > new Date(endDate)) {
+                    alert('Start date cannot be later than end date.');
+                    return;
+                }
+            }
+
+            // Prepare API URL and parameters
+            const url = new URL('/owner/api/export-supply', window.location.origin);
+            
+            if (isExportAll) {
+                url.searchParams.set('export_all', 'true');
+            } else {
+                // Date range
+                const startDate = document.getElementById('supply-export-start-date')?.value;
+                const endDate = document.getElementById('supply-export-end-date')?.value;
+                if (startDate) url.searchParams.set('start_date', startDate);
+                if (endDate) url.searchParams.set('end_date', endDate);
+                
+                // Supplier filter
+                const selectAllSuppliers = document.getElementById('select-all-suppliers').checked;
+                if (!selectAllSuppliers) {
+                    const selectedSuppliers = Array.from(document.querySelectorAll('.supplier-checkbox:checked')).map(cb => cb.value);
+                    if (selectedSuppliers.length > 0) {
+                        url.searchParams.set('suppliers', selectedSuppliers.join(','));
+                    }
+                }
+                
+                // Brand filter
+                const selectAllBrands = document.getElementById('select-all-brands').checked;
+                if (!selectAllBrands) {
+                    const selectedBrands = Array.from(document.querySelectorAll('.brand-checkbox:checked')).map(cb => cb.value);
+                    if (selectedBrands.length > 0) {
+                        url.searchParams.set('brands', selectedBrands.join(','));
+                    }
+                }
+            }
+
+            // Show loading state
+            const exportBtn = document.getElementById('supply-export-csv');
+            const originalText = exportBtn.innerHTML;
+            exportBtn.innerHTML = '<div class="loader" style="width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top:2px solid #fff;border-radius:50%;animation:spin 1s linear infinite;"></div> Exporting...';
+            exportBtn.disabled = true;
+
+            try {
+                // Fetch the data
+                const response = await fetch(url.toString(), {
+                    headers: { 'Accept': 'application/json' }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Export failed: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.message || 'Export failed');
+                }
+
+                if (!data.supply_logs || data.supply_logs.length === 0) {
+                    alert('No supply logs found for the selected criteria.');
+                    return;
+                }
+
+                console.log(`Processing ${data.supply_logs.length} supply logs for export`);
+
+                // Generate the file content matching the table structure
+                const headers = ['Log ID', 'Supplier', 'Country', 'Brand', 'Size', 'Quantity', 'Received At'];
+                
+                const formatDateTime = (value) => {
+                    if (!value) return 'N/A';
+                    const d = new Date(value);
+                    const date = d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+                    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    return `${date} ${time}`;
+                };
+                
+                const rows = data.supply_logs.map(log => [
+                    log.id || 'N/A',
+                    log.supplier_name || 'N/A',
+                    log.country || 'N/A',
+                    log.brand || 'N/A',
+                    log.size || 'N/A',
+                    log.quantity || '0',
+                    formatDateTime(log.received_at)
+                ]);
+
+                // Generate and download CSV
+                const csvContent = toCSV(headers, rows);
+                const filename = generateSupplyExportFilename('csv');
+                
+                download(csvContent, 'text/csv', filename);
+                
+                // Close modal
+                supplyExportModal.style.display = 'none';
+                
+                console.log('Supply export completed successfully');
+
+            } catch (error) {
+                console.error('Export error:', error);
+                alert('Export failed: ' + error.message);
+            } finally {
+                // Reset button state
+                exportBtn.innerHTML = originalText;
+                exportBtn.disabled = false;
+            }
+        }
+
+        // Open supply export modal
+        openSupplyModalBtn?.addEventListener('click', () => {
+            console.log('Opening supply export modal');
+            supplyExportModal.style.display = 'flex';
+            loadSupplyFiltersData();
+            
+            // Set default dates (last 30 days)
+            const today = new Date();
+            const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+            document.getElementById('supply-export-end-date').value = today.toISOString().split('T')[0];
+            document.getElementById('supply-export-start-date').value = thirtyDaysAgo.toISOString().split('T')[0];
+            
+            // Trigger the export-all checkbox change event to apply the initial state
+            const exportAllEvent = new Event('change');
+            supplyExportAllCheckbox.dispatchEvent(exportAllEvent);
+        });
+
+        // Close supply export modal
+        closeSupplyModalBtn?.addEventListener('click', () => {
+            supplyExportModal.style.display = 'none';
+        });
+
+        // Close modal when clicking outside
+        supplyExportModal?.addEventListener('click', (e) => {
+            if (e.target === supplyExportModal) {
+                supplyExportModal.style.display = 'none';
+            }
+        });
+
+        // Handle supply export all checkbox
+        supplyExportAllCheckbox?.addEventListener('change', (e) => {
+            const isChecked = e.target.checked;
+            console.log('Supply export all checkbox changed:', isChecked);
+            
+            supplyDateRangeFilter.style.opacity = isChecked ? '0.5' : '1';
+            supplySupplierFilter.style.opacity = isChecked ? '0.5' : '1';
+            supplyBrandFilter.style.opacity = isChecked ? '0.5' : '1';
+            
+            // Disable/enable form elements
+            document.getElementById('supply-export-start-date').disabled = isChecked;
+            document.getElementById('supply-export-end-date').disabled = isChecked;
+            document.querySelectorAll('.supplier-checkbox').forEach(checkbox => checkbox.disabled = isChecked);
+            document.querySelectorAll('.brand-checkbox').forEach(checkbox => checkbox.disabled = isChecked);
+            document.getElementById('select-all-suppliers').disabled = isChecked;
+            document.getElementById('select-all-brands').disabled = isChecked;
+        });
+
+        // Supply export button handler
+        document.getElementById('supply-export-csv')?.addEventListener('click', () => exportSupplyLogsWithFilters());
+
+        // Keep old export buttons for other sections (inventory)
+        // Exclude the new export buttons (#export-csv, #open-reservation-export-modal, #open-supply-export-modal)
+        document.querySelectorAll('.export-btn:not(#open-export-modal):not(#export-csv):not(#open-reservation-export-modal):not(#open-supply-export-modal)').forEach(btn => {
             btn.addEventListener('click', () => {
-                const fmt = btn.getAttribute('data-format') || 'csv';
-                exportActive(fmt);
+                exportActive();
             });
         });
     });

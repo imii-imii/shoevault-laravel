@@ -2182,19 +2182,19 @@ function openProductDetailsModal(productId) {
                         </div>
                         
                         ${(() => {
-                            const availableSizes = product.sizes ? product.sizes.filter(size => size.stock > 0) : [];
-                            return availableSizes.length > 0 ? `
+                            const allSizes = product.sizes || [];
+                            return allSizes.length > 0 ? `
                                 <div>
                                     <label style="font-size: 0.9rem; color: #374151; font-weight: 600; margin-bottom: 8px; display: block;">Available Sizes:</label>
                                     <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                                        ${availableSizes.map(size => `
-                                            <span style="background: #f3f4f6; padding: 6px 12px; border-radius: 6px; font-size: 0.9rem; color: #374151; font-weight: 500;">
+                                        ${allSizes.map(size => `
+                                            <span style="background: #f3f4f6; padding: 6px 12px; border-radius: 6px; font-size: 0.9rem; ${size.stock > 0 ? 'color: #374151;' : 'color: #ef4444;'} font-weight: 500;">
                                                 ${size.size} (${size.stock} in stock)
                                             </span>
                                         `).join('')}
                                     </div>
                                 </div>
-                            ` : '<p style="color: #6b7280;">No sizes in stock</p>';
+                            ` : '<p style="color: #6b7280;">No sizes available</p>';
                         })()}
                         
                         <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">

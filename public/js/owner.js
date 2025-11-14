@@ -1135,7 +1135,8 @@ function openProductDetailModal(item) {
                 if (stock === null || isNaN(stock)) {
                     return `<span style="background:#eef2ff;color:#1e3a8a;padding:6px 10px;border-radius:8px;font-weight:700;font-size:.85rem;">${size}</span>`;
                 }
-                return `<span style="background:#fff5f8;border:1px solid #e6e6e6;color:#0f172a;padding:6px 10px;border-radius:8px;font-weight:700;font-size:.85rem;">${size} <span style="color:#16a34a;font-weight:800;margin-left:6px;">(${stock} in stock)</span></span>`;
+                const stockColor = stock > 0 ? '#16a34a' : '#ef4444';
+                return `<span style="background:#fff5f8;border:1px solid #e6e6e6;color:#0f172a;padding:6px 10px;border-radius:8px;font-weight:700;font-size:.85rem;">${size} <span style="color:${stockColor};font-weight:800;margin-left:6px;">(${stock} in stock)</span></span>`;
             });
         }
         sizesEl.innerHTML = sizeChips.join(' ');

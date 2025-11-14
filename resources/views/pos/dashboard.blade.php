@@ -2449,15 +2449,15 @@ function showManagerAuth() {
     
     const content = `
         <p style="margin-bottom: 20px; color: #666;">Manager credentials required to void transaction.</p>
-        <form id="manager-auth-form" onsubmit="authenticateManager(event)">
+        <form id="manager-auth-form" onsubmit="authenticateManager(event)" autocomplete="off">
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: bold;">Manager Username:</label>
-                <input type="text" id="manager-username" required 
+                <input type="text" id="manager-username" required autocomplete="off"
                        style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
             </div>
             <div style="margin-bottom: 20px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: bold;">Password:</label>
-                <input type="password" id="manager-password" required 
+                <input type="password" id="manager-password" required autocomplete="new-password"
                        style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
             </div>
         </form>

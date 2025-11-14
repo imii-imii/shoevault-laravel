@@ -279,7 +279,9 @@ class OwnerController extends Controller
 
         // Transform products to match the expected format
         $items = $products->map(function ($product) {
-            $sizes = $product->sizes->pluck('size')->sort()->implode(', ');
+            // Only include sizes that have stock > 0
+            $availableSizes = $product->sizes->where('stock', '>', 0);
+            $sizes = $availableSizes->pluck('size')->sort()->implode(', ');
             $sizesStock = $product->sizes->map(function ($size) {
                 return $size->size . ':' . $size->stock;
             })->implode(',');
@@ -2110,6 +2112,352 @@ class OwnerController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to disable emergency access'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get users who have processed transactions
+     */
+    public function getUsersWithTransactions()
+    {
+        try {
+            $users = User::with(['employee', 'customer'])
+                ->whereIn('user_id', function($query) {
+                    $query->select('user_id')
+                          ->from('transactions')
+                          ->whereNotNull('user_id')
+                          ->distinct();
+                })
+                ->select('user_id', 'username', 'role')
+                ->orderBy('username')
+                ->get();
+
+            // Transform to include the username as name
+            $users = $users->map(function($user) {
+                return [
+                    'id' => $user->user_id,
+                    'name' => $user->username, // Use username since that's the actual column
+                    'role' => ucfirst($user->role)
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'users' => $users
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error fetching users with transactions', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load users'
+            ], 500);
+        }
+    }
+
+    /**
+     * Export sales data with filters
+     */
+    public function exportSales(Request $request)
+    {
+        try {
+            $query = Transaction::with(['user:user_id,username', 'items']);
+
+            // Apply filters
+            $exportAll = $request->get('export_all', '0') === '1';
+            
+            if (!$exportAll) {
+                if ($request->has('start_date') && $request->has('end_date')) {
+                    $startDate = Carbon::parse($request->start_date)->startOfDay();
+                    $endDate = Carbon::parse($request->end_date)->endOfDay();
+                    $query->whereBetween('created_at', [$startDate, $endDate]);
+                }
+            }
+
+            // Sale type filter
+            if ($request->has('sale_type') && $request->sale_type !== 'both') {
+                if ($request->sale_type === 'pos') {
+                    $query->where('sale_type', 'pos');
+                } elseif ($request->sale_type === 'reservation') {
+                    $query->where('sale_type', 'reservation');
+                }
+            }
+
+            // Users filter
+            if ($request->has('users') && !empty($request->users)) {
+                $userIds = explode(',', $request->users);
+                $query->whereIn('user_id', $userIds);
+            }
+
+            // Get transactions
+            $transactions = $query->orderBy('created_at', 'desc')->get();
+
+            // Format data for export
+            $formattedTransactions = $transactions->map(function ($transaction) {
+                // Handle products list safely
+                $products = 'No items';
+                if ($transaction->items && $transaction->items->count() > 0) {
+                    $products = $transaction->items->map(function ($item) {
+                        $productName = $item->product_name ?? 'Unknown Product';
+                        $size = $item->size ?? 'N/A';
+                        $quantity = $item->quantity ?? 1;
+                        return $productName . ' (Size: ' . $size . ', Qty: ' . $quantity . ')';
+                    })->join('; ');
+                }
+
+                // Get username from the user relationship
+                $processedBy = 'Unknown';
+                if ($transaction->user && $transaction->user->username) {
+                    $processedBy = $transaction->user->username;
+                } elseif ($transaction->user_id) {
+                    $processedBy = 'User ID: ' . $transaction->user_id;
+                }
+
+                return [
+                    'transaction_id' => $transaction->transaction_id,
+                    'sale_type' => strtoupper($transaction->sale_type ?? 'POS'),
+                    'cashier_name' => $processedBy,
+                    'products' => $products,
+                    'subtotal' => $transaction->subtotal,
+                    'discount_amount' => $transaction->discount_amount,
+                    'total_amount' => $transaction->total_amount,
+                    'amount_paid' => $transaction->amount_paid,
+                    'change_given' => $transaction->change_given,
+                    'sale_datetime' => $transaction->created_at->format('Y-m-d H:i:s')
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'transactions' => $formattedTransactions,
+                'total_count' => $formattedTransactions->count(),
+                'filters_applied' => [
+                    'export_all' => $exportAll,
+                    'date_range' => !$exportAll ? [
+                        'start' => $request->start_date,
+                        'end' => $request->end_date
+                    ] : null,
+                    'sale_type' => $request->sale_type ?? 'both',
+                    'users' => $request->has('users') ? explode(',', $request->users) : []
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error exporting sales data', [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to export sales data: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+
+    /**
+     * Export reservation data with filters
+     */
+    public function exportReservations(Request $request)
+    {
+        try {
+            Log::info('Processing reservation export request', $request->all());
+
+            $exportAll = $request->boolean('export_all', false);
+
+            // Base query: only completed and cancelled reservations
+            $query = Reservation::query()
+                ->whereIn('status', ['completed', 'cancelled']);
+
+            if (!$exportAll) {
+                // Date range filter (reservation date)
+                if ($request->filled('start_date') && $request->filled('end_date')) {
+                    $startDate = $request->start_date . ' 00:00:00';
+                    $endDate = $request->end_date . ' 23:59:59';
+                    $query->whereBetween('created_at', [$startDate, $endDate]);
+                }
+
+                // Status filter
+                if ($request->filled('status') && $request->status !== 'all') {
+                    $query->where('status', $request->status);
+                }
+            }
+
+            // Get reservations
+            $reservations = $query->orderBy('created_at', 'desc')->get();
+
+            // Format data for export
+            $formattedReservations = $reservations->map(function ($reservation) {
+                return [
+                    'reservation_id' => $reservation->reservation_id,
+                    'reservation_date' => $reservation->created_at,
+                    'customer_name' => $reservation->customer_name ?? 'N/A',
+                    'pickup_date' => $reservation->pickup_date,
+                    'customer_email' => $reservation->customer_email ?? 'N/A',
+                    'customer_phone' => $reservation->customer_phone ?? 'N/A',
+                    'status' => $reservation->status
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'reservations' => $formattedReservations,
+                'total_count' => $formattedReservations->count(),
+                'filters_applied' => [
+                    'export_all' => $exportAll,
+                    'date_range' => !$exportAll ? [
+                        'start' => $request->start_date,
+                        'end' => $request->end_date
+                    ] : null,
+                    'status' => $request->status ?? 'all'
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error exporting reservation data', [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to export reservation data: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get suppliers and brands for supply export filters
+     */
+    public function getSupplyFilters(Request $request)
+    {
+        try {
+            // Get unique suppliers from supply_logs
+            $suppliers = DB::table('supply_logs')
+                ->join('suppliers', 'supply_logs.supplier_id', '=', 'suppliers.id')
+                ->select('suppliers.name')
+                ->distinct()
+                ->whereNotNull('suppliers.name')
+                ->where('suppliers.name', '!=', '')
+                ->orderBy('suppliers.name')
+                ->get();
+
+            // Get unique brands from supply_logs
+            $brands = DB::table('supply_logs')
+                ->select('brand as name')
+                ->distinct()
+                ->whereNotNull('brand')
+                ->where('brand', '!=', '')
+                ->orderBy('brand')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'suppliers' => $suppliers,
+                'brands' => $brands
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error fetching supply filters', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch supply filters: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Export supply data with filters
+     */
+    public function exportSupplyLogs(Request $request)
+    {
+        try {
+            Log::info('Processing supply export request', $request->all());
+
+            $exportAll = $request->boolean('export_all', false);
+
+            // Base query using the same structure as supplyLogs method
+            $query = DB::table('supply_logs')
+                ->leftJoin('suppliers', 'supply_logs.supplier_id', '=', 'suppliers.id')
+                ->select([
+                    'supply_logs.id',
+                    'suppliers.name as supplier_name',
+                    'suppliers.country',
+                    'supply_logs.brand',
+                    'supply_logs.size',
+                    'supply_logs.quantity',
+                    'supply_logs.received_at'
+                ]);
+
+            if (!$exportAll) {
+                // Date range filter (received date)
+                if ($request->filled('start_date') && $request->filled('end_date')) {
+                    $startDate = $request->start_date . ' 00:00:00';
+                    $endDate = $request->end_date . ' 23:59:59';
+                    $query->whereBetween('supply_logs.received_at', [$startDate, $endDate]);
+                }
+
+                // Supplier filter
+                if ($request->filled('suppliers')) {
+                    $supplierNames = explode(',', $request->suppliers);
+                    $query->whereIn('suppliers.name', $supplierNames);
+                }
+
+                // Brand filter
+                if ($request->filled('brands')) {
+                    $brandNames = explode(',', $request->brands);
+                    $query->whereIn('supply_logs.brand', $brandNames);
+                }
+            }
+
+            // Get supply logs
+            $supplyLogs = $query->orderBy('supply_logs.received_at', 'desc')->get();
+
+            // Format data for export
+            $formattedSupplyLogs = $supplyLogs->map(function ($log) {
+                return [
+                    'id' => $log->id,
+                    'supplier_name' => $log->supplier_name ?? 'N/A',
+                    'country' => $log->country ?? 'N/A',
+                    'brand' => $log->brand ?? 'N/A',
+                    'size' => $log->size ?? 'N/A',
+                    'quantity' => $log->quantity ?? 0,
+                    'received_at' => $log->received_at
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'supply_logs' => $formattedSupplyLogs,
+                'total_count' => $formattedSupplyLogs->count(),
+                'filters_applied' => [
+                    'export_all' => $exportAll,
+                    'date_range' => !$exportAll ? [
+                        'start' => $request->start_date,
+                        'end' => $request->end_date
+                    ] : null,
+                    'suppliers' => $request->has('suppliers') ? explode(',', $request->suppliers) : [],
+                    'brands' => $request->has('brands') ? explode(',', $request->brands) : []
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error exporting supply data', [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to export supply data: ' . $e->getMessage()
             ], 500);
         }
     }

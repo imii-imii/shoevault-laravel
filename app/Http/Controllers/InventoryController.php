@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 
 class InventoryController extends Controller
 {
@@ -1095,7 +1096,8 @@ class InventoryController extends Controller
             $request->validate([
                 'status' => 'required|string|in:pending,completed,cancelled,for_cancellation',
                 'amount_paid' => 'nullable|numeric|min:0', // Add validation for amount_paid
-                'change_given' => 'nullable|numeric|min:0' // Add validation for change_given
+                'change_given' => 'nullable|numeric|min:0', // Add validation for change_given
+                'cancellation_reason' => 'nullable|string|max:1000' // Add validation for cancellation reason
             ]);
 
             // Find the reservation
@@ -1129,6 +1131,37 @@ class InventoryController extends Controller
             // Update the reservation status
             $reservation->status = $newStatus;
             $reservation->save();
+
+            // Send cancellation email if reservation is being cancelled
+            if ($oldStatus !== 'cancelled' && $newStatus === 'cancelled') {
+                $cancellationReason = $request->input('cancellation_reason', 'No reason provided');
+                
+                // Only send email if customer email is available
+                if ($reservation->customer_email) {
+                    try {
+                        Mail::to($reservation->customer_email)->send(
+                            new \App\Mail\ReservationCancellationMail($reservation, $cancellationReason)
+                        );
+                        
+                        Log::info('Cancellation email sent successfully', [
+                            'reservation_id' => $id,
+                            'customer_email' => $reservation->customer_email,
+                            'reason' => $cancellationReason
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::error('Failed to send cancellation email', [
+                            'reservation_id' => $id,
+                            'customer_email' => $reservation->customer_email,
+                            'error' => $e->getMessage()
+                        ]);
+                        // Don't fail the entire operation if email fails
+                    }
+                } else {
+                    Log::warning('No customer email available for cancellation notification', [
+                        'reservation_id' => $id
+                    ]);
+                }
+            }
 
             // Clean up new reservation notifications when reservation is completed
             if ($oldStatus !== 'completed' && $newStatus === 'completed') {

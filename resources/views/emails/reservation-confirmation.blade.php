@@ -242,7 +242,7 @@
             </div>
             
             <div class="highlight-box">
-                <p><strong>Important:</strong> Please bring this confirmation receipt when you visit our store. Your reserved items will be held until your scheduled pickup time. Items not collected on the specified date and time will be released for other customers.</p>
+                <p><strong>Important:</strong> Please bring this confirmation receipt when you visit our store. Your reserved items will be held until your scheduled pickup time. Items not collected on the specified date and time will be released for other customers. To cancel your reservation, please contact us.</p>
             </div>
         </div>
         
@@ -252,7 +252,8 @@
             <p class="contact-info">
                 Manghinao Proper Bauan, Batangas 4201<br>
                 Phone: +63 936 382 0087<br>
-                Business Hours: 10:00 AM - 8:00 PM
+                Email: shoevault2020@gmail.com<br>
+                Business Hours: 10:00 AM - 7:00 PM
             </p>
         </div>
     </div>
