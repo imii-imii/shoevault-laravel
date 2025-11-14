@@ -196,14 +196,14 @@
                     data-name="{{ $supplier->name }}"
                     data-contact_person="{{ $supplier->contact_person }}"
                     data-country="{{ $supplier->country ?? 'N/A' }}"
-                    data-email="{{ $supplier->email }}"
+                    data-mobile="{{ $supplier->email }}"
                     data-status="{{ $supplier->status ?? 'active' }}">
                     <div class="card-main">
                         <div class="info">
                             <div class="name">#{{ $supplier->id }} • {{ $supplier->name }}</div>
                             <div class="meta"><span><i class="fas fa-user"></i> {{ $supplier->contact_person }}</span></div>
                             <div class="meta"><span><i class="fas fa-earth-asia"></i> {{ $supplier->country ?? 'N/A' }}</span></div>
-                            <div class="meta"><span><i class="fas fa-envelope"></i> {{ $supplier->email }}</span></div>
+                            <div class="meta"><span><i class="fas fa-mobile-alt"></i> {{ $supplier->email }}</span></div>
                             <div><span class="status-badge {{ $supplier->status ?? 'active' }}">{{ ucfirst($supplier->status ?? 'active') }}</span></div>
                         </div>
                         <div class="actions">
@@ -273,10 +273,10 @@
                 <input type="text" id="supplier-country" placeholder="e.g., Philippines" required>
             </div>
             <div class="form-group">
-                <label for="supplier-email">Email</label>
-                <input type="email" id="supplier-email" required>
+                <label for="supplier-mobile">Mobile Number</label>
+                <input type="tel" id="supplier-mobile" placeholder="e.g., +63 912 345 6789" required>
             </div>
-            <!-- Phone input removed -->
+            <!-- Email input replaced with mobile -->
             <div class="form-actions">
                 <button type="button" class="btn btn-secondary" onclick="closeModal('add-supplier-modal')">Cancel</button>
                 <button type="submit" class="btn btn-primary">Add Supplier</button>
@@ -307,8 +307,8 @@
                 <input type="text" id="edit-supplier-country" placeholder="e.g., Philippines" required>
             </div>
             <div class="form-group">
-                <label for="edit-supplier-email">Email</label>
-                <input type="email" id="edit-supplier-email" required>
+                <label for="edit-supplier-mobile">Mobile Number</label>
+                <input type="tel" id="edit-supplier-mobile" placeholder="e.g., +63 912 345 6789" required>
             </div>
             <div class="form-actions">
                 <button type="button" class="btn btn-secondary" onclick="closeModal('edit-supplier-modal')">Cancel</button>
@@ -533,16 +533,16 @@ const addSupplierForm = (function(){
         const name = document.getElementById('supplier-name')?.value.trim();
         const contact = document.getElementById('supplier-contact')?.value.trim();
         const country = document.getElementById('supplier-country')?.value.trim();
-        const email = document.getElementById('supplier-email')?.value.trim();
-        // phone field removed
+        const mobile = document.getElementById('supplier-mobile')?.value.trim();
+        // email field replaced with mobile
         if (!name) { alert('Supplier name is required'); return; }
-        if (!email) { alert('Email is required'); return; }
+        if (!mobile) { alert('Mobile number is required'); return; }
 
         const payload = {
             name,
             contact_person: contact || null,
             country: country || null,
-            email: email || null,
+            email: mobile || null,
             status: 'active'
         };
 
@@ -571,7 +571,7 @@ const addSupplierForm = (function(){
             card.setAttribute('data-name', s.name || '');
             card.setAttribute('data-contact_person', s.contact_person || '');
             card.setAttribute('data-country', s.country || 'N/A');
-            card.setAttribute('data-email', s.email || '');
+            card.setAttribute('data-mobile', s.email || '');
             card.setAttribute('data-status', s.status || 'active');
             card.innerHTML = `
                 <div class="card-main">
@@ -579,7 +579,7 @@ const addSupplierForm = (function(){
                         <div class="name">#${s.id} • ${s.name || ''}</div>
                         <div class="meta"><span><i class="fas fa-user"></i> ${s.contact_person || ''}</span></div>
                         <div class="meta"><span><i class="fas fa-earth-asia"></i> ${s.country || 'N/A'}</span></div>
-                        <div class="meta"><span><i class="fas fa-envelope"></i> ${s.email || ''}</span></div>
+                        <div class="meta"><span><i class="fas fa-mobile-alt"></i> ${s.email || ''}</span></div>
                         <div><span class="status-badge ${s.status||'active'}">${(s.status||'active').charAt(0).toUpperCase() + (s.status||'active').slice(1)}</span></div>
                     </div>
                     <div class="actions">
@@ -648,11 +648,11 @@ const editSupplierForm = (function(){
         const name = document.getElementById('edit-supplier-name')?.value.trim();
         const contact = document.getElementById('edit-supplier-contact')?.value.trim();
         const country = document.getElementById('edit-supplier-country')?.value.trim();
-        const email = document.getElementById('edit-supplier-email')?.value.trim();
+        const mobile = document.getElementById('edit-supplier-mobile')?.value.trim();
         if (!id) { alert('Missing supplier ID.'); return; }
         if (!name) { alert('Supplier name is required'); return; }
-        if (!email) { alert('Email is required'); return; }
-        const payload = { name, contact_person: contact || null, country: country || null, email: email || null };
+        if (!mobile) { alert('Mobile number is required'); return; }
+        const payload = { name, contact_person: contact || null, country: country || null, email: mobile || null };
         try{
             const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
             const res = await fetch(`${baseSuppliersUrl}/${id}`, {
@@ -667,7 +667,7 @@ const editSupplierForm = (function(){
                 card.dataset.name = s.name || '';
                 card.dataset.contact_person = s.contact_person || '';
                 card.dataset.country = s.country || 'N/A';
-                card.dataset.email = s.email || '';
+                card.dataset.mobile = s.email || '';
                 card.dataset.status = s.status || 'active';
                 const info = card.querySelector('.info');
                 if (info){
@@ -675,7 +675,7 @@ const editSupplierForm = (function(){
                         <div class="name">#${s.id} • ${s.name || ''}</div>
                         <div class="meta"><span><i class="fas fa-user"></i> ${s.contact_person || ''}</span></div>
                         <div class="meta"><span><i class="fas fa-earth-asia"></i> ${s.country || 'N/A'}</span></div>
-                        <div class="meta"><span><i class="fas fa-envelope"></i> ${s.email || ''}</span></div>
+                        <div class="meta"><span><i class="fas fa-mobile-alt"></i> ${s.email || ''}</span></div>
                         <div><span class="status-badge ${s.status||'active'}">${(s.status||'active').charAt(0).toUpperCase() + (s.status||'active').slice(1)}</span></div>
                     `;
                 }
@@ -695,7 +695,7 @@ function editSupplier(supplierId){
     document.getElementById('edit-supplier-name').value = row.dataset.name || '';
     document.getElementById('edit-supplier-contact').value = row.dataset.contact_person || '';
     document.getElementById('edit-supplier-country').value = row.dataset.country || '';
-    document.getElementById('edit-supplier-email').value = row.dataset.email || '';
+    document.getElementById('edit-supplier-mobile').value = row.dataset.mobile || '';
     openEditSupplierModal();
 }
 

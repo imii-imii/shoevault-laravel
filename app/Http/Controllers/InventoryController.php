@@ -93,11 +93,11 @@ class InventoryController extends Controller
     public function storeSupplier(Request $request)
     {
         try {
-            // Only accept the four allowed fields
+            // Only accept the four allowed fields (email field now stores mobile number)
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
                 'contact_person' => 'required|string|max:255',
-                'email' => 'required|email|max:255',
+                'email' => 'required|string|max:255', // Now stores mobile number
                 'country' => 'required|string|max:120',
             ]);
 
@@ -134,12 +134,12 @@ class InventoryController extends Controller
     public function updateSupplier(Request $request, Supplier $supplier)
     {
         try {
-            // Only allow updating the four supported fields
+            // Only allow updating the four supported fields (email field now stores mobile number)
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
                 'contact_person' => 'required|string|max:255',
                 'country' => 'required|string|max:120',
-                'email' => 'required|email|max:255',
+                'email' => 'required|string|max:255', // Now stores mobile number
             ]);
 
             $supplier->update([
