@@ -313,8 +313,8 @@
               <div class="field" style="flex-direction:row;align-items:center;gap:10px">
                 <input type="checkbox" id="su-terms" style="width:18px;height:18px" required />
                 <label for="su-terms" class="label" style="margin:0;color:#0f172a">
-                  I agree to the
-                  <a href="#" id="open-terms" class="terms-link" style="color:var(--accent);text-decoration:underline;font-weight:700">Terms & Conditions</a>
+                  By checking this box, I confirm that I am signing up to reserve an item from Shoe Vault Batangas and I agree to the following 
+                  <a href="#" id="open-terms" class="terms-link" style="color:var(--accent);text-decoration:underline;font-weight:700">Terms & Agreement</a>
                 </label>
               </div>
               <div class="actions" style="justify-content:flex-end">
@@ -362,15 +362,42 @@
     <div class="t-backdrop"></div>
     <div class="t-window">
       <div class="t-header">
-        <h3 class="t-title">Sample Terms & Conditions</h3>
+        <h3 class="t-title">Reservation & Personal Information Terms — Shoe Vault Batangas</h3>
         <button class="t-close" aria-label="Close Terms">&times;</button>
       </div>
       <div class="t-content">
-        <p>Welcome to ShoeVault. These sample Terms & Conditions are for demonstration only:</p>
         <ul>
-          <li>Use a valid email address and keep your password secure.</li>
-          <li>Reservations may be subject to stock availability and confirmation.</li>
-          <li>Your information will be processed according to our privacy practices.</li>
+          <li><b>Accuracy of Information</b><br>
+            I certify that all personal and contact information I provide during sign-up and reservation is true, complete, and accurate. Any incorrect or falsified information may result in cancellation of my reservation.
+          </li>
+          <li><b>Reservation Commitment</b><br>
+            I understand that by signing up, I am requesting to reserve an item, which will be set aside exclusively for me within the specified claiming period.
+          </li>
+          <li><b>Pending Reservations</b><br>
+            I acknowledge that if I already have a pending or unclaimed reservation, I cannot place another reservation for the same item. Any attempt to do so may result in automatic cancellation of the new or existing reservation.
+          </li>
+          <li><b>Claiming Period</b><br>
+            I agree to claim my reserved item within the deadline set by Shoe Vault Batangas. Failure to claim the item on time may result in automatic cancellation, and the item may be released to other customers.
+          </li>
+          <li><b>Pickup Verification</b><br>
+            I agree to present valid proof of reservation (order confirmation, reference number, or receipt) and a valid ID when claiming my item.
+          </li>
+          <li><b>Authorized Claimer</b><br>
+            If someone else claims the item on my behalf, I will provide a signed authorization letter along with valid IDs of both myself and the authorized person. Failure to do so may result in refusal of item release.
+          </li>
+          <li><b>Item Availability & Modification</b><br>
+            I acknowledge that reservations are subject to confirmation. Shoe Vault Batangas reserves the right to modify or cancel reservations in cases of stock issues, operational challenges, or discrepancies.
+          </li>
+          <li><b>Use of Personal Information</b><br>
+            Shoe Vault Batangas promises to use the personal information I provide only for the purpose of confirming and verifying reservations. My data will not be sold, shared, or leaked to any third party. It will be stored securely in compliance with applicable data privacy laws.
+          </li>
+          <li><b>Liability Limitation</b><br>
+            I understand that Shoe Vault Batangas is not liable for delays or inability to claim items due to personal circumstances, transportation issues, or events beyond the store’s control.
+          </li>
+          <li><b>Binding Agreement</b><br>
+            By checking this box, I acknowledge that this serves as a legally binding agreement with Shoe Vault Batangas, equivalent to a signed document.
+          </li>
+          
         </ul>
         <p>By creating an account, you confirm that you have read and agreed to these terms.</p>
       </div>
