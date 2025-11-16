@@ -571,26 +571,25 @@ class SimpleForecastService
     {
         // Get brand data from historical transactions
         $brandData = $this->getHistoricalBrandData($historicalDays);
-        
         $usingRealData = !empty($brandData);
-        
-        if (empty($brandData)) {
-            Log::warning("Demand prediction using FALLBACK data - no real brand data found", [
+
+        if (!$usingRealData) {
+            Log::warning("Demand prediction unavailable - no historical brand data", [
                 'historical_days' => $historicalDays,
-                'fallback_brands' => ['Demand Mode', 'Works Fine']
             ]);
-            // Simple fallback for demand predictions only
-            $brandData = [
-                'Demand Mode' => 100,
-                'Works Fine' => 80
+
+            return [
+                'success' => false,
+                'error' => 'Demand forecast unavailable: insufficient historical data',
+                'method' => 'statistical',
             ];
-        } else {
-            Log::info("Demand prediction using REAL brand data", [
-                'historical_days' => $historicalDays,
-                'brands_found' => array_keys($brandData),
-                'total_quantities' => array_sum($brandData)
-            ]);
         }
+
+        Log::info("Demand prediction using REAL brand data", [
+            'historical_days' => $historicalDays,
+            'brands_found' => array_keys($brandData),
+            'total_quantities' => array_sum($brandData)
+        ]);
         
         // Apply growth factor to brand quantities
         $growthFactor = 1 + ($metrics['growth_rate'] * 30); // Project 30 days ahead
@@ -609,16 +608,20 @@ class SimpleForecastService
         }
         
         return [
-            'labels' => [], // Not used for demand mode
-            'datasets' => [
-                'brands' => $brands,
-                'quantities' => $quantities
+            'success' => true,
+            'data' => [
+                'labels' => [], // Not used for demand mode
+                'datasets' => [
+                    'brands' => $brands,
+                    'quantities' => $quantities
+                ],
             ],
             'meta' => [
-                'using_real_data' => $usingRealData,
-                'data_source' => $usingRealData ? 'historical_transactions' : 'fallback_mock_data',
+                'using_real_data' => true,
+                'data_source' => 'historical_transactions',
                 'historical_days' => $historicalDays
-            ]
+            ],
+            'method' => 'statistical',
         ];
     }
 

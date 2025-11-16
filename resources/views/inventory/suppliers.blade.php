@@ -414,7 +414,7 @@ function closeModal(modalId) {
 
 function deleteSupplier(supplierId) {
     if (confirm('Are you sure you want to delete this supplier?')) {
-        console.log('Delete supplier:', supplierId);
+        console.log('Deleting supplier...');
         // Implement delete supplier functionality
     }
 }

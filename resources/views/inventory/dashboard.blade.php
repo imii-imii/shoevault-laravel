@@ -753,9 +753,9 @@ function loadInventoryData() {
     fetch(url.toString())
         .then(response => response.json())
         .then(data => {
-            console.log('API Response:', data); // Debug log
+            console.log('Inventory data loaded successfully');
             inventoryData = data.products;
-            console.log('Inventory Data:', inventoryData); // Debug log
+            console.log('Loaded', inventoryData.length, 'product(s)');
             updateKPIs(data.stats);
             renderInventoryTable();
         })
@@ -2123,25 +2123,25 @@ function removeEditImage(event) {
 
 // Product Details Modal Functions
 function openProductDetailsModal(productId) {
-    console.log('🔍 Opening product details modal for product ID:', productId);
+    console.log('Opening product details modal...');
     
     // Get current inventory type
     const inventoryType = document.getElementById('inventory-type-switcher').value || 'pos';
     
     const url = `{{ url('inventory/products') }}/${productId}?type=${inventoryType}`;
-    console.log('🌐 Fetching product data from:', url);
+    console.log('Fetching product data...');
     
     // Fetch product data from server
     fetch(url)
         .then(response => {
-            console.log('📡 Response status:', response.status);
+            console.log('Product fetch response status:', response.status);
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             return response.json();
         })
         .then(data => {
-            console.log('📊 Received product data:', data);
+            console.log('Product data received:', data.success ? 'Success' : 'Failed');
             if (data.success) {
                 const product = data.product;
                 
@@ -2318,13 +2318,11 @@ document.getElementById('add-product-form').addEventListener('submit', function(
         formData.append(`sizes[${index}][price_adjustment]`, 0);
     });
     
-    // Debug: Check form data
-    console.log('Form data being sent:');
+    // Validate form data
+    console.log('Validating product form data...');
     for (let pair of formData.entries()) {
         if (pair[1] instanceof File) {
-            console.log(pair[0] + ': File - ' + pair[1].name + ' (Size: ' + pair[1].size + ')');
-        } else {
-            console.log(pair[0] + ': ' + pair[1]);
+            console.log('Image file attached:', pair[1].name);
         }
     }
     
@@ -2336,7 +2334,7 @@ document.getElementById('add-product-form').addEventListener('submit', function(
         }
     })
     .then(response => {
-        console.log('Response status:', response.status);
+        console.log('Product creation response status:', response.status);
         return response.text().then(text => {
             try {
                 return JSON.parse(text);
@@ -2347,7 +2345,7 @@ document.getElementById('add-product-form').addEventListener('submit', function(
         });
     })
     .then(data => {
-        console.log('Parsed data:', data);
+        console.log('Product creation:', data.success ? 'Success' : 'Failed');
         if (data.success) {
             // Close modal and show success message
             closeAddProductModal();
@@ -2437,13 +2435,11 @@ document.getElementById('edit-product-form').addEventListener('submit', function
         formData.append(`sizes[${index}][price_adjustment]`, 0);
     });
     
-    // Debug: Check form data
-    console.log('Edit form data being sent:');
+    // Validate edit form data
+    console.log('Validating product edit data...');
     for (let pair of formData.entries()) {
         if (pair[1] instanceof File) {
-            console.log(pair[0] + ': File - ' + pair[1].name + ' (Size: ' + pair[1].size + ')');
-        } else {
-            console.log(pair[0] + ': ' + pair[1]);
+            console.log('New image file attached:', pair[1].name);
         }
     }
     
@@ -2455,7 +2451,7 @@ document.getElementById('edit-product-form').addEventListener('submit', function
         }
     })
     .then(response => {
-        console.log('Edit response status:', response.status);
+        console.log('Product edit response status:', response.status);
         return response.text().then(text => {
             try {
                 return JSON.parse(text);
@@ -2466,7 +2462,7 @@ document.getElementById('edit-product-form').addEventListener('submit', function
         });
     })
     .then(data => {
-        console.log('Edit parsed data:', data);
+        console.log('Product edit:', data.success ? 'Success' : 'Failed');
         if (data.success) {
             // Update the product card and table immediately
             updateProductInView(data.product);
@@ -2610,7 +2606,7 @@ window.addEventListener('click', function(e) {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing navigation...');
+    console.log('Initializing inventory dashboard...');
     
     updateDateTime();
     setInterval(updateDateTime, 1000);
@@ -2619,14 +2615,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load inventory data
     loadInventoryData();
     
-    console.log('Navigation initialization complete');
+    console.log('Dashboard initialization complete');
     
     // Set up inventory type switcher
     const inventoryTypeSwitcher = document.getElementById('inventory-type-switcher');
     if (inventoryTypeSwitcher) {
         inventoryTypeSwitcher.addEventListener('change', function(e) {
             const selectedType = this.value;
-            console.log('Switching to inventory type:', selectedType);
+            console.log('Switching inventory type...');
             
             // Redirect to dashboard with type parameter
             const currentUrl = new URL(window.location);

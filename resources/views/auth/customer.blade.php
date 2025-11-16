@@ -864,7 +864,7 @@
           return;
         }
 
-        console.log('Sending verification request:', { email, code }); // Debug log
+        console.log('Sending verification request...'); // Email and code not logged for security
 
         const submitBtn = e.target.querySelector('button[type="submit"]');
         const originalText = submitBtn.textContent;
@@ -881,10 +881,10 @@
             body: JSON.stringify({ email, code }),
           });
 
-          console.log('Response status:', response.status); // Debug
+          console.log('Verification response received with status:', response.status);
           
           const data = await response.json();
-          console.log('Response data:', data); // Debug
+          console.log('Verification response:', data.success ? 'Success' : 'Failed');
 
           if (response.ok && data.success) {
             showMessage('Email verified successfully! You can now login with your email and password.');
@@ -897,10 +897,7 @@
             
             // If it's a validation error, show field errors
             if (data.errors) {
-              console.log('Validation errors:', data.errors);
-              Object.keys(data.errors).forEach(field => {
-                console.log(`${field}:`, data.errors[field]);
-              });
+              console.log('Validation errors found for', Object.keys(data.errors).length, 'field(s)');
             }
           }
         } catch (error) {

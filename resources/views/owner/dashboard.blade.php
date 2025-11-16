@@ -568,7 +568,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Ensure we always use the current local date for initialization
     const today = new Date();
     const currentDateString = formatDate(today);
-    console.log('Dashboard initializing on date:', currentDateString, 'Local time:', today.toString());
+    console.log('Dashboard initializing...');
     
     // Set the date picker to today's date
     const dateInput = document.getElementById('dbf-date');
@@ -1072,13 +1072,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            // Debug logging
-            console.log('shiftAnchor Debug:', {
-                direction: dir > 0 ? 'next' : 'prev',
-                oldDate: oldDate.getFullYear() + '-' + String(oldDate.getMonth() + 1).padStart(2, '0') + '-' + String(oldDate.getDate()).padStart(2, '0'),
-                newDate: newDate.getFullYear() + '-' + String(newDate.getMonth() + 1).padStart(2, '0') + '-' + String(newDate.getDate()).padStart(2, '0'),
-                range: range
-            });
+            // Anchor date shifted
+            console.log('Anchor date shifted:', dir > 0 ? 'next' : 'previous');
             
             // Update anchorDate with the new date
             anchorDate = newDate;
@@ -1108,7 +1103,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (predictiveToggle && predictiveToggle.classList.contains('active')) {
                     predictiveToggle.classList.remove('active');
                     predictiveToggle.setAttribute('aria-pressed', 'false');
-                    console.log('Predictive Mode switched OFF: Entering day view');
+                    console.log('Predictive mode disabled for day view');
                     // Update forecast to historical mode
                     updateForecastTitle();
                     const typeSelect = document.getElementById('odash-forecast-type');
@@ -1467,15 +1462,7 @@ async function fetchForecast(range, mode, anchor, abortSignal = null) {
                 
                 // Log demand forecast data source information
                 if (json.meta) {
-                    console.group(`🔮 DEMAND FORECAST - Data Source Info`);
-                    console.log(`📊 Using Real Data: ${json.meta.using_real_data ? '✅ YES' : '❌ NO (Fallback)'}`);
-                    console.log(`🏷️  Data Source: ${json.meta.data_source || 'unknown'}`);
-                    if (json.meta.brands_found) {
-                        console.log(`🏪 Brands Found: ${json.meta.brands_found.join(', ')}`);
-                        console.log(`📦 Total Quantities: ${json.meta.total_quantities || 'N/A'}`);
-                    }
-                    console.log(`📅 Historical Days: ${json.meta.historical_days || 'N/A'}`);
-                    console.groupEnd();
+                    console.log('Demand forecast data:', json.meta.using_real_data ? 'Using real data' : 'Using fallback data');
                 } else {
                     console.warn('⚠️  DEMAND FORECAST: No metadata available to determine data source');
                 }
@@ -1524,16 +1511,9 @@ async function fetchForecast(range, mode, anchor, abortSignal = null) {
                 
                 // Log Reservation data info
                 if (reservationData.meta) {
-                    console.log(`📊 Reservation Data - Using Real Data: ${reservationData.meta.using_real_data ? '✅ YES' : '❌ NO (Fallback)'}`);
-                    console.log(`🏪 Reservation Data - Historical Records: ${reservationData.meta.historical_records || 'N/A'}`);
-                    console.log(`📈 Reservation Data - Daily Average: $${reservationData.meta.base_daily_avg || 'N/A'}`);
-                } else {
-                    console.warn('⚠️  RESERVATION FORECAST: No metadata available');
+                    console.log('Reservation forecast:', reservationData.meta.using_real_data ? 'Real data' : 'Fallback data');
                 }
-                
-                console.log(`📅 Forecast Range: ${range}`);
-                console.log(`🎯 Forecast Mode: ${mode}`);
-                console.groupEnd();
+                console.log('Combined forecast chart updated');
                 
                 // Combine the data for chart display
                 return {
@@ -1573,15 +1553,7 @@ async function fetchForecast(range, mode, anchor, abortSignal = null) {
         
         // Log historical forecast data source information
         if (json.meta) {
-            console.group(`📊 HISTORICAL FORECAST - Data Source Info`);
-            console.log(`📈 Using Real Data: ${json.meta.using_real_data ? '✅ YES' : '❌ NO (Fallback)'}`);
-            console.log(`🏪 Historical Records: ${json.meta.historical_records || 'N/A'}`);
-            console.log(`💰 Daily Average: $${json.meta.base_daily_avg || 'N/A'}`);
-            console.log(`📈 Growth Rate: ${((json.meta.growth_rate || 0) * 100).toFixed(2)}% per period`);
-            console.log(`🎯 Sale Type: ${json.meta.sale_type || 'all'}`);
-            console.log(`📅 Range: ${range}`);
-            console.log(`🔧 Method: ${json.method || 'unknown'}`);
-            console.groupEnd();
+            console.log('Historical forecast data:', json.meta.using_real_data ? 'Using real data' : 'Using fallback data');
         } else {
             console.warn('⚠️  HISTORICAL FORECAST: No metadata available to determine data source');
         }
@@ -2031,8 +2003,7 @@ async function performForecastUpdate(range, mode) {
     const posPeaks = posPeakIndex >= 0 ? [posPeakIndex] : [];
     const resvPeaks = resvPeakIndex >= 0 ? [resvPeakIndex] : [];
     
-    console.log('POS Peak:', posPeakIndex >= 0 ? `${posValues[posPeakIndex]} at index ${posPeakIndex}` : 'No peak found');
-    console.log('Reservation Peak:', resvPeakIndex >= 0 ? `${resvValues[resvPeakIndex]} at index ${resvPeakIndex}` : 'No peak found');
+    console.log('Chart peaks calculated');
     const posPointRadius = posValues.map((_, i) => posPeaks.includes(i) ? 6 : 3);
     const posPointBackground = posValues.map((_, i) => posPeaks.includes(i) ? '#ef4444' : '#3b82f6');
     const resvPointRadius = resvValues.map((_, i) => resvPeaks.includes(i) ? 6 : 3);
@@ -2332,16 +2303,8 @@ function performDashboardRefresh() {
     // Show loading state
     showDashboardLoading();
     
-    // Debug: Log the date range being requested
-    console.log('Requesting dashboard data:', {
-        start_date: formatDate(startDate),
-        end_date: formatDate(endDate),
-        range: range
-    });
-    console.log('Raw dates before formatting:', {
-        startDate: startDate,
-        endDate: endDate
-    });
+    // Log that dashboard data is being requested
+    console.log('Requesting dashboard data for date range...');
 
     // Create AbortController for request cancellation
     const abortController = new AbortController();
@@ -2370,7 +2333,7 @@ function performDashboardRefresh() {
     .then(data => {
         // Only process the response if this request wasn't cancelled
         if (!abortController.signal.aborted) {
-            console.log('Dashboard API response:', data);
+            console.log('Dashboard API response:', data.success ? 'Success' : 'Failed');
             if (data.success) {
                 updateDashboardWithData(data.data);
             } else {
@@ -2531,7 +2494,7 @@ function performKPIRefresh() {
     .then(data => {
         // Only process the response if this request wasn't cancelled
         if (!abortController.signal.aborted) {
-            console.log('KPI-only API response:', data);
+            console.log('KPI-only API response:', data.success ? 'Success' : 'Failed');
             if (data.success) {
                 // Update only KPIs and reservation gauge, skip forecast chart
                 updateKPIsOnly(data.data);
@@ -2568,11 +2531,11 @@ function performKPIRefresh() {
 
 // Update only KPIs and reservation gauge (not forecast chart)
 function updateKPIsOnly(data) {
-    console.log('updateKPIsOnly received:', data);
+    console.log('Updating KPIs only...');
     
     // Update KPI values
     if (data.kpis) {
-        console.log('KPI data found:', data.kpis);
+        console.log('KPI data found and processing');
         const kpiRevenue = document.getElementById('odash-kpi-revenue');
         const kpiSold = document.getElementById('odash-kpi-sold');
         const kpiCompleted = document.getElementById('odash-kpi-resv-completed');
@@ -2583,12 +2546,7 @@ function updateKPIsOnly(data) {
         if (kpiCompleted) kpiCompleted.textContent = data.kpis.completed_reservations || 0;
         if (kpiCancelled) kpiCancelled.textContent = data.kpis.cancelled_reservations || 0;
         
-        console.log('KPIs updated:', {
-            revenue: data.kpis.revenue,
-            products_sold: data.kpis.products_sold,
-            completed_reservations: data.kpis.completed_reservations,
-            cancelled_reservations: data.kpis.cancelled_reservations
-        });
+        console.log('KPIs updated successfully');
     } else {
         console.log('No KPI data found in response');
     }
@@ -2604,12 +2562,7 @@ function updateKPIsOnly(data) {
             const pct = (n, d) => (d > 0 ? Math.round((n / d) * 100) : 0);
             
             // Update reservation gauge
-            console.log('Updating reservation gauge (KPI-only):', {
-                completed, cancelled, pending, total,
-                completedPct: pct(completed, total) + '%',
-                cancelledPct: pct(cancelled, total) + '%',
-                pendingPct: pct(pending, total) + '%'
-            });
+            console.log('Updating reservation gauge...');
             
             // Update the percentage text elements
             document.getElementById('odash-resv-total').textContent = total;
@@ -2733,11 +2686,11 @@ function hideForecastDebounceIndicator() {
 
 // Update dashboard with new data
 function updateDashboardWithData(data) {
-    console.log('updateDashboardWithData received:', data);
+    console.log('Updating dashboard with data...');
     
     // Update KPI values
     if (data.kpis) {
-        console.log('KPI data found:', data.kpis);
+        console.log('KPI data found and processing');
         const kpiRevenue = document.getElementById('odash-kpi-revenue');
         const kpiSold = document.getElementById('odash-kpi-sold');
         const kpiCompleted = document.getElementById('odash-kpi-resv-completed');
@@ -2748,12 +2701,7 @@ function updateDashboardWithData(data) {
         if (kpiCompleted) kpiCompleted.textContent = data.kpis.completed_reservations || 0;
         if (kpiCancelled) kpiCancelled.textContent = data.kpis.cancelled_reservations || 0;
         
-        console.log('KPIs updated:', {
-            revenue: data.kpis.revenue,
-            products_sold: data.kpis.products_sold,
-            completed_reservations: data.kpis.completed_reservations,
-            cancelled_reservations: data.kpis.cancelled_reservations
-        });
+        console.log('KPIs updated successfully');
     } else {
         console.log('No KPI data found in response');
     }
@@ -2773,13 +2721,8 @@ function updateDashboardWithData(data) {
             const total = Math.max(0, completed + cancelled + pending);
             const pct = (n, d) => (d > 0 ? Math.round((n / d) * 100) : 0);
             
-            // Debug: Log reservation data being applied
-            console.log('Updating reservation gauge:', {
-                completed, cancelled, pending, total,
-                completedPct: pct(completed, total) + '%',
-                cancelledPct: pct(cancelled, total) + '%',
-                pendingPct: pct(pending, total) + '%'
-            });
+            // Update reservation gauge
+            console.log('Updating reservation gauge...');
             
             // Update the text elements
             const totalElement = document.getElementById('odash-resv-total');
@@ -2810,7 +2753,7 @@ function updatePopularProducts(productsData) {
     const container = document.getElementById('odash-popular-products');
     if (!container || !Array.isArray(productsData)) return;
     
-    console.log('Updating popular products:', productsData);
+    console.log('Updating popular products...');
     
     let html = '';
     productsData.slice(0, 12).forEach((product, index) => {
@@ -3075,14 +3018,14 @@ function initOwnerForecastCharts() {
             
             // Prevent predictive mode on day view
             if (range === 'day' && enabled) {
-                console.log('Predictive Mode disabled: Day view does not support predictions');
+                console.log('Predictive mode not available in day view');
                 return;
             }
             
             predictiveToggle.classList.toggle('active', enabled);
             predictiveToggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
             
-            console.log('Predictive Mode:', enabled ? 'ON' : 'OFF');
+            console.log('Predictive mode:', enabled ? 'enabled' : 'disabled');
             // Update the forecast title and chart data
             updateForecastTitle();
             
@@ -3487,9 +3430,7 @@ function initPopularProducts() {
     async function fetchPopularFromApi(params) {
         try {
             const { range, month, year, category, start, end } = params || {};
-            console.log('🔍 Fetching Popular Products from API:', {
-                range, month, year, category, start, end
-            });
+            console.log('Fetching popular products from API...');
             
             const base = window.laravelData?.routes?.popularProducts;
             if (!base) {
@@ -3528,7 +3469,7 @@ function initPopularProducts() {
                 sales: Number(i.sold ?? i.sales ?? 0) 
             })).sort((a,b)=> b.sales - a.sales);
             
-            console.log('✅ Popular Products Processed Items:', processedItems);
+            console.log('Popular products processed:', processedItems.length, 'item(s)');
             
             return processedItems;
         } catch (e) {
@@ -3538,9 +3479,7 @@ function initPopularProducts() {
     }
 
     async function getPopularList(range, month, year, category, start, end) {
-        console.log('📊 Getting Popular Products List:', {
-            range, month, year, category, start, end
-        });
+        console.log('Getting popular products list...');
         
         // Only use API data for the specific filtered date range - no fallback to all-time data
         const apiList = await fetchPopularFromApi({ range, month, year, category, start, end });
@@ -3568,11 +3507,7 @@ function initPopularProducts() {
             // If backend didn't filter category, apply client-side filter when requested
             if (category && category !== 'all') {
                 const filtered = transformedList.filter(i => (i.category||'').toLowerCase() === category);
-                console.log('🔧 Client-side category filter applied:', {
-                    originalCount: transformedList.length,
-                    filteredCount: filtered.length,
-                    category: category
-                });
+                console.log('Category filter applied:', filtered.length, 'item(s) match');
                 return filtered;
             }
             return transformedList;
@@ -3585,7 +3520,7 @@ function initPopularProducts() {
     }
 
     async function render(range, category) {
-        console.log('🎨 Rendering Popular Products:', { range, category, currentRange });
+        console.log('Rendering popular products...');
         
         // We'll extract month/year from the anchor date after we determine it
         let month, year;

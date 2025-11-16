@@ -1521,10 +1521,8 @@
                     })
                 })
                 .then(response => {
-                    console.log('Response status:', response.status);
-                    console.log('Response headers:', response.headers);
+                    console.log('Complete reservation response received');
                     return response.text().then(text => {
-                        console.log('Raw response:', text);
                         try {
                             return JSON.parse(text);
                         } catch (e) {
@@ -1533,8 +1531,8 @@
                         }
                     });
                 })
-                .then(data => {
-                    console.log('Parsed response data:', data);
+                .then(data => {                    
+                    console.log('Response parsed:', data.success ? 'Success' : 'Failed');
                     if (data.success) {
                         // Find the status badge in the same row
                         const row = button.closest('tr');

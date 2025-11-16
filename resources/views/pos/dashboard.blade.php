@@ -1590,8 +1590,7 @@ async function loadProducts(category = 'all') {
         
         if (data.success) {
             allProducts = data.products;
-            console.log('Loaded products:', allProducts);
-            console.log('First product ID type:', typeof allProducts[0]?.id, allProducts[0]?.id);
+            console.log('Loaded', allProducts.length, 'product(s)');
             const filteredProducts = data.products;
             
             if (filteredProducts.length === 0) {
@@ -1611,7 +1610,7 @@ async function loadProducts(category = 'all') {
                 const imageUrl = product.image_url || product.image || '';
                 const sizeButtons = (product.sizes || []).map(sz => {
                     const disabled = !sz.is_available || sz.stock <= 0;
-                    console.log(`Creating size button for product ${product.id}, size ${sz.size}, disabled: ${disabled}`);
+                    console.log('Creating size button...');
                     // Use data attributes instead of onclick for safer event handling
                     return `<button class="size-btn" ${disabled ? 'disabled' : ''} data-product-id="${product.id}" data-size="${sz.size}">${sz.size}</button>`;
                 }).join('');
@@ -1691,7 +1690,7 @@ async function loadProducts(category = 'all') {
                     e.preventDefault();
                     const productId = this.getAttribute('data-product-id');
                     const size = this.getAttribute('data-size');
-                    console.log('Size button clicked:', { productId, size });
+                    console.log('Size button clicked');
                     addToCartWithSize(productId, size);
                 });
             });
@@ -1726,8 +1725,7 @@ document.querySelectorAll('.category-tab').forEach(tab => {
 // Add to cart function
 // Add to cart with selected size
 function addToCartWithSize(productId, size) {
-    console.log('🛒 addToCartWithSize called with:', { productId, size, productIdType: typeof productId });
-    console.log('📦 allProducts length:', allProducts.length);
+    console.log('Adding product with size to cart...');
     
     if (!productId) {
         console.error('No product ID provided');
@@ -1737,9 +1735,7 @@ function addToCartWithSize(productId, size) {
     
     // Convert both to strings for reliable comparison
     const product = allProducts.find(p => String(p.id) === String(productId));
-    console.log('Found product:', product);
-    console.log('Searching for ID:', String(productId), 'in products with IDs:', allProducts.map(p => String(p.id)));
-    console.log('Available products:', allProducts.map(p => ({ id: p.id, name: p.name, idType: typeof p.id })));
+    console.log('Product found:', product ? 'Yes' : 'No');
     
     if (!product) { 
         console.error('Product not found with ID:', productId);
@@ -1749,8 +1745,7 @@ function addToCartWithSize(productId, size) {
     
     // Convert both to strings for reliable comparison  
     const sizeInfo = (product.sizes || []).find(s => String(s.size) === String(size));
-    console.log('Found size info:', sizeInfo);
-    console.log('Searching for size:', String(size), 'in sizes:', product.sizes?.map(s => String(s.size)));
+    console.log('Size info found:', sizeInfo ? 'Yes' : 'No');
     
     if (!sizeInfo) { 
         console.error('Size not found:', size, 'Available sizes:', product.sizes);
@@ -1810,8 +1805,7 @@ function addToCartWithSize(productId, size) {
             quantity: 1
         };
         
-        console.log('Adding item to cart:', item);
-        console.log('Item ID type:', typeof item.id, 'Value:', item.id);
+        console.log('Adding item to cart...');
         cart.push(item);
     }
     updateCartDisplay();
@@ -2141,10 +2135,9 @@ function openReceiptPreview({ summary, paymentAmount }) {
 
 async function processSaleAndPrint(summary, paymentAmount) {
     // First, validate cart items before processing
-    console.log('Raw cart items before processing:', cart);
+    console.log('Processing', cart.length, 'cart item(s)...');
     
     const processedItems = cart.map((item, index) => {
-        console.log(`Processing cart item ${index}:`, item);
         
         // Product IDs are strings like "SV-MEN-ABC123"
         let itemId = item.id;
@@ -2196,15 +2189,7 @@ async function processSaleAndPrint(summary, paymentAmount) {
     };
     
     try {
-        console.log('Processing sale with data:', saleData);
-        console.log('Cart items types after processing:', processedItems.map(item => ({
-            id: typeof item.id,
-            idValue: item.id,
-            quantity: typeof item.quantity,
-            quantityValue: item.quantity,
-            size: typeof item.size,
-            sizeValue: item.size
-        })));
+        console.log('Processing sale with', processedItems.length, 'item(s)...');
         
         const response = await fetch('{{ route("pos.process-sale") }}', {
             method: 'POST',
@@ -2224,8 +2209,7 @@ async function processSaleAndPrint(summary, paymentAmount) {
         }
         
         const result = await response.json();
-        console.log('Sale response:', result);
-        console.log('Response status:', response.status);
+        console.log('Sale response:', result.success ? 'Success' : 'Failed');
         
         if (!result.success) { 
             let errorMessage = 'Error processing sale: ' + result.message;

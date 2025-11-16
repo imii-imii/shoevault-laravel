@@ -380,12 +380,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const sizeOptionsContainer = document.getElementById('modalSizeOptions');
         sizeOptionsContainer.innerHTML = '';
 
-        console.log('Populating sizes:', sizes); // Debug log
+        console.log('Populating size options...');
 
         if (sizes && sizes.length > 0) {
             sizes.forEach(sizeData => {
-                console.log('Creating size option for:', sizeData); // Debug log
-                
                 const label = document.createElement('label');
                 label.className = 'size-option-label';
                 
@@ -450,11 +448,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const selectedSizeId = selectedSize.dataset.sizeId;
         const selectedSizeData = productData.sizes.find(s => String(s.id) === String(selectedSizeId));
         
-        console.log('Product data:', productData); // Debug log
-        console.log('Selected size:', selectedSize); // Debug log
-        console.log('Selected size ID:', selectedSizeId); // Debug log
-        console.log('Selected size data:', selectedSizeData); // Debug log
-        console.log('All sizes:', productData.sizes); // Debug log
+        console.log('Processing product selection...');
         
         if (!selectedSizeData) {
             alert('Selected size data not found. Please try again.');
@@ -473,7 +467,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const sizeAdjustment = parseFloat(selectedSizeData.price_adjustment) || 0;
         const finalPrice = basePrice + sizeAdjustment;
         
-        console.log('Price calculation:', { basePrice, sizeAdjustment, finalPrice }); // Debug log
+        console.log('Product added to cart');
         
         addToCart({
             id: productData.id,
@@ -554,7 +548,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function addToCart(data) {
-        console.log('Adding to cart:', data); // Debug log
+        console.log('Adding item to cart...');
         
         // Check if user is authenticated before allowing add to cart
         const isAuthenticated = await checkAuthStatus();
@@ -605,8 +599,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        console.log('Cart after adding:', cart); // Debug log
-        console.log('Saving to localStorage with key:', 'sv_cart'); // Debug log
+        console.log('Cart updated, saving to storage');
         saveCart();
         renderCart();
 

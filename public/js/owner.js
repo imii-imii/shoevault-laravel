@@ -194,7 +194,7 @@ document.addEventListener('DOMContentLoaded', function() {
 async function loadSalesHistory(opts = {}) {
     const { month = '', page = 1, perPage = 25, type = 'all' } = opts; // date removed
     try {
-        console.log(`Loading sales history (month=${month} page=${page} type=${type})`);
+        console.log('Loading sales history...');
         const url = new URL(laravelRoutes.salesHistory, window.location.origin);
         if (month) url.searchParams.set('month', month);
         if (type && type !== 'all') url.searchParams.set('type', type);
@@ -203,26 +203,26 @@ async function loadSalesHistory(opts = {}) {
         const response = await fetch(url.toString());
         const data = await response.json();
         
-        console.log('Sales history response:', data);
+        console.log('Sales history loaded:', data.success ? 'Success' : 'Failed');
         
         if (response.ok) {
             // Cache transactions for client-side filtering on reports page
             window.__salesTransactions = Array.isArray(data.transactions) ? data.transactions : [];
-            console.log('Cached transactions:', window.__salesTransactions.length);
+            console.log('Cached', window.__salesTransactions.length, 'transaction(s)');
             
             updateSalesKPIs(data);
             renderSalesChart(data.salesData, month ? 'filtered' : 'default');
             renderTopSellingProducts(data.topProducts);
             // Prefer transactional rows if provided; fallback to aggregated structure
             if (Array.isArray(data.transactions)) {
-                console.log('Rendering sales table with', data.transactions.length, 'transactions');
+                console.log('Rendering sales table with', data.transactions.length, 'transaction(s)');
                 renderSalesTable(data.transactions);
                 // update page state including selected type
                 __salesPageState.type = type || 'all';
                 __salesPageState.month = month || '';
                 updateSalesPagination(data.pagination);
             } else {
-                console.log('No transactions array found, rendering empty table');
+                console.log('No transactions found, rendering empty table');
                 renderSalesTable([]);
                 __salesPageState.type = type || 'all';
                 __salesPageState.month = month || '';
@@ -874,7 +874,7 @@ function renderSalesTable(transactions) {
     const tbody = document.getElementById('sales-history-tbody');
     if (!tbody) return;
 
-    console.log('Rendering sales table with transactions:', transactions); // Debug log
+    console.log('Rendering sales table with', transactions.length, 'transaction(s)');
 
     const fmt = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 2 });
     const money = (v) => {
@@ -896,7 +896,6 @@ function renderSalesTable(transactions) {
 
     tbody.innerHTML = transactions.map((t) => {
         const products = t.products || 'No items found';
-        console.log(`Transaction ${t.transaction_id} products:`, products); // Debug log
         const cashier = t.cashier_name || '—';
         const stype = (t.sale_type || '').toString().toUpperCase();
         // Extract subtotal from common server field names, fallback to a best-effort computation
@@ -1199,7 +1198,7 @@ function setupSettingsTabs() {
 
 function updateSystemStats(data) {
     // Update system statistics in settings
-    console.log('System stats:', data);
+    console.log('System stats updated');
 }
 
 // --- Event Listeners for Filters ---
@@ -1229,7 +1228,7 @@ function setupSearchFilters() {
     searchInputs.forEach(input => {
         input.addEventListener('input', function() {
             // Implement search functionality
-            console.log('Searching for:', this.value);
+            console.log('Searching...');
         });
     });
 }
@@ -1270,7 +1269,7 @@ function formatDateLabel(dateString, period) {
 
 // Initialize dashboard
 function initializeDashboard() {
-    console.log('Owner dashboard initialized with Laravel data:', window.laravelData);
+    console.log('Owner dashboard initialized');
 }
 
 // Export functions for global access

@@ -669,9 +669,8 @@ document.addEventListener('DOMContentLoaded', function() {
 	const customerIndexUrl = @json($customerIndexRoute ?? '');
 	const customerToggleUrl = @json($customerToggleRoute ?? '');
 
-	// Debug: Log the URLs to console for troubleshooting
-	console.log('User Management URLs:', { apiUrl, toggleUrl, indexUrl });
-	console.log('Customer Management URLs:', { customerIndexUrl, customerToggleUrl });
+	// URLs configured for user and customer management
+	console.log('User and customer management URLs loaded');
 
 	// Global variables to ensure they're accessible everywhere
 	window.customerIndexUrl = customerIndexUrl;
@@ -1149,11 +1148,11 @@ document.addEventListener('DOMContentLoaded', function() {
 		const maxSize = 2048 * 1024; // 2MB
 		
 		if (file.size <= maxSize) {
-			console.log('File is within size limit, no compression needed');
+			console.log('File size OK, no compression needed');
 			return file;
 		}
 		
-		console.log('File is too large, compressing...');
+		console.log('Compressing file...');
 		
 		return new Promise((resolve) => {
 			const canvas = document.createElement('canvas');
@@ -1189,7 +1188,7 @@ document.addEventListener('DOMContentLoaded', function() {
 				
 				const tryCompress = (q) => {
 					canvas.toBlob((blob) => {
-						console.log(`Compressed with quality ${q}: ${blob.size} bytes`);
+						console.log(`Compression quality: ${q}`);
 						
 						if (blob.size <= maxSize || q <= 0.1) {
 							// Create a new File object
@@ -1197,7 +1196,7 @@ document.addEventListener('DOMContentLoaded', function() {
 								type: 'image/jpeg',
 								lastModified: Date.now()
 							});
-							console.log('Final compressed file size:', compressedFile.size);
+							console.log('File compression completed');
 							resolve(compressedFile);
 						} else {
 							// Try with lower quality
@@ -1309,21 +1308,12 @@ document.addEventListener('DOMContentLoaded', function() {
 				formData.append('email', emailInput.value);
 				formData.append('phone', phoneInput.value || '');
 				
-				console.log('Form data before file check:', {
-					name: nameInput.value,
-					username: usernameInput.value,
-					email: emailInput.value,
-					phone: phoneInput.value || ''
-				});
+				console.log('Preparing profile update form data');
 				
 				// Add profile picture if selected
 				if (avatarInput?.files[0]) {
 					const file = avatarInput.files[0];
-					console.log('Selected file:', {
-						name: file.name,
-						size: file.size,
-						type: file.type
-					});
+					console.log('Profile picture selected for upload');
 					
 					const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'];
 					if (!allowedTypes.includes(file.type)) {
@@ -1334,12 +1324,10 @@ document.addEventListener('DOMContentLoaded', function() {
 					// Compress image if needed
 					const processedFile = await compressImageIfNeeded(file);
 					formData.append('profile_picture', processedFile);
-					console.log('Profile picture added to form data (compressed if needed)');
-				} else {
-					console.log('No file selected for upload');
+					console.log('Profile picture added to form data');
 				}
 				
-				console.log('About to send request to server...');
+				console.log('Sending profile update request...');
 				
 				const response = await fetch('{{ route('owner.profile.update') }}', {
 					method: 'POST',
@@ -1349,11 +1337,10 @@ document.addEventListener('DOMContentLoaded', function() {
 					body: formData
 				});
 				
-				console.log('Response status:', response.status);
-				console.log('Response headers:', [...response.headers.entries()]);
+				console.log('Profile update response received with status:', response.status);
 				
 				const result = await response.json();
-				console.log('Server response:', result);
+				console.log('Profile update:', result.success ? 'Success' : 'Failed');
 				
 				if (result.success) {
 					alert('Profile updated successfully!');
@@ -1426,7 +1413,7 @@ document.addEventListener('DOMContentLoaded', function() {
 				});
 				
 				const result = await response.json();
-				console.log('Password update response:', result);
+				console.log('Password update:', result.success ? 'Success' : 'Failed');
 				
 				if (result.success) {
 					alert('Password updated successfully!');
@@ -1922,7 +1909,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Initialize notifications for settings page
 function initNotifications() {
     if (window.notificationManager) {
-        console.log('notificationManager found, initializing...');
+        console.log('Initializing notification manager...');
         try {
             window.notificationManager.init('{{ auth()->user()->role ?? "owner" }}');
             return true;
@@ -1957,7 +1944,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function tryInit() {
         attempts++;
         if (initNotifications()) {
-            console.log('Notifications initialized successfully');
+            console.log('Notifications initialized');
             return;
         }
         

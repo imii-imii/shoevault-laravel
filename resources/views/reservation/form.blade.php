@@ -293,7 +293,7 @@
 
     function renderItems(){
       const cart = loadCart();
-      console.log('Rendering items, cart:', cart); // Debug log
+      console.log('Rendering cart with', cart.length, 'item(s)');
       itemsEl.innerHTML = '';
       if(!cart.length){
         itemsEl.innerHTML = '<div class="empty-note">No items reserved yet. Return to the catalog to add products.</div>';
@@ -308,7 +308,7 @@
         const itemTotal = itemPrice * item.qty;
         sum += itemTotal;
         
-        console.log(`Item: ${item.name}, Price: ${itemPrice}, Qty: ${item.qty}, Total: ${itemTotal}`); // Debug log
+        console.log('Item added to cart view');
         
         const div = document.createElement('div');
         div.className = 'res-item';
@@ -399,9 +399,9 @@
       const cart = loadCart();
       
       // Enhanced debug logging
-      console.log('localStorage sv_cart:', localStorage.getItem('sv_cart'));
-      console.log('Form data entries:', Object.fromEntries(data.entries()));
-      console.log('Cart data:', cart);
+      console.log('Cart data loaded from localStorage');
+      console.log('Form validation passed');
+      console.log('Cart contains', cart.length, 'item(s)');
       
       // Check if cart is empty and warn user
       if (!cart || cart.length === 0) {
@@ -467,8 +467,8 @@
         total: items.reduce((s, i) => s + (i.priceNumber * i.qty), 0)
       };
       
-      console.log('Processed items:', items);
-      console.log('Final payload:', payload);
+      console.log('Processed', items.length, 'item(s) for reservation');
+      console.log('Reservation payload prepared');
       
       try {
         // Show loading state
@@ -485,7 +485,7 @@
         });
         
         const result = await response.json();
-        console.log('Reservation response:', result);
+        console.log('Reservation response:', result.success ? 'Success' : 'Failed');
         
         if (result.success) {
           // Clear cart

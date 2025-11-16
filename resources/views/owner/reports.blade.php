@@ -1169,7 +1169,7 @@
 
         // Export functionality with filters (CSV only)
         async function exportWithFilters() {
-            console.log('exportWithFilters called for CSV export');
+            console.log('Exporting filtered data to CSV');
             
             const exportAll = document.getElementById('export-all').checked;
             const startDate = document.getElementById('export-start-date').value;
@@ -1177,7 +1177,7 @@
             const saleType = document.querySelector('input[name="sale-type"]:checked').value;
             const selectedUsers = Array.from(document.querySelectorAll('.user-checkbox:checked')).map(cb => cb.value);
             
-            console.log('Export parameters:', { exportAll, startDate, endDate, saleType, selectedUsers });
+            console.log('Export parameters set, processing request...');
 
             // Validate date range if not exporting all
             if (!exportAll && (!startDate || !endDate)) {
@@ -1227,7 +1227,7 @@
 
                     const data = await response.json();
                     
-                    console.log('Export API Response:', data); // Debug log
+                    console.log('Export API response received');
                     
                     if (!data.success) {
                         throw new Error(data.message || 'Export failed');
@@ -1238,7 +1238,7 @@
                         return;
                     }
 
-                    console.log(`Processing ${data.transactions.length} transactions for export`); // Debug log
+                    console.log('Processing transactions for export...');
 
                     // Generate the file content matching the exact table structure
                     const headers = ['Transaction ID', 'Sale Type', 'Processed By', 'Products', 'Subtotal', 'Discount', 'Total', 'Amount Paid', 'Change', 'Date & Time'];
@@ -1439,7 +1439,7 @@
                     return;
                 }
 
-                console.log(`Processing ${data.reservations.length} reservations for export`);
+                console.log('Processing reservations for export...');
 
                 // Generate the file content matching the table structure
                 const headers = ['Reservation ID', 'Reservation Date', 'Customer Name', 'Pickup Date', 'Email', 'Phone', 'Status'];
@@ -1723,7 +1723,7 @@
                     return;
                 }
 
-                console.log(`Processing ${data.supply_logs.length} supply logs for export`);
+                console.log('Processing supply logs for export...');
 
                 // Generate the file content matching the table structure
                 const headers = ['Log ID', 'Supplier', 'Country', 'Brand', 'Size', 'Quantity', 'Received At'];
