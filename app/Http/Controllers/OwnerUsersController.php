@@ -219,7 +219,7 @@ class OwnerUsersController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Employee created successfully',
-                'default_password' => $validated['password'] ? null : $password, // Only show if default was used
+                'default_password' => isset($validated['password']) ? null : $password, // Only show if default was used
                 'user' => [
                     'id' => $employee->employee_id,
                     'name' => $employee->fullname,

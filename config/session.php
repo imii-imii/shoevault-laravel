@@ -125,6 +125,12 @@ return [
     | the framework. Typically, you should not need to change this value
     | since doing so does not grant a meaningful security improvement.
     |
+    | Note: This application uses SEPARATE SESSION COOKIES for different user types:
+    | - Staff/Admin routes use: '{app-name}-session' (default)
+    | - Customer routes use: '{app-name}-customer-session' (via CustomerSession middleware)
+    |
+    | This ensures customer and staff sessions are completely isolated.
+    |
     */
 
     'cookie' => env(

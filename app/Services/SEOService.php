@@ -210,7 +210,7 @@ class SEOService
             'name' => 'ShoeVault',
             'description' => 'Premium shoe store and online reservation system',
             'url' => url('/'),
-            'logo' => url('/images/logo.png'),
+            'logo' => url('/images/shoevault-logo.png'),
             'sameAs' => [
                 // Add your social media URLs here
                 // 'https://www.facebook.com/shoevault',
@@ -235,6 +235,7 @@ class SEOService
             'name' => 'ShoeVault',
             'description' => 'Premium shoe store and online reservation system',
             'url' => url('/'),
+            'logo' => url('/images/shoevault-logo.png'),
             'potentialAction' => [
                 '@type' => 'SearchAction',
                 'target' => url('/portal?search={search_term_string}'),

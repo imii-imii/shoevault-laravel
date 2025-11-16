@@ -30,6 +30,9 @@ class ReservationController extends Controller
      */
     public function portal(Request $request)
     {
+        // Set session flag to allow access to form page
+        session(['can_access_form' => true]);
+        
         $query = Product::with('sizes')
             ->active()
             ->reservationInventory()
@@ -77,6 +80,14 @@ class ReservationController extends Controller
      */
     public function form()
     {
+        // Check if user accessed this page from the portal
+        if (!session('can_access_form')) {
+            return redirect()->route('reservation.portal');
+        }
+        
+        // Clear the session flag after checking (optional: remove this line if you want to allow multiple visits)
+        session()->forget('can_access_form');
+        
         // Get current authenticated customer
         $customer = Auth::guard('customer')->user();
         
@@ -84,7 +95,9 @@ class ReservationController extends Controller
         $seoService = app(SEOService::class);
         $meta = $seoService->getReservationFormMeta();
         
-        return view('reservation.form', compact('customer', 'meta'));
+        // Return view with X-Robots-Tag header to prevent indexing
+        return response(view('reservation.form', compact('customer', 'meta')))
+            ->header('X-Robots-Tag', 'noindex, nofollow');
     }
 
     /**

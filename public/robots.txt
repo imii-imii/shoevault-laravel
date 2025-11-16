@@ -6,11 +6,11 @@ Allow: /
 
 # Allow important pages
 Allow: /portal
-Allow: /form
 Allow: /size-converter
 
 # Block admin and internal areas
 Disallow: /pos/
+Disallow: /form
 Disallow: /inventory/
 Disallow: /owner/
 Disallow: /debug/

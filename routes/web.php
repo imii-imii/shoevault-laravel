@@ -19,7 +19,7 @@ use App\Http\Controllers\SitemapController;
 Route::get('/sitemap.xml', [SitemapController::class, 'sitemap'])->name('sitemap');
 Route::get('/robots.txt', [SitemapController::class, 'robots'])->name('robots');
 
-// SEO-friendly product and category routes
+// SEO-friendly product and category routes - Automatically uses customer session
 Route::get('/product/{product}', [ReservationController::class, 'showProduct'])->name('product.show');
 Route::get('/category/{category}', [ReservationController::class, 'showCategory'])->name('category.show');
 Route::get('/brand/{brand}', [ReservationController::class, 'showBrand'])->name('brand.show');
@@ -68,13 +68,13 @@ Route::get('/debug/session', function(Request $request) {
     ];
 });
 
-// Authentication routes
+// Customer reservation routes - Automatically uses separate session from staff
 Route::get('/', [ReservationController::class, 'index'])->name('reservation.home');
 Route::get('/portal', [ReservationController::class, 'portal'])->name('reservation.portal');
 Route::get('/form', [ReservationController::class, 'form'])->name('reservation.form');
 Route::get('/size-converter', [ReservationController::class, 'sizeConverter'])->name('reservation.size-converter');
 
-// AJAX routes for dynamic functionality
+// AJAX routes for dynamic functionality - Automatically uses customer session
 Route::get('/api/products/filter', [ReservationController::class, 'getFilteredProducts'])->name('api.products.filter');
 
 // Test routes for notification cleanup
@@ -177,6 +177,7 @@ Route::get('/test-generate-notifications', function () {
         'message' => 'Test notification generated'
     ]);
 });
+// Customer API routes - Automatically uses separate customer session
 Route::get('/api/products/{id}/details', [ReservationController::class, 'getProductDetails'])->name('api.products.details');
 
 // Check for pending reservations before allowing cart checkout
@@ -227,7 +228,7 @@ Route::middleware(['auth'])->get('/test-notifications', function() {
     return $controller->index(request());
 });
 
-// Customer authentication routes
+// Customer authentication routes - Automatically uses separate session from staff
 Route::prefix('customer')->name('customer.')->group(function () {
     Route::get('/login', [CustomerAuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [CustomerAuthController::class, 'login'])->name('login.post');
