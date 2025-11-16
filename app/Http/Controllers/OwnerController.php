@@ -106,9 +106,11 @@ class OwnerController extends Controller
             $q = "%$search%";
             $query->where(function ($sub) use ($q) {
                 $sub->where('reservation_id', 'like', $q)
-                    ->orWhere('customer_name', 'like', $q)
-                    ->orWhere('customer_email', 'like', $q)
-                    ->orWhere('customer_phone', 'like', $q);
+                    ->orWhereHas('customer', function ($customer) use ($q) {
+                        $customer->where('fullname', 'like', $q)
+                                 ->orWhere('email', 'like', $q)
+                                 ->orWhere('phone_number', 'like', $q);
+                    });
             });
         }
 

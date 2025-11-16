@@ -268,14 +268,17 @@
                 </div>
             </div>
             <!-- Status filter: All / Completed / Cancelled -->
-            <div class="filters" style="display:flex; align-items:center; justify-content:space-between;">
+            <div class="filters" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; justify-content:space-between;">
                 <div class="switch-tabs" id="reservation-status-switch" role="tablist" aria-label="Reservation status">
                     <button type="button" class="switch-tab active" data-status="all">All</button>
                     <button type="button" class="switch-tab" data-status="completed">Completed</button>
                     <button type="button" class="switch-tab" data-status="cancelled">Cancelled</button>
                 </div>
-                <div class="export-group" aria-label="Export">
-                    <button type="button" class="export-btn" id="open-reservation-export-modal" title="Export Reservation Data"><i class="fas fa-download"></i><span class="hide-sm">Export</span></button>
+                <div style="display:flex; gap:12px; align-items:center; flex:1; justify-content:flex-end; min-width:260px;">
+                    <input type="text" id="reservation-search" placeholder="Search reservation ID, name, email, or phone..." class="search-input" style="flex:1; min-width:220px;">
+                    <div class="export-group" aria-label="Export">
+                        <button type="button" class="export-btn" id="open-reservation-export-modal" title="Export Reservation Data"><i class="fas fa-download"></i><span class="hide-sm">Export</span></button>
+                    </div>
                 </div>
             </div>
             <!-- Card list -->
@@ -368,9 +371,6 @@
                     <option value="stock-desc">Stock (High-Low)</option>
                     <option value="stock-asc">Stock (Low-High)</option>
                 </select>
-                <div class="export-group" aria-label="Export" style="margin-left:auto;">
-                    <button type="button" class="export-btn" data-format="csv" title="Export CSV"><i class="fas fa-download"></i><span class="hide-sm">Export CSV</span></button>
-                </div>
             </div>
             <style>
                 /* Inventory Overview horizontal cards */
@@ -710,6 +710,8 @@
     // Reservation Logs: fetch and render completed/cancelled
         const resvListEl = document.getElementById('reservation-card-list');
         const statusSwitch = document.getElementById('reservation-status-switch');
+        const reservationSearchInput = document.getElementById('reservation-search');
+        let reservationSearchTimer;
 
         function fmtDate(value, withTime = false) {
             if (!value) return 'N/A';
@@ -840,14 +842,40 @@
                     btn.classList.add('active');
                     const status = btn.getAttribute('data-status') || 'all';
                     __reservationState.status = status;
-                    fetchReservationLogs({ status, page: 1 });
+                    fetchReservationLogs({
+                        status,
+                        page: 1,
+                        search: __reservationState.search,
+                        sort: __reservationState.sort
+                    });
                 });
             });
         }
 
         // Ensure data fetch when navigating to the Reservation Logs tab
         document.querySelectorAll('.switch-tab[data-target="reports-reservation-logs"]').forEach(btn => {
-            btn.addEventListener('click', () => { __reservationState.status='all'; fetchReservationLogs({ status: 'all', page:1 }); });
+            btn.addEventListener('click', () => {
+                __reservationState.status = 'all';
+                fetchReservationLogs({
+                    status: 'all',
+                    page: 1,
+                    search: __reservationState.search,
+                    sort: __reservationState.sort
+                });
+            });
+        });
+
+        reservationSearchInput?.addEventListener('input', () => {
+            clearTimeout(reservationSearchTimer);
+            reservationSearchTimer = setTimeout(() => {
+                __reservationState.search = reservationSearchInput.value.trim();
+                fetchReservationLogs({
+                    status: __reservationState.status,
+                    sort: __reservationState.sort,
+                    search: __reservationState.search,
+                    page: 1
+                });
+            }, 200);
         });
 
         // Sales History filters wiring
@@ -1079,41 +1107,6 @@
             download(toCSV(headers, rows), 'text/csv', filenameWithDate('supply_logs', 'csv'));
         }
 
-        async function exportInventory(format){
-            // Prefer API export based on current filters for accuracy
-            const sourceSel = document.getElementById('inventory-source-filter');
-            const catSel = document.getElementById('inventory-category-filter');
-            const searchEl = document.getElementById('inventory-search');
-            const source = sourceSel?.value || 'pos';
-            const category = catSel?.value || '';
-            const search = searchEl?.value || '';
-            const url = new URL(window.laravelData?.routes?.inventoryOverview, window.location.origin);
-            url.searchParams.set('source', source);
-            if (category) url.searchParams.set('category', category);
-            if (search) url.searchParams.set('search', search);
-            try{
-                const res = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
-                const data = await res.json();
-                const items = Array.isArray(data.items) ? data.items : [];
-                const headers = ['Product','Brand','Category','Color','Price','Total Stock','Sizes'];
-                const rows = items.map(i => [i.name||'', i.brand||'', i.category||'', i.color||'', i.price||'', i.total_stock||0, i.sizes||'']);
-                download(toCSV(headers, rows), 'text/csv', filenameWithDate('inventory_overview', 'csv'));
-            }catch(e){
-                // Fallback: try to scrape current cards
-                const cards = document.querySelectorAll('#reports-inventory-overview .inv-card');
-                if (!cards.length) return alert('No inventory to export.');
-                const headers = ['Product','Brand','Details','Price','Stock'];
-                const rows = Array.from(cards).map(c => [
-                    (c.querySelector('.inv-name')?.textContent||'').trim(),
-                    (c.querySelector('.inv-brand')?.textContent||'').trim(),
-                    (c.querySelector('.inv-info')?.textContent||'').trim().replace(/\s+/g,' '),
-                    (c.querySelector('.inv-price')?.textContent||'').trim(),
-                    (c.querySelector('.inv-stock')?.textContent||'').trim(),
-                ]);
-                download(toCSV(headers, rows), 'text/csv', filenameWithDate('inventory_overview', 'csv'));
-            }
-        }
-
         function activeSectionId(){
             const sections = Array.from(document.querySelectorAll('.content-section'));
             // Prefer displayed section
@@ -1128,7 +1121,6 @@
             if (id === 'reports-sales-history') return exportSales();
             if (id === 'reports-reservation-logs') return exportReservations();
             if (id === 'reports-supply-logs') return exportSupply();
-            if (id === 'reports-inventory-overview') return exportInventory();
             alert('No report section selected to export.');
         }
 
