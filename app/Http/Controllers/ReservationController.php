@@ -44,6 +44,13 @@ class ReservationController extends Controller
             $query->where('category', $selectedCategory);
         }
 
+
+        // Handle brand filtering (optional, for future extensibility)
+        $selectedBrand = $request->get('brand', 'All');
+        if ($selectedBrand && $selectedBrand !== 'All') {
+            $query->where('brand', $selectedBrand);
+        }
+
         $products = $query->get();
 
         // Compute current reservation holds and annotate product availability for the portal
@@ -53,6 +60,7 @@ class ReservationController extends Controller
         $products = $products->filter(function($p){
             return ($p->available_total_stock ?? 0) > 0;
         })->values();
+
 
         // Get available categories for the filter buttons
         $categories = Product::active()
@@ -64,6 +72,17 @@ class ReservationController extends Controller
             ->sort()
             ->values();
 
+        // Get available brands for the filter (unique, non-null, sorted)
+        $brands = Product::active()
+            ->reservationInventory()
+            ->inStock()
+            ->distinct()
+            ->pluck('brand')
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values();
+
         // Get current authenticated customer
         $customer = Auth::guard('customer')->user();
 
@@ -72,7 +91,7 @@ class ReservationController extends Controller
         $meta = $seoService->getPortalMeta();
         $structuredData = $seoService->getWebsiteStructuredData();
 
-        return view('reservation.portal', compact('products', 'categories', 'selectedCategory', 'customer', 'meta', 'structuredData'));
+        return view('reservation.portal', compact('products', 'categories', 'brands', 'selectedCategory', 'selectedBrand', 'customer', 'meta', 'structuredData'));
     }
 
     /**

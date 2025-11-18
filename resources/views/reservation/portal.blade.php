@@ -16,6 +16,16 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
   <style>
+    /* Desktop nav buttons only visible on desktop */
+    .res-portal-desktop-nav { display: flex; }
+    @media (max-width: 900px) {
+      .res-portal-desktop-nav { display: none !important; }
+    }
+    /* Mobile nav only visible on mobile */
+    .res-portal-nav { display: none !important; }
+    @media (max-width: 900px) {
+      .res-portal-nav { display: flex !important; }
+    }
     .res-portal-logo-link {
       display: inline-block;
       text-decoration: none;
@@ -106,6 +116,29 @@
     <div class="res-portal-search desktop-only">
       <i class="fas fa-search"></i>
       <input type="text" placeholder="Search for shoes, brands, or models...">
+    </div>
+    <!-- Desktop nav buttons inserted here -->
+    <div class="res-portal-desktop-nav desktop-only" style="display:flex;align-items:center;gap:5px;margin-right:18px;">
+      <button class="res-portal-nav-btn nav-home" onclick="document.getElementById('products').scrollIntoView({behavior:'smooth'});">
+        <span class="nav-icon"><i class="fas fa-home"></i></span>
+        <span class="nav-label">Home</span>
+      </button>
+      <button class="res-portal-nav-btn nav-services" onclick="document.getElementById('services')?.scrollIntoView({behavior:'smooth'});">
+        <span class="nav-icon"><i class="fas fa-concierge-bell"></i></span>
+        <span class="nav-label">Services</span>
+      </button>
+      <button class="res-portal-nav-btn nav-testimonials" onclick="document.getElementById('testimonials')?.scrollIntoView({behavior:'smooth'});">
+        <span class="nav-icon"><i class="fas fa-comment-dots"></i></span>
+        <span class="nav-label">Testimonials</span>
+      </button>
+      <button class="res-portal-nav-btn nav-about" onclick="document.getElementById('about-us')?.scrollIntoView({behavior:'smooth'});">
+        <span class="nav-icon"><i class="fas fa-users"></i></span>
+        <span class="nav-label">About Us</span>
+      </button>
+      <button class="res-portal-nav-btn nav-contact" onclick="document.getElementById('contact')?.scrollIntoView({behavior:'smooth'});">
+        <span class="nav-icon"><i class="fas fa-envelope"></i></span>
+        <span class="nav-label">Contact Us</span>
+      </button>
     </div>
     <div class="cart-container" style="display:flex;align-items:center;gap:10px;">
       <button class="res-portal-cart-btn" title="View Cart">
@@ -217,36 +250,267 @@
       </button>
     </div>
     <div class="res-portal-filter-bar">
-      <div class="res-portal-categories">
-        <button class="res-portal-category-btn {{ ($selectedCategory ?? 'All') === 'All' ? 'active' : '' }}" data-category="All">All</button>
-        @php
-          $staticCats = ['men' => 'Men', 'women' => 'Women', 'accessories' => 'Accessories'];
-          $lowerCats = collect($categories ?? [])->map(fn($c) => strtolower($c));
-        @endphp
-        @foreach($staticCats as $value => $label)
-          <button class="res-portal-category-btn {{ (strtolower($selectedCategory ?? '') === $value) ? 'active' : '' }}" data-category="{{ $value }}">{{ $label }}</button>
-        @endforeach
-        @foreach(($categories ?? []) as $category)
-          @if(!in_array(strtolower($category), array_keys($staticCats)))
-            <button class="res-portal-category-btn {{ ($selectedCategory === $category) ? 'active' : '' }}" data-category="{{ $category }}">{{ $category }}</button>
-          @endif
-        @endforeach
-      </div>
-      <div class="res-portal-price-compact">
-        <button type="button" class="price-toggle-btn mobile-only" aria-expanded="false" aria-controls="pricePanel">
-          <i class="fas fa-filter"></i>
-          <span class="toggle-label">Filter</span>
-        </button>
-        <div class="res-portal-price-filter" aria-label="Price Range" id="pricePanel">
-          <i class="fas fa-peso-sign"></i>
-          <input type="number" id="priceMin" class="price-input" placeholder="Min" min="0" step="100">
-          <span class="dash">—</span>
-          <input type="number" id="priceMax" class="price-input" placeholder="Max" min="0" step="100">
-          <button id="priceApply" class="price-apply" title="Apply price filter">
-            <i class="fas fa-filter"></i>
-          </button>
+      <div class="res-portal-filters-container">
+        <div class="res-portal-filter-left">
+          <div class="res-portal-brands-filter">
+            <div class="brands-label"><i class="fas fa-tags"></i> Brand:</div>
+            <div class="brands-list">
+              <!-- Desktop: Brand chips, Mobile: Dropdown -->
+              <div class="brands-chips desktop-only">
+                <button class="brand-chip {{ ($selectedBrand ?? 'All') === 'All' ? 'active' : '' }}" data-brand="All">All</button>
+                @foreach(($brands ?? []) as $brand)
+                  <button class="brand-chip {{ ($selectedBrand === $brand) ? 'active' : '' }}" data-brand="{{ $brand }}">{{ $brand }}</button>
+                @endforeach
+              </div>
+              <div class="brands-dropdown mobile-only">
+                <button class="brands-dropdown-btn" id="brandsDropdownBtn">
+                  <span id="brandsDropdownSelected">{{ $selectedBrand ?? 'All' }}</span>
+                  <i class="fas fa-chevron-down"></i>
+                </button>
+                <div class="brands-dropdown-list" id="brandsDropdownList" style="display:none;">
+                  <div class="brands-dropdown-option {{ ($selectedBrand ?? 'All') === 'All' ? 'active' : '' }}" data-brand="All">All</div>
+                  @foreach(($brands ?? []) as $brand)
+                    <div class="brands-dropdown-option {{ ($selectedBrand === $brand) ? 'active' : '' }}" data-brand="{{ $brand }}">{{ $brand }}</div>
+                  @endforeach
+                </div>
+              </div>
+            </div>
+            <style>
+                  /* Brand filter mobile dropdown */
+                  .brands-dropdown { display: none; position: relative; width: 100%; }
+                  .brands-dropdown-btn {
+                    width: 100%;
+                    background: #f3f6fd;
+                    color: #2343ce;
+                    border: 1px solid #e5eafe;
+                    border-radius: 999px;
+                    padding: 8px 16px;
+                    font-size: 1rem;
+                    font-weight: 600;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    cursor: pointer;
+                    transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+                    box-shadow: 0 2px 8px rgba(35,67,206,0.07);
+                    outline: none;
+                  }
+                  .brands-dropdown-btn:active, .brands-dropdown-btn:focus {
+                    background: linear-gradient(90deg, #2343ce 0%, #2a6aff 100%);
+                    color: #fff;
+                  }
+                  .brands-dropdown-list {
+                    position: sticky;
+                    top: 110%;
+                    left: 0;
+                    width: 100%;
+                    background: #fff;
+                    border-radius: 14px;
+                    box-shadow: 0 8px 32px rgba(35,67,206,0.13);
+                    border: 1px solid #e5eafe;
+                    z-index: 100;
+                    max-height: 220px;
+                    overflow-y: auto;
+                    margin-top: 4px;
+                    padding: 4px 0;
+                    animation: brandsDropdownIn .22s cubic-bezier(.22,1.19,.4,1);
+                  }
+                  @keyframes brandsDropdownIn {
+                    0% { opacity: 0; transform: translateY(-8px) scale(0.98); }
+                    100% { opacity: 1; transform: translateY(0) scale(1); }
+                  }
+                  .brands-dropdown-option {
+                    padding: 10px 18px;
+                    font-size: 1rem;
+                    color: #2343ce;
+                    cursor: pointer;
+                    transition: background 0.15s, color 0.15s;
+                  }
+                  .brands-dropdown-option.active, .brands-dropdown-option:hover {
+                    background: linear-gradient(90deg, #2343ce 0%, #2a6aff 100%);
+                    color: #fff;
+                  }
+                  @media (max-width: 900px) {
+                    .brands-chips { display: none !important; }
+                    .brands-dropdown { display: block !important; width: calc(100vw - 40px) !important; margin: 0 20px 0 20px !important; max-width: unset !important; }
+                    .brands-dropdown-btn { width: 85%; }
+                    .brands-dropdown-list { width: 85%; min-width: 0; }
+                  }
+                  @media (min-width: 901px) {
+                    .brands-chips { display: flex !important; }
+                    .brands-dropdown { display: none !important; }
+                  }
+              </style>
+          </div>
+        </div>
+        <div class="res-portal-filter-right">
+          <div class="res-portal-price-compact">
+            <button type="button" class="price-toggle-btn mobile-only" aria-expanded="false" aria-controls="pricePanel">
+              <i class="fas fa-filter"></i>
+              <span class="toggle-label">Filter</span>
+            </button>
+            <div class="res-portal-price-filter" aria-label="Price Range" id="pricePanel">
+              <i class="fas fa-peso-sign"></i>
+              <input type="number" id="priceMin" class="price-input" placeholder="Min" min="0" step="100">
+              <span class="dash">—</span>
+              <input type="number" id="priceMax" class="price-input" placeholder="Max" min="0" step="100">
+              <button id="priceApply" class="price-apply" title="Apply price filter">
+                <i class="fas fa-filter"></i>
+              </button>
+            </div>
+          </div>
+          <div class="res-portal-categories">
+            <button class="res-portal-category-btn {{ ($selectedCategory ?? 'All') === 'All' ? 'active' : '' }}" data-category="All">All</button>
+            @php
+              $staticCats = ['men' => 'Men', 'women' => 'Women', 'accessories' => 'Accessories'];
+              $lowerCats = collect($categories ?? [])->map(fn($c) => strtolower($c));
+            @endphp
+            @foreach($staticCats as $value => $label)
+              <button class="res-portal-category-btn {{ (strtolower($selectedCategory ?? '') === $value) ? 'active' : '' }}" data-category="{{ $value }}">{{ $label }}</button>
+            @endforeach
+            @foreach(($categories ?? []) as $category)
+              @if(!in_array(strtolower($category), array_keys($staticCats)))
+                <button class="res-portal-category-btn {{ ($selectedCategory === $category) ? 'active' : '' }}" data-category="{{ $category }}">{{ $category }}</button>
+              @endif
+            @endforeach
+          </div>
         </div>
       </div>
+      <style>
+        .res-portal-filters-container {
+          display: inline-flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 32px;
+          width: 100%;
+          max-width: 100%;
+          margin: 0;
+          padding: 0 18px;
+          box-sizing: border-box;
+        }
+        .res-portal-filter-left {
+          flex: 1;
+          min-width: 180px;
+          max-width: 100%;
+          display: flex;
+          align-items: flex-start;
+        }
+        .res-portal-filter-right {
+          flex: 2;
+          min-width: 220px;
+          max-width: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 10px;
+        }
+        .res-portal-brands-filter {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+          background: #f7faff;
+          border-radius: 12px;
+          padding: 12px 18px;
+          width: 100%;
+        }
+        .brands-label {
+          font-weight: 700;
+          color: #2343ce;
+          font-size: 1rem;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          letter-spacing: 0.2px;
+        }
+        .brands-label i {
+          color: #2343ce;
+          font-size: 1.1em;
+        }
+        .brands-list {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .brand-chip {
+          background: #f3f6fd;
+          color: #2343ce;
+          border: none;
+          border-radius: 999px;
+          padding: 5px 16px;
+          font-size: 0.98rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+          box-shadow: 0 2px 8px rgba(35,67,206,0.07);
+          outline: none;
+        }
+        .brand-chip.active, .brand-chip:hover, .brand-chip:focus {
+          background: linear-gradient(90deg, #2343ce 0%, #2a6aff 100%);
+          color: #fff;
+          box-shadow: 0 4px 16px rgba(35,67,206,0.13);
+        }
+        .res-portal-filter-right {
+          background: #f7faff;
+          border-radius: 12px;
+          padding: 16px 18px 14px 18px;
+        }
+        .res-portal-price-compact {
+          width: 100%;
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          justify-content: flex-end;
+          margin-bottom: 8px;
+        }
+        .res-portal-price-filter {
+        }
+        .res-portal-categories {
+          width: 100%;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          justify-content: flex-end;
+        }
+        @media (max-width: 900px) {
+          .res-portal-filters-container {
+            flex-direction: column;
+            gap: 14px;
+            padding: 0 6px;
+            max-width: 100vw;
+          }
+          .res-portal-filter-left, .res-portal-filter-right {
+            max-width: 100%;
+            min-width: 0;
+            width: 100%;
+            align-items: stretch;
+          }
+          .res-portal-filter-right {
+            padding: 12px 8px 10px 8px;
+          }
+          .res-portal-brands-filter {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 6px;
+            margin: 0;
+            padding: 0;
+          }
+          .brands-label {
+            font-size: 0.95rem;
+          }
+          .brands-list {
+            gap: 6px;
+          }
+          .brand-chip {
+            font-size: 0.92rem;
+            padding: 4px 12px;
+          }
+          .res-portal-categories {
+            justify-content: flex-start;
+            gap: 6px;
+          }
+        }
+      </style>
     </div>
   <div class="res-portal-products-grid" id="products">
       @include('reservation.partials.product-grid', ['products' => $products])
@@ -341,6 +605,45 @@
 
   <!-- Customer Data for JavaScript -->
   <script>
+        // Brand filter interactivity (chips and mobile dropdown)
+        document.addEventListener('DOMContentLoaded', function() {
+          // Desktop chips
+          document.querySelectorAll('.brand-chip').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+              const brand = this.getAttribute('data-brand');
+              const url = new URL(window.location.href);
+              url.searchParams.set('brand', brand);
+              url.searchParams.delete('page'); // Reset pagination if any
+              window.location.href = url.toString();
+            });
+          });
+          // Mobile dropdown
+          var dropdownBtn = document.getElementById('brandsDropdownBtn');
+          var dropdownList = document.getElementById('brandsDropdownList');
+          var dropdownSelected = document.getElementById('brandsDropdownSelected');
+          if (dropdownBtn && dropdownList) {
+            dropdownBtn.addEventListener('click', function(e) {
+              e.stopPropagation();
+              dropdownList.style.display = dropdownList.style.display === 'block' ? 'none' : 'block';
+            });
+            document.querySelectorAll('.brands-dropdown-option').forEach(function(opt) {
+              opt.addEventListener('click', function(e) {
+                const brand = this.getAttribute('data-brand');
+                dropdownList.style.display = 'none';
+                if (dropdownSelected) dropdownSelected.textContent = this.textContent;
+                const url = new URL(window.location.href);
+                url.searchParams.set('brand', brand);
+                url.searchParams.delete('page');
+                window.location.href = url.toString();
+              });
+            });
+            document.addEventListener('click', function(e) {
+              if (!dropdownList.contains(e.target) && !dropdownBtn.contains(e.target)) {
+                dropdownList.style.display = 'none';
+              }
+            });
+          }
+        });
     window.customerData = @json(auth('customer')->user());
     window.IS_CUSTOMER_LOGGED_IN = {{ auth('customer')->check() ? 'true' : 'false' }};
   </script>

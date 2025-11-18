@@ -330,7 +330,7 @@ body {
 html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavior: none; }
 
 /* Filter bar (categories + price range) - single-line compact */
-.res-portal-filter-bar { --filter-height: 32px; display:flex; align-items:center; justify-content:space-between; gap:20px; padding: 0 20px; box-sizing:border-box; margin:24px 100px; position: relative; width: calc(100% - 200px); }
+.res-portal-filter-bar { --filter-height: 32px; display:flex; align-items:center; justify-content:space-between; gap:20px; padding: 0 20px; box-sizing:border-box; margin:24px 100px 10px 100px; position: relative; width: calc(100% - 200px); }
 .res-portal-filter-bar .res-portal-categories { min-width:0; display:flex; align-items:center; gap:18px; overflow-x:auto; white-space: nowrap; margin: 12px 0; padding: 0; width: auto; max-width: 100%; flex: 1 1 auto; justify-content:flex-start; }
 .res-portal-price-compact { display:flex; align-items:center; gap:12px; position: static; white-space: nowrap; }
 .res-portal-price-filter { display:flex; align-items:center; gap:6px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:0 8px 0 6px; box-shadow:0 2px 8px rgba(0,0,0,0.04); height: var(--filter-height); }
@@ -598,12 +598,12 @@ html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavi
   box-sizing: border-box;
 }
 .res-portal-nav-btn {
-  background: var(--white);
+  background: transparent;
   color: var(--primary);
   border: none;
   border-radius: 1.2em;
   font-family: var(--font-secondary);
-  font-size: 1.3rem;
+  font-size: 1.5rem;
   font-weight: 600;
   width: min(100px, 16vw);
   height: min(100px, 16vw);
@@ -614,10 +614,15 @@ html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavi
   box-shadow: 0 2px 8px rgba(50,81,154,0.08);
   cursor: pointer;
   transition: box-shadow 0.2s, transform 0.2s, color 0.2s;
-  margin: 0 0.5vw;
+  /* margin removed for desktop; now only on mobile */
+  @media (max-width: 900px) {
+    .res-portal-nav-btn {
+      margin: 0 0.5vw;
+    }
+  }
   position: relative;
   min-width: 60px;
-  min-height: 60px;
+  max-height: 40px;
   max-width: 100%;
   box-sizing: border-box;
 }
@@ -629,18 +634,18 @@ html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavi
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.7rem;
+  font-size: 1.2rem;
   margin-bottom: 4px;
-  background: linear-gradient(135deg, #000e2e 0%, #2343ce 100%);
+  background: linear-gradient(135deg, #ffffff 0%, #b7c3fa 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 .res-portal-nav-btn .nav-label {
   font-size: 0.8rem;
-  font-weight: 600;
+  font-weight: 400;
   text-align: center;
-  color: var(--primary);
+  color: white;
 }
 
 
