@@ -239,6 +239,12 @@ Route::prefix('customer')->name('customer.')->group(function () {
     Route::get('/user', [CustomerAuthController::class, 'user'])->name('user'); // Remove middleware to allow status checking
     Route::post('/update-password', [CustomerAuthController::class, 'updatePassword'])->name('update-password'); // For existing customers
     Route::post('/send-password-reset-code', [CustomerAuthController::class, 'sendPasswordResetCode'])->name('send-password-reset-code');
+    
+    // Customer dashboard routes - require authentication
+    Route::middleware('customer.auth')->group(function () {
+        Route::get('/dashboard', [CustomerAuthController::class, 'dashboard'])->name('dashboard');
+        Route::post('/reservations/{reservation}/cancel', [CustomerAuthController::class, 'cancelReservation'])->name('reservations.cancel');
+    });
 });
 
 // POS routes (for cashiers only)

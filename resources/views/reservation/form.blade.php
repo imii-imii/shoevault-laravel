@@ -369,8 +369,8 @@
       if (pickupTime) {
         const [h, m] = pickupTime.split(':').map(x => parseInt(x,10));
         if (!Number.isNaN(h) && !Number.isNaN(m)) {
-          const total = h * 60 + m;
-          timeOK = total >= 10*60 && total <= 19*60;
+          // Allow exactly 10:00 AM to 7:00 PM (19:00)
+          timeOK = h >= 10 && h <= 19;
         }
       }
 
@@ -558,8 +558,8 @@
     const maxDd = String(maxDate.getDate()).padStart(2,'0');
     dateInput.max = `${maxYyyy}-${maxMm}-${maxDd}`;
     // set working hours limits on time input
-  const WORK_START = '10:00';
-  const WORK_END = '19:00';
+    const WORK_START = '10:00';
+    const WORK_END = '19:00';
     if (timeInput) {
       timeInput.min = WORK_START;
       timeInput.max = WORK_END;

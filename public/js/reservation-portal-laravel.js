@@ -28,9 +28,12 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentPage = 1;
     let paginationData = null;
 
-    function buildFilterUrl(category, page = 1, searchTerm = '') {
+    let currentBrand = '';
+
+    function buildFilterUrl(category, page = 1, searchTerm = '', brand = '') {
         const params = new URLSearchParams();
-        if (category) params.set('category', category);
+        if (category && category !== 'All') params.set('category', category);
+        if (brand && brand !== 'All' && brand.trim() !== '') params.set('brand', brand.trim());
         const min = priceMinEl && priceMinEl.value ? parseInt(priceMinEl.value, 10) : '';
         const max = priceMaxEl && priceMaxEl.value ? parseInt(priceMaxEl.value, 10) : '';
         if (!isNaN(min) && min !== '') params.set('minPrice', min);
@@ -40,8 +43,9 @@ document.addEventListener('DOMContentLoaded', function() {
         return `/api/products/filter?${params.toString()}`;
     }
 
-    function loadProducts(category, page = 1, searchTerm = '') {
+    function loadProducts(category, page = 1, searchTerm = '', brand = '') {
         currentPage = page;
+        if (brand !== undefined) currentBrand = brand;
         
         // Show loading state
         productsGrid.innerHTML = '<div class="loading-spinner"></div>';
@@ -53,7 +57,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Fetch filtered products from Laravel
-        fetch(buildFilterUrl(category, page, searchTerm), {
+        fetch(buildFilterUrl(category, page, searchTerm, brand || currentBrand), {
             method: 'GET',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
@@ -66,7 +70,7 @@ document.addEventListener('DOMContentLoaded', function() {
             paginationData = data.pagination;
             
             // Render pagination controls
-            renderPagination(category, searchTerm);
+            renderPagination(category, searchTerm, brand || currentBrand);
             
             // Re-attach event listeners for new product cards
             attachProductCardListeners();
@@ -77,10 +81,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function renderPagination(category, searchTerm = '') {
-        // Remove existing pagination
-        const existingPagination = document.querySelector('.sv-pagination');
-        if (existingPagination) existingPagination.remove();
+    function renderPagination(category, searchTerm = '', brand = '') {
+        // Remove existing pagination wrapper
+        const existingPaginationWrapper = document.querySelector('.pagination-wrapper');
+        if (existingPaginationWrapper) existingPaginationWrapper.remove();
         
         if (!paginationData || paginationData.last_page <= 1) return;
         
@@ -92,7 +96,7 @@ document.addEventListener('DOMContentLoaded', function() {
         prevBtn.className = 'sv-pagination-btn';
         prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
         prevBtn.disabled = currentPage === 1;
-        prevBtn.onclick = () => loadProducts(category, currentPage - 1, searchTerm);
+        prevBtn.onclick = () => loadProducts(category, currentPage - 1, searchTerm, brand);
         paginationDiv.appendChild(prevBtn);
         
         // Page numbers with smart ellipsis
@@ -103,7 +107,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Always show first page
         if (startPage > 1) {
-            const firstBtn = createPageButton(1, category, searchTerm);
+            const firstBtn = createPageButton(1, category, searchTerm, brand);
             paginationDiv.appendChild(firstBtn);
             if (startPage > 2) {
                 const dots = document.createElement('span');
@@ -115,7 +119,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Page number buttons
         for (let i = startPage; i <= endPage; i++) {
-            const pageBtn = createPageButton(i, category, searchTerm);
+            const pageBtn = createPageButton(i, category, searchTerm, brand);
             paginationDiv.appendChild(pageBtn);
         }
         
@@ -127,7 +131,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 dots.textContent = '...';
                 paginationDiv.appendChild(dots);
             }
-            const lastBtn = createPageButton(totalPages, category, searchTerm);
+            const lastBtn = createPageButton(totalPages, category, searchTerm, brand);
             paginationDiv.appendChild(lastBtn);
         }
         
@@ -136,7 +140,7 @@ document.addEventListener('DOMContentLoaded', function() {
         nextBtn.className = 'sv-pagination-btn';
         nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
         nextBtn.disabled = currentPage === totalPages;
-        nextBtn.onclick = () => loadProducts(category, currentPage + 1, searchTerm);
+        nextBtn.onclick = () => loadProducts(category, currentPage + 1, searchTerm, brand);
         paginationDiv.appendChild(nextBtn);
         
         // Info text
@@ -145,18 +149,23 @@ document.addEventListener('DOMContentLoaded', function() {
         info.textContent = `Showing ${paginationData.from}-${paginationData.to} of ${paginationData.total}`;
         paginationDiv.appendChild(info);
         
+        // Create wrapper for proper positioning
+        const paginationWrapper = document.createElement('div');
+        paginationWrapper.className = 'pagination-wrapper';
+        paginationWrapper.appendChild(paginationDiv);
+        
         // Insert after products grid
-        productsGrid.parentNode.insertBefore(paginationDiv, productsGrid.nextSibling);
+        productsGrid.parentNode.insertBefore(paginationWrapper, productsGrid.nextSibling);
     }
 
-    function createPageButton(pageNum, category, searchTerm = '') {
+    function createPageButton(pageNum, category, searchTerm = '', brand = '') {
         const btn = document.createElement('button');
         btn.className = 'sv-pagination-btn page-num';
         btn.textContent = pageNum;
         if (pageNum === currentPage) {
             btn.classList.add('active');
         }
-        btn.onclick = () => loadProducts(category, pageNum, searchTerm);
+        btn.onclick = () => loadProducts(category, pageNum, searchTerm, brand);
         return btn;
     }
 
@@ -173,7 +182,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const searchTerm = (desktopSearchInput?.value || mobileSearchInput?.value || '').trim();
             
             // Load products (page 1) with current search term
-            loadProducts(category, 1, searchTerm);
+            loadProducts(category, 1, searchTerm, currentBrand);
         });
     });
 
@@ -193,7 +202,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const searchTerm = (desktopSearchInput?.value || mobileSearchInput?.value || '').trim();
             
             // Load products with search term
-            loadProducts(category, 1, searchTerm);
+            loadProducts(category, 1, searchTerm, currentBrand);
         }, 500); // Wait 500ms after user stops typing
     }
 
@@ -235,7 +244,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const activeBtn = document.querySelector('.res-portal-category-btn.active');
             const category = activeBtn ? activeBtn.dataset.category : 'All';
             const searchTerm = (desktopSearchInput?.value || mobileSearchInput?.value || '').trim();
-            loadProducts(category, 1, searchTerm); // Reset to page 1 when filtering
+            loadProducts(category, 1, searchTerm, currentBrand); // Reset to page 1 when filtering
         };
         priceApplyBtn.addEventListener('click', triggerFetch);
         [priceMinEl, priceMaxEl].forEach(el => el && el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); triggerFetch(); }}));
@@ -978,7 +987,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Handle checkout button click - check for pending reservations first
+    // Handle checkout button click - proceed directly to form
     async function handleCheckoutClick() {
         // Check if user is logged in
         if (!window.customerData || !window.customerData.email) {
@@ -987,54 +996,31 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        try {
-            // Show loading state
-            const originalText = checkoutBtn ? checkoutBtn.textContent : cartModalCheckoutBtn.textContent;
-            if (checkoutBtn) checkoutBtn.textContent = 'Checking...';
-            if (cartModalCheckoutBtn) cartModalCheckoutBtn.textContent = 'Checking...';
-            
-            // Check for pending reservations
-            const response = await fetch('/api/check-pending-reservations', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-                }
-            });
+        // Proceed directly to reservation form
+        window.location.href = '/form';
+    }
 
-            const data = await response.json();
+    // Global brand filtering function
+    window.filterProductsByBrand = function(brand) {
+        currentBrand = (brand === 'All') ? '' : (brand || '');
+        const activeCategory = document.querySelector('.res-portal-category-btn.active')?.getAttribute('data-category') || 'All';
+        // Get search term from either desktop or mobile search input
+        const desktopSearch = document.querySelector('.res-portal-search.desktop-only input');
+        const mobileSearch = document.querySelector('.res-portal-search.mobile-only input');
+        const searchTerm = (desktopSearch?.value || mobileSearch?.value || '').trim();
+        loadProducts(activeCategory, 1, searchTerm, currentBrand);
+    };
 
-            // Restore button text
-            if (checkoutBtn) checkoutBtn.textContent = originalText;
-            if (cartModalCheckoutBtn) cartModalCheckoutBtn.textContent = originalText;
-
-            if (response.status === 401) {
-                // Not authenticated
-                alert('Please log in to make a reservation.');
-                window.location.href = '/customer/login';
-                return;
+    // Initialize pagination on page load
+    function initializePagination() {
+        if (window.initialPaginationData) {
+            paginationData = window.initialPaginationData;
+            currentPage = paginationData.current_page;
+            // Render initial pagination
+            if (paginationData.last_page > 1) {
+                const activeCategory = document.querySelector('.res-portal-category-btn.active')?.getAttribute('data-category') || 'All';
+                renderPagination(activeCategory, '', '');
             }
-
-            if (data.success && !data.hasPending) {
-                // No pending reservations, proceed to form
-                window.location.href = '/form';
-            } else if (data.hasPending) {
-                // Has pending reservations, show error
-                const pendingIds = data.pendingReservations?.join(', ') || 'Unknown';
-                alert(`You already have pending reservation(s): ${pendingIds}\n\nPlease wait for your current reservation(s) to be completed or cancelled before making a new one.`);
-            } else {
-                // Error occurred
-                alert(data.message || 'An error occurred while checking for pending reservations. Please try again.');
-            }
-
-        } catch (error) {
-            console.error('Error checking pending reservations:', error);
-            
-            // Restore button text
-            if (checkoutBtn) checkoutBtn.textContent = 'Reserve';
-            if (cartModalCheckoutBtn) cartModalCheckoutBtn.textContent = 'Reserve';
-            
-            alert('Network error. Please check your connection and try again.');
         }
     }
 
@@ -1042,4 +1028,5 @@ document.addEventListener('DOMContentLoaded', function() {
     attachProductCardListeners();
     loadCart();
     updateUserStatus();
+    initializePagination();
 });

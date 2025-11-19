@@ -63,6 +63,21 @@ class Transaction extends Model
     }
 
     /**
+     * Get the customer associated with this transaction through reservation
+     */
+    public function customer()
+    {
+        return $this->hasOneThrough(
+            \App\Models\Customer::class,
+            \App\Models\Reservation::class,
+            'reservation_id',
+            'customer_id',
+            'reservation_id',
+            'customer_id'
+        );
+    }
+
+    /**
      * Get the reservation associated with this transaction
      */
     public function reservation()

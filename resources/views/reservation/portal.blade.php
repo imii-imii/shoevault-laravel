@@ -106,6 +106,100 @@
     .login-coachmark:before { content:""; position:absolute; top:-10px; right:18px; width:18px; height:18px; background:#0f172a; transform: rotate(45deg); border-radius:4px; border:1px solid rgba(255,255,255,.08); box-shadow: 0 10px 20px -6px rgba(15,23,42,.35); }
     @keyframes cm-pop { 0% { transform: translateY(-6px) scale(.92); opacity:0; } 60% { transform: translateY(2px) scale(1.02); opacity:1; } 100% { transform: translateY(0) scale(1); opacity:1; } }
     @media (max-width: 700px) { .login-coachmark { top: 50px; right: 4px; } .login-coachmark:before { right: 34px; } }
+    
+    /* Pagination Styles */
+    .pagination-wrapper {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      margin: 2rem 0 3rem 0;
+      padding: 0 1rem;
+    }
+    
+    .sv-pagination {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: white;
+      padding: 1rem 1.5rem;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(35, 67, 206, 0.12);
+      border: 1px solid rgba(35, 67, 206, 0.08);
+    }
+    
+    .sv-pagination-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border: 1px solid #e5eafe;
+      background: #f8fafc;
+      color: #64748b;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    
+    .sv-pagination-btn:hover:not(:disabled) {
+      background: linear-gradient(135deg, #2343ce 0%, #2a6aff 100%);
+      color: white;
+      border-color: #2343ce;
+      transform: translateY(-1px);
+    }
+    
+    .sv-pagination-btn.active {
+      background: linear-gradient(135deg, #2343ce 0%, #2a6aff 100%);
+      color: white;
+      border-color: #2343ce;
+      box-shadow: 0 4px 12px rgba(35, 67, 206, 0.3);
+    }
+    
+    .sv-pagination-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      background: #f3f4f6;
+    }
+    
+    .sv-pagination-dots {
+      color: #9ca3af;
+      font-weight: 500;
+      padding: 0 0.25rem;
+    }
+    
+    .sv-pagination-info {
+      margin-left: 1rem;
+      color: #6b7280;
+      font-size: 0.875rem;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    
+    @media (max-width: 768px) {
+      .pagination-wrapper {
+        justify-content: center;
+        margin: 1.5rem 0 2rem 0;
+        padding: 0 0.5rem;
+      }
+      
+      .sv-pagination {
+        padding: 0.75rem 1rem;
+        gap: 0.25rem;
+      }
+      
+      .sv-pagination-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 0.8rem;
+      }
+      
+      .sv-pagination-info {
+        margin-left: 0.5rem;
+        font-size: 0.8rem;
+      }
+    }
   </style>
 </head>
 <body>
@@ -115,7 +209,7 @@
     </a>
     <div class="res-portal-search desktop-only">
       <i class="fas fa-search"></i>
-      <input type="text" placeholder="Search for shoes, brands, or models...">
+      <input type="text" placeholder="Search for shoes, brands, colors, or models...">
     </div>
     <!-- Desktop nav buttons inserted here -->
     <div class="res-portal-desktop-nav desktop-only" style="display:flex;align-items:center;gap:5px;margin-right:18px;">
@@ -156,6 +250,11 @@
               <div class="sv-user-meta">
                 <div class="sv-user-email">{{ auth('customer')->user()->email }}</div>
               </div>
+              <a href="{{ route('customer.dashboard') }}" class="sv-user-item" role="menuitem">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+              </a>
+              <div class="sv-user-divider" style="height: 1px; background-color: #e2e8f0; margin: 8px 0;"></div>
               <form method="POST" action="{{ route('customer.logout') }}">
                 @csrf
                 <button type="submit" class="sv-user-item danger" role="menuitem">
@@ -212,7 +311,7 @@
   <div class="res-portal-main-mobile">
     <div class="res-portal-search mobile-only">
       <i class="fas fa-search"></i>
-      <input type="text" placeholder="Search for shoes, brands, or models...">
+      <input type="text" placeholder="Search for shoes, brands, colors, or models...">
     </div>
     <div class="res-portal-banner">
       <div class="res-portal-banner-content">
@@ -255,14 +354,8 @@
           <div class="res-portal-brands-filter">
             <div class="brands-label"><i class="fas fa-tags"></i> Brand:</div>
             <div class="brands-list">
-              <!-- Desktop: Brand chips, Mobile: Dropdown -->
-              <div class="brands-chips desktop-only">
-                <button class="brand-chip {{ ($selectedBrand ?? 'All') === 'All' ? 'active' : '' }}" data-brand="All">All</button>
-                @foreach(($brands ?? []) as $brand)
-                  <button class="brand-chip {{ ($selectedBrand === $brand) ? 'active' : '' }}" data-brand="{{ $brand }}">{{ $brand }}</button>
-                @endforeach
-              </div>
-              <div class="brands-dropdown mobile-only">
+              <!-- Using dropdown for both desktop and mobile -->
+              <div class="brands-dropdown">
                 <button class="brands-dropdown-btn" id="brandsDropdownBtn">
                   <span id="brandsDropdownSelected">{{ $selectedBrand ?? 'All' }}</span>
                   <i class="fas fa-chevron-down"></i>
@@ -276,10 +369,11 @@
               </div>
             </div>
             <style>
-                  /* Brand filter mobile dropdown */
-                  .brands-dropdown { display: none; position: relative; width: 100%; }
+                  /* Brand filter dropdown for both desktop and mobile */
+                  .brands-dropdown { position: relative; width: 100%; }
                   .brands-dropdown-btn {
                     width: 100%;
+                    min-width: 200px;
                     background: #f3f6fd;
                     color: #2343ce;
                     border: 1px solid #e5eafe;
@@ -300,10 +394,11 @@
                     color: #fff;
                   }
                   .brands-dropdown-list {
-                    position: sticky;
+                    position: absolute;
                     top: 110%;
                     left: 0;
                     width: 100%;
+                    min-width: 200px;
                     background: #fff;
                     border-radius: 14px;
                     box-shadow: 0 8px 32px rgba(35,67,206,0.13);
@@ -331,14 +426,9 @@
                     color: #fff;
                   }
                   @media (max-width: 900px) {
-                    .brands-chips { display: none !important; }
-                    .brands-dropdown { display: block !important; width: calc(100vw - 40px) !important; margin: 0 20px 0 20px !important; max-width: unset !important; }
+                    .brands-dropdown { width: calc(100vw - 40px); margin: 0 20px 0 20px; max-width: unset; }
                     .brands-dropdown-btn { width: 85%; }
                     .brands-dropdown-list { width: 85%; min-width: 0; }
-                  }
-                  @media (min-width: 901px) {
-                    .brands-chips { display: flex !important; }
-                    .brands-dropdown { display: none !important; }
                   }
               </style>
           </div>
@@ -605,47 +695,57 @@
 
   <!-- Customer Data for JavaScript -->
   <script>
-        // Brand filter interactivity (chips and mobile dropdown)
+        // Brand filter interactivity (dynamic filtering without page reload)
         document.addEventListener('DOMContentLoaded', function() {
-          // Desktop chips
-          document.querySelectorAll('.brand-chip').forEach(function(btn) {
-            btn.addEventListener('click', function(e) {
-              const brand = this.getAttribute('data-brand');
-              const url = new URL(window.location.href);
-              url.searchParams.set('brand', brand);
-              url.searchParams.delete('page'); // Reset pagination if any
-              window.location.href = url.toString();
-            });
-          });
-          // Mobile dropdown
-          var dropdownBtn = document.getElementById('brandsDropdownBtn');
-          var dropdownList = document.getElementById('brandsDropdownList');
-          var dropdownSelected = document.getElementById('brandsDropdownSelected');
-          if (dropdownBtn && dropdownList) {
-            dropdownBtn.addEventListener('click', function(e) {
-              e.stopPropagation();
-              dropdownList.style.display = dropdownList.style.display === 'block' ? 'none' : 'block';
-            });
-            document.querySelectorAll('.brands-dropdown-option').forEach(function(opt) {
-              opt.addEventListener('click', function(e) {
-                const brand = this.getAttribute('data-brand');
-                dropdownList.style.display = 'none';
-                if (dropdownSelected) dropdownSelected.textContent = this.textContent;
-                const url = new URL(window.location.href);
-                url.searchParams.set('brand', brand);
-                url.searchParams.delete('page');
-                window.location.href = url.toString();
+          // Wait for the main reservation portal JS to load first
+          setTimeout(function() {
+            // Dropdown functionality
+            var dropdownBtn = document.getElementById('brandsDropdownBtn');
+            var dropdownList = document.getElementById('brandsDropdownList');
+            var dropdownSelected = document.getElementById('brandsDropdownSelected');
+            
+            if (dropdownBtn && dropdownList) {
+              dropdownBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                dropdownList.style.display = dropdownList.style.display === 'block' ? 'none' : 'block';
               });
-            });
-            document.addEventListener('click', function(e) {
-              if (!dropdownList.contains(e.target) && !dropdownBtn.contains(e.target)) {
-                dropdownList.style.display = 'none';
-              }
-            });
-          }
+              
+              document.querySelectorAll('.brands-dropdown-option').forEach(function(opt) {
+                opt.addEventListener('click', function(e) {
+                  const brand = this.getAttribute('data-brand');
+                  dropdownList.style.display = 'none';
+                  if (dropdownSelected) dropdownSelected.textContent = this.textContent;
+                  
+                  // Update active state
+                  document.querySelectorAll('.brands-dropdown-option').forEach(function(o) {
+                    o.classList.remove('active');
+                  });
+                  this.classList.add('active');
+                  
+                  // Filter products dynamically without page reload
+                  if (typeof window.filterProductsByBrand === 'function') {
+                    window.filterProductsByBrand(brand === 'All' ? '' : brand);
+                  } else {
+                    // Fallback to page reload if dynamic filtering isn't available
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('brand', brand);
+                    url.searchParams.delete('page');
+                    window.location.href = url.toString();
+                  }
+                });
+              });
+              
+              document.addEventListener('click', function(e) {
+                if (!dropdownList.contains(e.target) && !dropdownBtn.contains(e.target)) {
+                  dropdownList.style.display = 'none';
+                }
+              });
+            }
+          }, 100);
         });
     window.customerData = @json(auth('customer')->user());
     window.IS_CUSTOMER_LOGGED_IN = {{ auth('customer')->check() ? 'true' : 'false' }};
+    window.initialPaginationData = @json(isset($paginationData) ? $paginationData : null);
   </script>
 
   <!-- Products Data for JavaScript -->

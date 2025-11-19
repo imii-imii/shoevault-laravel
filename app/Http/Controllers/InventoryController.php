@@ -1216,36 +1216,30 @@ class InventoryController extends Controller
             return;
         }
 
-        // Status transition: pending -> completed (deduct stock)
+        // Status transition: pending -> completed (no stock change - already deducted on creation)
         if ($oldStatus === 'pending' && $newStatus === 'completed') {
-            foreach ($reservation->items as $item) {
-                $sizeId = $item['size_id'] ?? null;
-                if (!$sizeId) {
-                    throw new \Exception("Size ID not found for item: {$item['product_name']}");
-                }
-                
-                $size = ProductSize::find($sizeId);
-                if ($size && $size->stock >= $item['quantity']) {
-                    $size->decrement('stock', $item['quantity']);
-                    Log::info("Stock deducted: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
-                } else {
-                    throw new \Exception("Insufficient stock for {$item['product_name']} (Size: {$item['product_size']}). Available: " . ($size ? $size->stock : 0) . ", Required: {$item['quantity']}");
-                }
-            }
+            // No stock changes needed - stock was already deducted when reservation was created
+            Log::info("Reservation completed - no stock changes needed (already deducted on creation)");
         }
 
-        // Status transition: completed -> pending (restore stock)
-        elseif ($oldStatus === 'completed' && $newStatus === 'pending') {
+        // Status transition: pending -> cancelled (restore stock - was deducted on creation)
+        elseif ($oldStatus === 'pending' && $newStatus === 'cancelled') {
             foreach ($reservation->items as $item) {
                 $sizeId = $item['size_id'] ?? null;
                 if ($sizeId) {
                     $size = ProductSize::find($sizeId);
                     if ($size) {
                         $size->increment('stock', $item['quantity']);
-                        Log::info("Stock restored: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
+                        Log::info("Stock restored due to cancellation: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
                     }
                 }
             }
+        }
+
+        // Status transition: completed -> pending (no stock change - was already deducted)
+        elseif ($oldStatus === 'completed' && $newStatus === 'pending') {
+            // No stock changes needed - stock remains deducted
+            Log::info("Reservation reverted to pending - no stock changes needed");
         }
 
         // Status transition: completed -> cancelled (restore stock)
@@ -1262,9 +1256,25 @@ class InventoryController extends Controller
             }
         }
 
-        // Status transition: pending -> cancelled (no stock change needed since stock wasn't deducted)
-        // Status transition: cancelled -> pending (no stock change needed)
-        // Status transition: cancelled -> completed (deduct stock like pending -> completed)
+        // Status transition: cancelled -> pending (deduct stock again)
+        elseif ($oldStatus === 'cancelled' && $newStatus === 'pending') {
+            foreach ($reservation->items as $item) {
+                $sizeId = $item['size_id'] ?? null;
+                if (!$sizeId) {
+                    throw new \Exception("Size ID not found for item: {$item['product_name']}");
+                }
+                
+                $size = ProductSize::find($sizeId);
+                if ($size && $size->stock >= $item['quantity']) {
+                    $size->decrement('stock', $item['quantity']);
+                    Log::info("Stock deducted for reactivated reservation: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
+                } else {
+                    throw new \Exception("Insufficient stock for {$item['product_name']} (Size: {$item['product_size']}). Available: " . ($size ? $size->stock : 0) . ", Required: {$item['quantity']}");
+                }
+            }
+        }
+
+        // Status transition: cancelled -> completed (deduct stock)
         elseif ($oldStatus === 'cancelled' && $newStatus === 'completed') {
             foreach ($reservation->items as $item) {
                 $sizeId = $item['size_id'] ?? null;

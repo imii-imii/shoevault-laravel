@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Models\Reservation;
+use App\Models\ProductSize;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use App\Services\NotificationService;
@@ -114,6 +115,20 @@ class ProcessReservationCancellations extends Command
      */
     private function cancelReservation(Reservation $reservation, string $reason)
     {
+        // Restore stock since reservation is being cancelled (stock was deducted on creation)
+        if ($reservation->items && is_array($reservation->items)) {
+            foreach ($reservation->items as $item) {
+                $sizeId = $item['size_id'] ?? null;
+                if ($sizeId) {
+                    $size = \App\Models\ProductSize::find($sizeId);
+                    if ($size) {
+                        $size->increment('stock', $item['quantity']);
+                        Log::info("Stock restored due to auto-cancellation: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
+                    }
+                }
+            }
+        }
+
         $reservation->status = 'cancelled';
         $reservation->notes = ($reservation->notes ? $reservation->notes . "\n" : '') . 
                              "Auto-cancelled on " . Carbon::now()->toDateTimeString() . ": " . $reason;

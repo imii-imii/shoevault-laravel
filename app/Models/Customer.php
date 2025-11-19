@@ -149,11 +149,13 @@ class Customer extends Authenticatable
     }
 
     /**
-     * Get the transactions for this customer.
+     * Get the transactions for this customer through reservations.
      */
-    public function transactions(): HasMany
+    public function transactions()
     {
-        return $this->hasMany(Transaction::class, 'customer_id', 'customer_id');
+        return Transaction::whereHas('reservation', function($query) {
+            $query->where('customer_id', $this->customer_id);
+        });
     }
 
     /**

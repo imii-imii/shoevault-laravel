@@ -30,8 +30,6 @@ class ReservationController extends Controller
      */
     public function portal(Request $request)
     {
-        // Set session flag to allow access to form page
-        session(['can_access_form' => true]);
         
         $query = Product::with('sizes')
             ->active()
@@ -51,15 +49,19 @@ class ReservationController extends Controller
             $query->where('brand', $selectedBrand);
         }
 
-        $products = $query->get();
+        // Pagination: 20 items per page
+        $perPage = 20;
+        $products = $query->paginate($perPage);
 
         // Compute current reservation holds and annotate product availability for the portal
         [$holdsBySize, $holdsByProduct] = $this->computeReservationHoldsMaps();
-        $products = $this->annotateProductsWithAvailability($products, $holdsBySize);
+        $pageCollection = $products->getCollection();
+        $pageCollection = $this->annotateProductsWithAvailability($pageCollection, $holdsBySize);
         // Filter out products that end up with zero available stock after holds
-        $products = $products->filter(function($p){
+        $pageCollection = $pageCollection->filter(function($p){
             return ($p->available_total_stock ?? 0) > 0;
         })->values();
+        $products->setCollection($pageCollection);
 
 
         // Get available categories for the filter buttons
@@ -86,12 +88,25 @@ class ReservationController extends Controller
         // Get current authenticated customer
         $customer = Auth::guard('customer')->user();
 
+        // Prepare pagination data for JavaScript
+        $paginationData = null;
+        if ($products instanceof \Illuminate\Pagination\LengthAwarePaginator) {
+            $paginationData = [
+                'current_page' => $products->currentPage(),
+                'last_page' => $products->lastPage(),
+                'per_page' => $products->perPage(),
+                'total' => $products->total(),
+                'from' => $products->firstItem(),
+                'to' => $products->lastItem()
+            ];
+        }
+
         // SEO meta data
         $seoService = app(SEOService::class);
         $meta = $seoService->getPortalMeta();
         $structuredData = $seoService->getWebsiteStructuredData();
 
-        return view('reservation.portal', compact('products', 'categories', 'brands', 'selectedCategory', 'selectedBrand', 'customer', 'meta', 'structuredData'));
+        return view('reservation.portal', compact('products', 'categories', 'brands', 'selectedCategory', 'selectedBrand', 'customer', 'meta', 'structuredData', 'paginationData'));
     }
 
     /**
@@ -99,14 +114,6 @@ class ReservationController extends Controller
      */
     public function form()
     {
-        // Check if user accessed this page from the portal
-        if (!session('can_access_form')) {
-            return redirect()->route('reservation.portal');
-        }
-        
-        // Clear the session flag after checking (optional: remove this line if you want to allow multiple visits)
-        session()->forget('can_access_form');
-        
         // Get current authenticated customer
         $customer = Auth::guard('customer')->user();
         
@@ -218,18 +225,25 @@ class ReservationController extends Controller
             $query->where('price', '<=', (float)$maxPrice);
         }
 
+        // Handle brand filtering
+        $brand = $request->get('brand');
+        if ($brand && $brand !== 'All' && !empty(trim($brand))) {
+            $query->where('brand', trim($brand));
+        }
+
         // Handle search filtering
         $search = $request->get('search');
         if ($search && !empty(trim($search))) {
             $searchTerm = trim($search);
             $query->where(function($q) use ($searchTerm) {
                 $q->where('name', 'LIKE', '%' . $searchTerm . '%')
-                  ->orWhere('brand', 'LIKE', '%' . $searchTerm . '%');
+                  ->orWhere('brand', 'LIKE', '%' . $searchTerm . '%')
+                  ->orWhere('color', 'LIKE', '%' . $searchTerm . '%');
             });
         }
 
-        // Pagination: 40 items per page
-        $perPage = 40;
+        // Pagination: 20 items per page
+        $perPage = 20;
         $page = $request->get('page', 1);
         $products = $query->paginate($perPage);
 
@@ -321,22 +335,18 @@ class ReservationController extends Controller
 
             $customerEmail = $customer->email;
             
-            if (Reservation::customerHasPendingReservations($customerEmail)) {
-                $pendingReservations = Reservation::getCustomerPendingReservations($customerEmail);
-                $reservationIds = $pendingReservations->pluck('reservation_id')->toArray();
-                
-                return response()->json([
-                    'success' => false,
-                    'hasPending' => true,
-                    'message' => 'You already have pending reservation(s). Please wait for your current reservation(s) to be completed or cancelled before making a new one.',
-                    'pendingReservations' => $reservationIds
-                ]);
-            }
-
+            // Removed pending reservation limit - customers can now have multiple pending reservations
+            $pendingReservations = Reservation::getCustomerPendingReservations($customerEmail);
+            $reservationCount = $pendingReservations->count();
+            
             return response()->json([
                 'success' => true,
-                'hasPending' => false,
-                'message' => 'No pending reservations found. You can proceed with your reservation.'
+                'hasPending' => $reservationCount > 0,
+                'pendingCount' => $reservationCount,
+                'message' => $reservationCount > 0 
+                    ? "You have {$reservationCount} pending reservation(s). You can make additional reservations if needed."
+                    : 'No pending reservations found. You can proceed with your reservation.',
+                'pendingReservations' => $pendingReservations->pluck('reservation_id')->toArray()
             ]);
 
         } catch (\Exception $e) {
@@ -455,6 +465,16 @@ class ReservationController extends Controller
                 ]);
             }
 
+            // Deduct stock from inventory immediately when reservation is created
+            foreach ($validated['items'] as $item) {
+                $size = ProductSize::findOrFail($item['sizeId']);
+                if ($size->stock < $item['qty']) {
+                    throw new \Exception("Insufficient stock for size ID {$item['sizeId']}. Available: {$size->stock}, Required: {$item['qty']}");
+                }
+                $size->decrement('stock', $item['qty']);
+                Log::info("Stock deducted on reservation creation: Size ID {$item['sizeId']}, Quantity: {$item['qty']}");
+            }
+
             // Create single reservation with JSON items and customer_id foreign key
             // Note: reservation_id will be auto-generated by the model's boot() method
             $reservation = \App\Models\Reservation::create([
@@ -468,8 +488,8 @@ class ReservationController extends Controller
                 'reserved_at' => now()
             ]);
 
-            // Stock will be held (not deducted) until reservation is completed
-            // This allows for better inventory management and prevents stock lockup
+            // Stock is now deducted immediately upon reservation creation
+            // This prevents overbooking and provides real-time inventory accuracy
             
             DB::commit();
 

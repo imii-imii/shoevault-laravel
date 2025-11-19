@@ -45,6 +45,31 @@ class Reservation extends Model
                 ]);
             }
         });
+
+        // Restore stock when a reservation is deleted (only if not cancelled)
+        static::deleting(function ($reservation) {
+            try {
+                // Only restore stock if reservation wasn't cancelled (cancelled already restored stock)
+                if ($reservation->status !== 'cancelled' && $reservation->items && is_array($reservation->items)) {
+                    foreach ($reservation->items as $item) {
+                        $sizeId = $item['size_id'] ?? null;
+                        if ($sizeId) {
+                            $size = \App\Models\ProductSize::find($sizeId);
+                            if ($size) {
+                                $size->increment('stock', $item['quantity']);
+                                \Illuminate\Support\Facades\Log::info("Stock restored due to reservation deletion: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
+                            }
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                // Log error but don't fail the deletion
+                \Illuminate\Support\Facades\Log::error('Failed to restore stock on reservation deletion', [
+                    'reservation_id' => $reservation->reservation_id,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        });
     }
 
     /**
@@ -106,6 +131,56 @@ class Reservation extends Model
         // Since we store product details directly, this relationship is optional
         // Uses the main products table with inventory_type filtering
         return $this->belongsTo(Product::class, 'product_id')->withDefault();
+    }
+
+    /**
+     * Get product image URL from product_size_id or direct product_id
+     */
+    public static function getItemImageUrl($productSizeIdOrProductId)
+    {
+        $productId = null;
+        
+        // Handle both old format (product_size_id) and new format (direct product_id)
+        if (is_numeric($productSizeIdOrProductId)) {
+            // Try as product_size_id first
+            $productSize = \App\Models\ProductSize::with('product')->find($productSizeIdOrProductId);
+            if ($productSize?->product) {
+                $productId = $productSize->product->product_id;
+            }
+        } else {
+            // Direct product_id (string format like "SV-MEN-DELPCV")
+            $productId = $productSizeIdOrProductId;
+        }
+        
+        if (!$productId) {
+            return 'assets/images/no-image-available.jpg';
+        }
+        
+        $directory = public_path('assets/images/products/');
+        
+        // Always search for the actual file by product ID pattern (ignore database timestamp)
+        if (is_dir($directory)) {
+            $files = glob($directory . $productId . '_*');
+            if (!empty($files)) {
+                // Get the most recent file if multiple exist
+                $latestFile = $files[0];
+                if (count($files) > 1) {
+                    $latestTime = 0;
+                    foreach ($files as $file) {
+                        $fileTime = filemtime($file);
+                        if ($fileTime > $latestTime) {
+                            $latestTime = $fileTime;
+                            $latestFile = $file;
+                        }
+                    }
+                }
+                $filename = basename($latestFile);
+                return 'assets/images/products/' . $filename;
+            }
+        }
+        
+        // Return placeholder if no image found
+        return 'assets/images/no-image-available.jpg';
     }
 
     /**

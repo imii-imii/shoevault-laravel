@@ -567,43 +567,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         try {
             // Show loading state
-            const originalText = checkoutBtn ? checkoutBtn.textContent : cartModalCheckout.textContent;
-            if (checkoutBtn) checkoutBtn.textContent = 'Checking...';
-            if (cartModalCheckout) cartModalCheckout.textContent = 'Checking...';
-            
-            // Check for pending reservations
-            const response = await fetch('/api/check-pending-reservations', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-                }
-            });
-
-            const data = await response.json();
-
-            // Restore button text
-            if (checkoutBtn) checkoutBtn.textContent = originalText;
-            if (cartModalCheckout) cartModalCheckout.textContent = originalText;
-
-            if (response.status === 401) {
-                // Not authenticated
-                alert('Please log in to make a reservation.');
-                window.location.href = '/customer/login';
-                return;
-            }
-
-            if (data.success && !data.hasPending) {
-                // No pending reservations, proceed to form
-                window.location.href = '/form';
-            } else if (data.hasPending) {
-                // Has pending reservations, show error
-                const pendingIds = data.pendingReservations?.join(', ') || 'Unknown';
-                alert(`You already have pending reservation(s): ${pendingIds}\n\nPlease wait for your current reservation(s) to be completed or cancelled before making a new one.`);
-            } else {
-                // Error occurred
-                alert(data.message || 'An error occurred while checking for pending reservations. Please try again.');
-            }
+            // Proceed directly to reservation form
+            window.location.href = '/form';
 
         } catch (error) {
             console.error('Error checking pending reservations:', error);

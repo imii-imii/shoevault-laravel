@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Models\Customer;
 use App\Models\User;
+use App\Models\ProductSize;
 use App\Mail\VerificationCodeMail;
 use App\Mail\PasswordResetCodeMail;
 
@@ -411,5 +412,128 @@ class CustomerAuthController extends Controller
             'message' => 'Password reset code sent to your email.',
             'code' => app()->environment('local') ? $code : null, // Only show in development
         ]);
+    }
+
+    /**
+     * Show customer dashboard
+     */
+    public function dashboard()
+    {
+        $customer = Auth::guard('customer')->user();
+        
+        // Get all reservations by category
+        $allReservations = $customer->reservations()
+            ->with(['customer'])
+            ->orderByRaw("CASE WHEN status IN ('pending', 'for_cancellation') THEN 0 ELSE 1 END")
+            ->orderBy('created_at', 'desc')
+            ->get();
+            
+        $pendingReservations = $customer->reservations()
+            ->whereIn('status', ['pending', 'for_cancellation'])
+            ->with(['customer'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+            
+        $completedReservations = $customer->reservations()
+            ->where('status', 'completed')
+            ->with(['customer'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+            
+        $cancelledReservations = $customer->reservations()
+            ->where('status', 'cancelled')
+            ->with(['customer'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+            
+        return view('customer.dashboard', compact('customer', 'allReservations', 'pendingReservations', 'completedReservations', 'cancelledReservations'));
+    }
+
+
+
+    /**
+     * Cancel customer reservation
+     */
+    public function cancelReservation(Request $request, $reservationId)
+    {
+        try {
+            $customer = Auth::guard('customer')->user();
+            
+            // Find the reservation and verify it belongs to the customer
+            $reservation = $customer->reservations()
+                ->where('reservation_id', $reservationId)
+                ->first();
+                
+            if (!$reservation) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Reservation not found or you do not have permission to cancel it.'
+                ], 404);
+            }
+            
+            // Check if reservation can be cancelled
+            if (!in_array($reservation->status, ['pending', 'confirmed'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This reservation cannot be cancelled. Current status: ' . $reservation->status
+                ]);
+            }
+            
+            // Restore stock since reservation is being cancelled (stock was deducted on creation)
+            if ($reservation->items && is_array($reservation->items)) {
+                foreach ($reservation->items as $item) {
+                    $sizeId = $item['size_id'] ?? null;
+                    if ($sizeId) {
+                        $size = \App\Models\ProductSize::find($sizeId);
+                        if ($size) {
+                            $size->increment('stock', $item['quantity']);
+                            \Illuminate\Support\Facades\Log::info("Stock restored due to customer cancellation: Size ID {$sizeId}, Product: {$item['product_name']}, Quantity: {$item['quantity']}");
+                        }
+                    }
+                }
+            }
+
+            // Update reservation status to cancelled
+            $reservation->status = 'cancelled';
+            $reservation->save();
+            
+            // Create notification for staff about cancellation
+            \App\Models\Notification::create([
+                'type' => 'reservation_cancelled',
+                'title' => 'Reservation Cancelled by Customer',
+                'message' => "Reservation {$reservation->reservation_id} has been cancelled by the customer.",
+                'data' => json_encode([
+                    'reservation_id' => $reservation->reservation_id,
+                    'customer_name' => $customer->fullname,
+                    'customer_email' => $customer->email,
+                    'cancelled_at' => now()->toISOString()
+                ]),
+                'is_read' => false
+            ]);
+            
+            Log::info('Customer cancelled reservation', [
+                'reservation_id' => $reservation->reservation_id,
+                'customer_id' => $customer->customer_id,
+                'customer_email' => $customer->email
+            ]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Reservation cancelled successfully.'
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error cancelling reservation', [
+                'reservation_id' => $reservationId,
+                'customer_id' => $customer->customer_id ?? null,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while cancelling the reservation. Please try again.'
+            ], 500);
+        }
     }
 }
