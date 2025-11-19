@@ -21,17 +21,13 @@ class Transaction extends Model
         'sale_type',
         'reservation_id',
         'user_id',
-        'subtotal',
-        'discount_amount',
-        'total_amount',
+        'total_amount', // Now calculated from item subtotals
         'amount_paid',
         'change_given',
         'sale_date'
     ];
 
     protected $casts = [
-        'subtotal' => 'decimal:2',
-        'discount_amount' => 'decimal:2',
         'total_amount' => 'decimal:2',
         'amount_paid' => 'decimal:2',
         'change_given' => 'decimal:2',
@@ -152,7 +148,7 @@ class Transaction extends Model
 
     public function getFormattedSubtotalAttribute()
     {
-        return '₱' . number_format($this->subtotal, 2);
+        return '₱' . number_format($this->calculateSubtotalFromItems(), 2);
     }
 
     /**
@@ -176,5 +172,61 @@ class Transaction extends Model
     public function getFormattedTaxAttribute()
     {
         return '₱' . number_format($this->tax, 2);
+    }
+
+    /**
+     * Calculate subtotal from all transaction items (before discount)
+     */
+    public function calculateSubtotalFromItems(): float
+    {
+        return $this->items->sum(function ($item) {
+            return $item->quantity * $item->unit_price;
+        });
+    }
+
+    /**
+     * Calculate total discount amount from all transaction items
+     */
+    public function calculateTotalDiscountFromItems(): float
+    {
+        return $this->items->sum('discount_amount');
+    }
+
+    /**
+     * Calculate total amount from all transaction items (after discounts)
+     * This is the sum of all item subtotals
+     */
+    public function calculateTotalFromItems(): float
+    {
+        return $this->items->sum('subtotal');
+    }
+
+    /**
+     * Update transaction total based on items
+     */
+    public function updateTotalFromItems(): void
+    {
+        $this->total_amount = $this->calculateTotalFromItems();
+        $this->save();
+    }
+
+    /**
+     * Get calculated totals without saving
+     */
+    public function getCalculatedTotals(): array
+    {
+        return [
+            'subtotal_before_discount' => $this->calculateSubtotalFromItems(),
+            'total_discount_amount' => $this->calculateTotalDiscountFromItems(),
+            'total_amount' => $this->calculateTotalFromItems()
+        ];
+    }
+
+    /**
+     * Get formatted total discount amount
+     */
+    public function getFormattedDiscountAttribute()
+    {
+        return '₱' . number_format($this->calculateTotalDiscountFromItems(), 2);
     }
 }

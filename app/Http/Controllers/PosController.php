@@ -371,6 +371,8 @@ class PosController extends Controller
     {
         try {
             $category = $request->get('category', 'all');
+            $brand = $request->get('brand', 'all');
+            $sort = $request->get('sort', 'name-asc');
             
             $query = Product::with(['sizes' => function($query) {
                 $query->where('stock', '>', 0)->where('is_available', true);
@@ -382,6 +384,10 @@ class PosController extends Controller
                 $query->where('category', $category);
             }
             
+            if ($brand !== 'all') {
+                $query->where('brand', $brand);
+            }
+            
             if ($request->has('search') && $request->search) {
                 $search = $request->search;
                 $query->where(function($q) use ($search) {
@@ -389,6 +395,29 @@ class PosController extends Controller
                       ->orWhere('brand', 'like', "%{$search}%")
                       ->orWhere('sku', 'like', "%{$search}%");
                 });
+            }
+            
+            // Apply sorting
+            switch ($sort) {
+                case 'name-desc':
+                    $query->orderBy('name', 'desc');
+                    break;
+                case 'price-asc':
+                    $query->orderBy('price', 'asc');
+                    break;
+                case 'price-desc':
+                    $query->orderBy('price', 'desc');
+                    break;
+                case 'brand-asc':
+                    $query->orderBy('brand', 'asc');
+                    break;
+                case 'brand-desc':
+                    $query->orderBy('brand', 'desc');
+                    break;
+                case 'name-asc':
+                default:
+                    $query->orderBy('name', 'asc');
+                    break;
             }
             
             $products = $query->get();
@@ -463,9 +492,9 @@ class PosController extends Controller
                 'items.*.id' => 'required|string', // Changed from integer to string to support product IDs like "SV-MEN-ABC123"
                 'items.*.size' => 'required|string',
                 'items.*.quantity' => 'required|integer|min:1',
+                'items.*.discount_amount' => 'numeric|min:0', // Item-level discount
                 'subtotal' => 'required|numeric|min:0',
                 'tax' => 'numeric|min:0',
-                'discount' => 'numeric|min:0',
                 'total' => 'required|numeric|min:0',
                 'amount_paid' => 'required|numeric|min:0',
                 'payment_method' => 'required|string|in:cash,card,gcash,bank_transfer'
@@ -510,7 +539,9 @@ class PosController extends Controller
                 
                 // Calculate effective price with size adjustment
                 $unitPrice = $product->price + ($size->price_adjustment ?? 0);
-                $subtotal = $unitPrice * $item['quantity'];
+                $baseAmount = $unitPrice * $item['quantity'];
+                $discountAmount = $item['discount_amount'] ?? 0;
+                $itemSubtotal = $baseAmount - $discountAmount;
                 
                 // Build detailed item record for the sale
                 $saleItems[] = [
@@ -523,7 +554,8 @@ class PosController extends Controller
                     'product_category' => $product->category,
                     'unit_price' => $unitPrice,
                     'quantity' => $item['quantity'],
-                    'subtotal' => $subtotal,
+                    'discount_amount' => $discountAmount,
+                    'subtotal' => $itemSubtotal,
                     'cost_price' => $product->cost_price ?? 0,
                     'sku' => $product->sku ?? null
                 ];
@@ -565,8 +597,6 @@ class PosController extends Controller
                 'sale_type' => 'pos',
                 'reservation_id' => null,
                 'user_id' => $currentUserId, // Fixed: changed from cashier_id to user_id
-                'subtotal' => $validated['subtotal'],
-                'discount_amount' => $validated['discount'] ?? 0,
                 'total_amount' => $validated['total'],
                 'amount_paid' => $validated['amount_paid'],
                 'change_given' => $change,
@@ -589,6 +619,8 @@ class PosController extends Controller
                     'quantity' => $item['quantity'],
                     'size' => $item['product_size'], // Populate the size field with the same value as product_size
                     'unit_price' => $item['unit_price'],
+                    'discount_amount' => $item['discount_amount'],
+                    'subtotal' => $item['subtotal'],
                     'cost_price' => $item['cost_price'] ?? 0
                 ]);
             }

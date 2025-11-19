@@ -393,11 +393,17 @@
         /* Category Filter */
         .category-filter {
             display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
+            position: relative; /* allow search to overlap tabs */
+        }
+
+        .category-filter > div:first-child {
+            display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: var(--spacing-lg);
             gap: var(--spacing-md);
-            position: relative; /* allow search to overlap tabs */
         }
 
         .category-tabs {
@@ -436,6 +442,43 @@
 
         .category-tab i {
             font-size: 0.9rem;
+        }
+
+        /* Filters Row */
+        .filters-row {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+        }
+
+        .brand-filter-container,
+        .sort-filter-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .filter-select {
+            padding: var(--spacing-sm) var(--spacing-md);
+            border: 1px solid var(--gray-300);
+            border-radius: var(--radius-lg);
+            background: var(--white);
+            color: var(--gray-700);
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            min-width: 140px;
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: #2a6aff;
+            box-shadow: 0 0 0 3px rgba(42, 106, 255, 0.1);
+        }
+
+        .filter-select:hover {
+            border-color: var(--gray-400);
         }
 
         /* Search Container */
@@ -881,13 +924,19 @@
 
         .cart-item {
             display: flex;
-            align-items: center;
+            flex-direction: column;
             gap: var(--spacing-sm);
             padding: var(--spacing-sm);
             border: 1px solid var(--gray-200);
             border-radius: var(--radius-md);
             margin-bottom: var(--spacing-sm);
             background: var(--gray-50);
+        }
+
+        .cart-item-main {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
         }
 
         .item-info {
@@ -939,6 +988,102 @@
             align-items: center;
             gap: 0.5rem;
             min-width: 78px;
+        }
+
+        /* Item discount controls */
+        .item-discount-toggle {
+            background: none;
+            border: none;
+            color: var(--gray-500);
+            font-size: 0.75rem;
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: var(--radius-sm);
+            transition: all var(--transition-fast);
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .item-discount-toggle:hover {
+            color: var(--primary);
+            background: var(--gray-100);
+        }
+
+        .item-discount-toggle.active {
+            color: #2a6aff;
+            background: #e5f2ff;
+        }
+
+        .item-discount-panel {
+            display: none;
+            margin-top: 0.5rem;
+            padding: 0.75rem;
+            background: var(--white);
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .item-discount-panel.active {
+            display: block;
+        }
+
+        .discount-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .discount-input-group label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--gray-600);
+        }
+
+        .discount-type-select {
+            padding: 0.375rem;
+            border: 1px solid var(--gray-300);
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+        }
+
+        .discount-value-input {
+            padding: 0.375rem;
+            border: 1px solid var(--gray-300);
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+            width: 100%;
+        }
+
+        .discount-apply-btn {
+            background: #2a6aff;
+            color: white;
+            border: none;
+            padding: 0.375rem 0.75rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .discount-apply-btn:hover {
+            background: #1d4ed8;
+        }
+
+        .item-discount-info {
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+        }
+
+        .discount-amount {
+            color: #dc2626;
+            font-weight: 600;
         }
 
         .cart-summary {
@@ -1310,6 +1455,21 @@
             .category-tabs {
                 flex-wrap: wrap;
             }
+            
+            .filters-row {
+                flex-direction: column;
+                gap: var(--spacing-sm);
+            }
+            
+            .brand-filter-container,
+            .sort-filter-container {
+                width: 100%;
+            }
+            
+            .filter-select {
+                width: 100%;
+                min-width: auto;
+            }
 
             .products-grid {
                 /* Step down to 2 columns on tablets */
@@ -1445,6 +1605,25 @@
                         </button>
                     </div>
 
+                    <div class="filters-row">
+                        <div class="brand-filter-container">
+                            <select id="brand-filter" class="filter-select">
+                                <option value="all">All Brands</option>
+                            </select>
+                        </div>
+
+                        <div class="sort-filter-container">
+                            <select id="sort-filter" class="filter-select">
+                                <option value="name-asc">Name A-Z</option>
+                                <option value="name-desc">Name Z-A</option>
+                                <option value="price-asc">Price Low to High</option>
+                                <option value="price-desc">Price High to Low</option>
+                                <option value="brand-asc">Brand A-Z</option>
+                                <option value="brand-desc">Brand Z-A</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div class="search-container">
                         <div class="search-box">
                             <i class="fas fa-search"></i>
@@ -1498,21 +1677,6 @@
                 </div>
             </div>
             <div class="payment-section">
-                <h3><i class="fas fa-tags"></i> Discount</h3>
-                <div class="payment-input-group">
-                    <label for="discount-type">Type:</label>
-                    <select id="discount-type">
-                        <option value="amount">Amount (₱)</option>
-                        <option value="percent">Percent (%)</option>
-                    </select>
-                </div>
-                <div class="payment-input-group">
-                    <label for="discount-value">Value:</label>
-                    <div class="payment-input-container">
-                        <input type="text" id="discount-value" placeholder="0.00">
-                    </div>
-                </div>
-
                 <h3><i class="fas fa-credit-card"></i> Payment</h3>
                 <div class="payment-input-group">
                     <label for="payment-amount">Cash Received:</label>
@@ -1572,25 +1736,36 @@ let cartTotal = 0;
 let allProducts = []; // Store all products from database
 
 // Load products from database
-async function loadProducts(category = 'all') {
+async function loadProducts(category = 'all', brand = 'all', sortBy = 'name-asc') {
     const grid = document.getElementById('products-grid');
     
     try {
         // Show loading state
         grid.innerHTML = `
-            <div class="loading-products">
-                <i class="fas fa-spinner fa-spin"></i>
-                <p>Loading products...</p>
-            </div>
+        <div class="loading-products">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Loading products...</p>
+        </div>
         `;
         
-        // Fetch products from API
-        const response = await fetch('{{ route("pos.products") }}?category=' + category);
-        const data = await response.json();
+        // Build query parameters
+        const params = new URLSearchParams({
+            category: category,
+            brand: brand,
+            sort: sortBy
+        });
         
-        if (data.success) {
+        // Fetch products from API
+        const response = await fetch('{{ route("pos.products") }}?' + params.toString());
+        const data = await response.json();        if (data.success) {
             allProducts = data.products;
             console.log('Loaded', allProducts.length, 'product(s)');
+            
+            // Populate brand filter on first load
+            if (category === 'all' && brand === 'all') {
+                populateBrandFilter(allProducts);
+            }
+            
             const filteredProducts = data.products;
             
             if (filteredProducts.length === 0) {
@@ -1713,13 +1888,51 @@ async function loadProducts(category = 'all') {
     }
 }
 
+// Populate brand filter dropdown
+function populateBrandFilter(products) {
+    const brandFilter = document.getElementById('brand-filter');
+    const brands = [...new Set(products.map(p => p.brand).filter(Boolean))].sort();
+    
+    // Clear existing options except "All Brands"
+    brandFilter.innerHTML = '<option value="all">All Brands</option>';
+    
+    // Add brand options
+    brands.forEach(brand => {
+        const option = document.createElement('option');
+        option.value = brand;
+        option.textContent = brand;
+        brandFilter.appendChild(option);
+    });
+}
+
+// Get current filter values
+function getCurrentFilters() {
+    const category = document.querySelector('.category-tab.actives')?.dataset.category || 'all';
+    const brand = document.getElementById('brand-filter')?.value || 'all';
+    const sort = document.getElementById('sort-filter')?.value || 'name-asc';
+    return { category, brand, sort };
+}
+
 // Category filtering
 document.querySelectorAll('.category-tab').forEach(tab => {
     tab.addEventListener('click', function() {
         document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('actives'));
         this.classList.add('actives');
-        loadProducts(this.dataset.category);
+        const { brand, sort } = getCurrentFilters();
+        loadProducts(this.dataset.category, brand, sort);
     });
+});
+
+// Brand filtering
+document.getElementById('brand-filter').addEventListener('change', function() {
+    const { category, sort } = getCurrentFilters();
+    loadProducts(category, this.value, sort);
+});
+
+// Sort filtering
+document.getElementById('sort-filter').addEventListener('change', function() {
+    const { category, brand } = getCurrentFilters();
+    loadProducts(category, brand, this.value);
 });
 
 // Add to cart function
@@ -1826,24 +2039,54 @@ function updateCartDisplay() {
         `;
         printBtn.disabled = true;
     } else {
-        cartItems.innerHTML = cart.map(item => `
+        cartItems.innerHTML = cart.map(item => {
+            const baseAmount = item.price * item.quantity;
+            const discountAmount = item.discount_amount || 0;
+            const subtotal = baseAmount - discountAmount;
+            const hasDiscount = discountAmount > 0;
+            const discountPercentage = baseAmount > 0 ? ((discountAmount / baseAmount) * 100) : 0;
+            
+            return `
             <div class="cart-item slide-in">
-                <div class="item-info">
-                    <h5>${item.name} <span style="color:#718096; font-weight:500">• Size ${item.size || ''}</span></h5>
-                    <p>₱${item.price.toLocaleString()}</p>
+                <div class="cart-item-main">
+                    <div class="item-info">
+                        <h5>${item.name} <span style="color:#718096; font-weight:500">• Size ${item.size || ''}</span></h5>
+                        <p>₱${item.price.toLocaleString()} ${hasDiscount ? `<span class="discount-amount">(-₱${discountAmount.toLocaleString()})</span>` : ''}</p>
+                    </div>
+                    <div class="item-right">
+                        <div class="item-controls">
+                            <button onclick="updateQuantityByKey('${item.key}', -1)">-</button>
+                            <span>${item.quantity}</span>
+                            <button onclick="updateQuantityByKey('${item.key}', 1)">+</button>
+                        </div>
+                        <div class="item-total">
+                            ₱${subtotal.toLocaleString()}
+                        </div>
+                        <button class="item-discount-toggle ${hasDiscount ? 'active' : ''}" onclick="toggleItemDiscount('${item.key}')">
+                            <i class="fas fa-tags"></i>
+                            ${hasDiscount ? 'Edit' : 'Discount'}
+                        </button>
+                    </div>
                 </div>
-                <div class="item-right">
-                    <div class="item-controls">
-                        <button onclick="updateQuantityByKey('${item.key}', -1)">-</button>
-                        <span>${item.quantity}</span>
-                        <button onclick="updateQuantityByKey('${item.key}', 1)">+</button>
+                <div class="item-discount-panel" id="discount-panel-${item.key}">
+                    <div class="discount-input-group">
+                        <label>Type:</label>
+                        <select class="discount-type-select" id="discount-type-${item.key}">
+                            <option value="amount">Amount (₱)</option>
+                            <option value="percent">Percent (%)</option>
+                        </select>
                     </div>
-                    <div class="item-total">
-                        ₱${(item.price * item.quantity).toLocaleString()}
+                    <div class="discount-input-group">
+                        <label>Value:</label>
+                        <input type="text" class="discount-value-input" id="discount-value-${item.key}" placeholder="0.00">
                     </div>
+                    <button class="discount-apply-btn" onclick="applyItemDiscount('${item.key}')">Apply</button>
+                    ${hasDiscount ? `<button class="discount-apply-btn" style="background: #dc2626; margin-left: 0.5rem;" onclick="removeItemDiscount('${item.key}')">Remove</button>` : ''}
+                    ${hasDiscount ? `<div class="item-discount-info">Discount: ${discountPercentage.toFixed(2)}% (₱${discountAmount.toLocaleString()})</div>` : ''}
                 </div>
             </div>
-        `).join('');
+        `;
+        }).join('');
         printBtn.disabled = false;
     }
     
@@ -1877,34 +2120,17 @@ function updateQuantityByKey(key, change) {
 // Update cart summary
 function updateCartSummary() {
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const tax = 0;
-
-    // Read discount inputs
-    const typeEl = document.getElementById('discount-type');
-    const valEl = document.getElementById('discount-value');
-    let discountType = typeEl ? typeEl.value : 'amount';
-    let raw = valEl ? (valEl.value || '').trim().replace(/[^0-9.]/g, '') : '0';
-    let discountValue = parseFloat(raw || '0') || 0;
-
-    let discountAmount = 0;
-    if (discountType === 'percent') {
-        discountValue = Math.min(100, Math.max(0, discountValue));
-        discountAmount = subtotal * (discountValue / 100);
-    } else {
-        discountValue = Math.max(0, discountValue);
-        discountAmount = Math.min(subtotal, discountValue);
-    }
-    discountAmount = Math.round(discountAmount * 100) / 100;
-
-    const total = Math.max(0, subtotal - discountAmount);
+    const totalDiscountAmount = cart.reduce((sum, item) => sum + (item.discount_amount || 0), 0);
+    const tax = 0; // No tax for now, can be configured later
+    const total = Math.max(0, subtotal - totalDiscountAmount + tax);
 
     // Update UI
     const discountRow = document.getElementById('discount-row');
     const discountAmtEl = document.getElementById('discount-amount');
     if (discountRow && discountAmtEl) {
-        if (discountAmount > 0) {
+        if (totalDiscountAmount > 0) {
             discountRow.style.display = 'flex';
-            discountAmtEl.textContent = `- ₱ ${discountAmount.toLocaleString()}`;
+            discountAmtEl.textContent = `- ₱ ${totalDiscountAmount.toLocaleString()}`;
         } else {
             discountRow.style.display = 'none';
             discountAmtEl.textContent = '- ₱ 0.00';
@@ -1917,7 +2143,7 @@ function updateCartSummary() {
 
     document.getElementById('total-amount').textContent = `₱ ${total.toLocaleString()}`;
     
-    return { subtotal, tax, total, discountAmount, discountType, discountValue };
+    return { subtotal, tax, total, discountAmount: totalDiscountAmount };
 }
 
 // Clear cart
@@ -1955,13 +2181,88 @@ document.getElementById('quick-cancel').addEventListener('click', function() {
         cart = [];
         updateCartDisplay();
         document.getElementById('payment-amount').value = '';
-        const dt = document.getElementById('discount-type');
-        const dv = document.getElementById('discount-value');
-        if (dt) dt.value = 'amount';
-        if (dv) dv.value = '';
         updatePaymentUi();
     }
 });
+
+// Item-level discount functions
+function toggleItemDiscount(key) {
+    const panel = document.getElementById(`discount-panel-${key}`);
+    const toggle = document.querySelector(`[onclick="toggleItemDiscount('${key}')"]`);
+    
+    if (panel.classList.contains('active')) {
+        panel.classList.remove('active');
+        toggle.classList.remove('active');
+    } else {
+        // Close all other discount panels first
+        document.querySelectorAll('.item-discount-panel.active').forEach(p => {
+            p.classList.remove('active');
+        });
+        document.querySelectorAll('.item-discount-toggle.active').forEach(t => {
+            t.classList.remove('active');
+        });
+        
+        panel.classList.add('active');
+        toggle.classList.add('active');
+        
+        // Focus on the value input
+        const valueInput = document.getElementById(`discount-value-${key}`);
+        if (valueInput) {
+            setTimeout(() => valueInput.focus(), 100);
+        }
+    }
+}
+
+function applyItemDiscount(key) {
+    const item = cart.find(ci => ci.key === key);
+    if (!item) return;
+    
+    const typeEl = document.getElementById(`discount-type-${key}`);
+    const valueEl = document.getElementById(`discount-value-${key}`);
+    
+    const discountType = typeEl.value;
+    const discountValue = parseFloat(valueEl.value.replace(/[^0-9.]/g, '')) || 0;
+    
+    if (discountValue <= 0) {
+        alert('Please enter a valid discount value');
+        return;
+    }
+    
+    const baseAmount = item.price * item.quantity;
+    let discountAmount = 0;
+    
+    if (discountType === 'percent') {
+        if (discountValue > 100) {
+            alert('Percentage discount cannot exceed 100%');
+            return;
+        }
+        discountAmount = baseAmount * (discountValue / 100);
+    } else {
+        if (discountValue > baseAmount) {
+            alert('Discount amount cannot exceed item total');
+            return;
+        }
+        discountAmount = discountValue;
+    }
+    
+    item.discount_amount = Math.round(discountAmount * 100) / 100;
+    
+    // Clear and close the discount panel
+    valueEl.value = '';
+    toggleItemDiscount(key);
+    
+    updateCartDisplay();
+}
+
+function removeItemDiscount(key) {
+    const item = cart.find(ci => ci.key === key);
+    if (!item) return;
+    
+    item.discount_amount = 0;
+    
+    toggleItemDiscount(key);
+    updateCartDisplay();
+}
 
 // Search functionality
 document.getElementById('search-input').addEventListener('input', function(e) {
@@ -1984,16 +2285,20 @@ document.getElementById('search-input').addEventListener('input', function(e) {
 // Clear search
 document.getElementById('clear-search').addEventListener('click', function() {
     document.getElementById('search-input').value = '';
-    document.querySelectorAll('.product-card').forEach(card => {
-        card.style.display = 'block';
-    });
+    
+    // Reset filters to default
+    document.getElementById('brand-filter').value = 'all';
+    document.getElementById('sort-filter').value = 'name-asc';
+    
+    // Reload products with current category but reset filters
+    const category = document.querySelector('.category-tab.actives')?.dataset.category || 'all';
+    loadProducts(category, 'all', 'name-asc');
 });
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
-    loadProducts();
+    loadProducts('all', 'all', 'name-asc');
     bindPaymentInput();
-    bindDiscountInputs();
     // Expand search to overlap tabs on focus for a seamless visual transition
     const searchContainer = document.querySelector('.search-container');
     if (searchContainer) {
@@ -2032,33 +2337,7 @@ function bindPaymentInput() {
     updatePaymentUi();
 }
 
-// ===== Discount input wiring =====
-function bindDiscountInputs() {
-    const typeEl = document.getElementById('discount-type');
-    const valEl = document.getElementById('discount-value');
-    if (!typeEl || !valEl) return;
-
-    typeEl.addEventListener('change', () => {
-        // Reset value when switching types for clarity
-        valEl.value = '';
-        valEl.placeholder = typeEl.value === 'percent' ? '0 - 100' : '0.00';
-        updatePaymentUi();
-    });
-
-    valEl.addEventListener('input', () => {
-        // Sanitize input
-        const cleaned = valEl.value.replace(/[^0-9.]/g, '');
-        const parts = cleaned.split('.');
-        let normalized = parts.length > 1 ? parts[0] + '.' + parts[1].slice(0, 2) : parts[0];
-        // Clamp percent to 0..100
-        if ((document.getElementById('discount-type')?.value) === 'percent') {
-            const num = parseFloat(normalized || '0') || 0;
-            normalized = Math.max(0, Math.min(100, num)).toString();
-        }
-        if (valEl.value !== normalized) valEl.value = normalized;
-        updatePaymentUi();
-    });
-}
+// ===== Payment UI update =====
 
 function updatePaymentUi() {
     const { total } = updateCartSummary();
@@ -2117,13 +2396,30 @@ function openReceiptPreview({ summary, paymentAmount }) {
     }
     // Populate items
     const tbody = modal.querySelector('#receipt-items-body');
-    tbody.innerHTML = cart.map(item => `
+    tbody.innerHTML = cart.map(item => {
+        const baseAmount = item.price * item.quantity;
+        const discountAmount = item.discount_amount || 0;
+        const subtotal = baseAmount - discountAmount;
+        const hasDiscount = discountAmount > 0;
+        
+        const discountPercentage = baseAmount > 0 ? ((discountAmount / baseAmount) * 100) : 0;
+        
+        return `
         <tr>
             <td>${item.name} ${item.size ? `(Size ${item.size})` : ''}</td>
             <td style="text-align:center">${item.quantity}</td>
-            <td style="text-align:right">₱ ${(item.price * item.quantity).toLocaleString()}</td>
+            <td style="text-align:right">₱ ${baseAmount.toLocaleString()}</td>
         </tr>
-    `).join('');
+        ${hasDiscount ? `
+        <tr class="discount-row">
+            <td colspan="2" style="padding-left: 1rem; font-size: 0.8rem; color: #dc2626;">
+                Discount (${discountPercentage.toFixed(2)}%)
+            </td>
+            <td style="text-align:right; font-size: 0.8rem; color: #dc2626;">- ₱ ${discountAmount.toLocaleString()}</td>
+        </tr>
+        ` : ''}
+    `;
+    }).join('');
 
     modal.classList.add('open');
     modal.querySelector('#receipt-close').onclick = () => modal.classList.remove('open');
@@ -2169,7 +2465,8 @@ async function processSaleAndPrint(summary, paymentAmount) {
         return {
             id: itemId,
             size: size,
-            quantity: quantity
+            quantity: quantity,
+            discount_amount: parseFloat(item.discount_amount || 0)
         };
     });
     
@@ -2177,12 +2474,6 @@ async function processSaleAndPrint(summary, paymentAmount) {
         items: processedItems,
         subtotal: parseFloat(summary.subtotal),
         tax: parseFloat(summary.tax || 0),
-        // Backend expects 'discount' (numeric) — include it so discount is persisted
-        discount: parseFloat(summary.discountAmount || 0),
-        // Keep more detailed fields for extensibility
-        discount_type: summary.discountType,
-        discount_value: parseFloat(summary.discountValue || 0),
-        discount_amount: parseFloat(summary.discountAmount || 0),
         total: parseFloat(summary.total),
         amount_paid: parseFloat(paymentAmount),
         payment_method: 'cash' // Can be enhanced to allow selection
