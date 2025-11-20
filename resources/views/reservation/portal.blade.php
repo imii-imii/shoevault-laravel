@@ -212,30 +212,30 @@
       <input type="text" placeholder="Search for shoes, brands, colors, or models...">
     </div>
     <!-- Desktop nav buttons inserted here -->
-    <div class="res-portal-desktop-nav desktop-only" style="display:flex;align-items:center;gap:5px;margin-right:18px;">
-      <button class="res-portal-nav-btn nav-home" onclick="document.getElementById('products').scrollIntoView({behavior:'smooth'});">
+    <div class="res-portal-desktop-nav desktop-only" style="display:flex;align-items:center;gap:10px;margin-right:24px;">
+      <button class="res-portal-nav-btn nav-home" onclick="document.getElementById('products').scrollIntoView({behavior:'smooth'});" title="Home">
         <span class="nav-icon"><i class="fas fa-home"></i></span>
         <span class="nav-label">Home</span>
       </button>
-      <button class="res-portal-nav-btn nav-services" onclick="document.getElementById('services')?.scrollIntoView({behavior:'smooth'});">
+      <button class="res-portal-nav-btn nav-services" onclick="document.getElementById('services')?.scrollIntoView({behavior:'smooth'});" title="Services">
         <span class="nav-icon"><i class="fas fa-concierge-bell"></i></span>
         <span class="nav-label">Services</span>
       </button>
-      <button class="res-portal-nav-btn nav-testimonials" onclick="document.getElementById('testimonials')?.scrollIntoView({behavior:'smooth'});">
+      <button class="res-portal-nav-btn nav-testimonials" onclick="document.getElementById('testimonials')?.scrollIntoView({behavior:'smooth'});" title="Testimonials">
         <span class="nav-icon"><i class="fas fa-comment-dots"></i></span>
         <span class="nav-label">Testimonials</span>
       </button>
-      <button class="res-portal-nav-btn nav-about" onclick="document.getElementById('about-us')?.scrollIntoView({behavior:'smooth'});">
+      <button class="res-portal-nav-btn nav-about" onclick="document.getElementById('about-us')?.scrollIntoView({behavior:'smooth'});" title="About Us">
         <span class="nav-icon"><i class="fas fa-users"></i></span>
         <span class="nav-label">About Us</span>
       </button>
-      <button class="res-portal-nav-btn nav-contact" onclick="document.getElementById('contact')?.scrollIntoView({behavior:'smooth'});">
+      <button class="res-portal-nav-btn nav-contact" onclick="document.getElementById('contact')?.scrollIntoView({behavior:'smooth'});" title="Contact Us">
         <span class="nav-icon"><i class="fas fa-envelope"></i></span>
         <span class="nav-label">Contact Us</span>
       </button>
     </div>
     <div class="cart-container" style="display:flex;align-items:center;gap:10px;">
-      <button class="res-portal-cart-btn" title="View Cart">
+      <button class="res-portal-cart-btn" title="View Cart" id="cartButton">
         <i class="fas fa-shopping-cart"></i>
       </button>
       <div class="user-status-container">
@@ -373,9 +373,9 @@
                   .brands-dropdown { position: relative; width: 100%; }
                   .brands-dropdown-btn {
                     width: 100%;
-                    min-width: 200px;
-                    background: #f3f6fd;
-                    color: #2343ce;
+                    min-width: 400px;
+                    background: linear-gradient(90deg, #2343ce 0%, #2a6aff 100%);
+                    color: #fff;
                     border: 1px solid #e5eafe;
                     border-radius: 999px;
                     padding: 8px 16px;
@@ -390,15 +390,15 @@
                     outline: none;
                   }
                   .brands-dropdown-btn:active, .brands-dropdown-btn:focus {
-                    background: linear-gradient(90deg, #2343ce 0%, #2a6aff 100%);
-                    color: #fff;
+                    background: #fff;
+                    color: #2343ce;;
                   }
                   .brands-dropdown-list {
                     position: absolute;
                     top: 110%;
                     left: 0;
                     width: 100%;
-                    min-width: 200px;
+                    min-width: 400px;
                     background: #fff;
                     border-radius: 14px;
                     box-shadow: 0 8px 32px rgba(35,67,206,0.13);
@@ -426,11 +426,26 @@
                     color: #fff;
                   }
                   @media (max-width: 900px) {
-                    .brands-dropdown { width: calc(100vw - 40px); margin: 0 20px 0 20px; max-width: unset; }
-                    .brands-dropdown-btn { width: 85%; }
-                    .brands-dropdown-list { width: 85%; min-width: 0; }
+                    .brands-dropdown { width: calc(100vw - 50px); margin: 0; max-width: unset; }
+                    .brands-dropdown-btn { width: 100%; }
+                    .brands-dropdown-list { width: 100%; min-width: 0; }
                   }
               </style>
+            <div class="res-portal-categories">
+            <button class="res-portal-category-btn {{ ($selectedCategory ?? 'All') === 'All' ? 'active' : '' }}" data-category="All">All</button>
+            @php
+              $staticCats = ['men' => 'Men', 'women' => 'Women', 'accessories' => 'Accessories'];
+              $lowerCats = collect($categories ?? [])->map(fn($c) => strtolower($c));
+            @endphp
+            @foreach($staticCats as $value => $label)
+              <button class="res-portal-category-btn {{ (strtolower($selectedCategory ?? '') === $value) ? 'active' : '' }}" data-category="{{ $value }}">{{ $label }}</button>
+            @endforeach
+            @foreach(($categories ?? []) as $category)
+              @if(!in_array(strtolower($category), array_keys($staticCats)))
+                <button class="res-portal-category-btn {{ ($selectedCategory === $category) ? 'active' : '' }}" data-category="{{ $category }}">{{ $category }}</button>
+              @endif
+            @endforeach
+            </div>
           </div>
         </div>
         <div class="res-portal-filter-right">
@@ -449,20 +464,14 @@
               </button>
             </div>
           </div>
-          <div class="res-portal-categories">
-            <button class="res-portal-category-btn {{ ($selectedCategory ?? 'All') === 'All' ? 'active' : '' }}" data-category="All">All</button>
-            @php
-              $staticCats = ['men' => 'Men', 'women' => 'Women', 'accessories' => 'Accessories'];
-              $lowerCats = collect($categories ?? [])->map(fn($c) => strtolower($c));
-            @endphp
-            @foreach($staticCats as $value => $label)
-              <button class="res-portal-category-btn {{ (strtolower($selectedCategory ?? '') === $value) ? 'active' : '' }}" data-category="{{ $value }}">{{ $label }}</button>
-            @endforeach
-            @foreach(($categories ?? []) as $category)
-              @if(!in_array(strtolower($category), array_keys($staticCats)))
-                <button class="res-portal-category-btn {{ ($selectedCategory === $category) ? 'active' : '' }}" data-category="{{ $category }}">{{ $category }}</button>
-              @endif
-            @endforeach
+          @php $currentSort = request()->get('sort', 'popular'); @endphp
+            <div class="res-portal-sorting-filter" aria-label="Sorting Options">
+              <div class="sorting-label"><i class="fas fa-sort"></i> Sort:</div>
+              <div class="sorting-options">
+                <a href="{{ request()->fullUrlWithQuery(['sort'=>'alpha']) }}" class="sort-chip {{ $currentSort === 'alpha' ? 'active' : '' }}" data-sort="alpha">Alphabetically</a>
+                <a href="{{ request()->fullUrlWithQuery(['sort'=>'latest']) }}" class="sort-chip {{ $currentSort === 'latest' ? 'active' : '' }}" data-sort="latest">Latest</a>
+                <a href="{{ request()->fullUrlWithQuery(['sort'=>'popular']) }}" class="sort-chip {{ $currentSort === 'popular' ? 'active' : '' }}" data-sort="popular">Popular</a>
+              </div>
           </div>
         </div>
       </div>
