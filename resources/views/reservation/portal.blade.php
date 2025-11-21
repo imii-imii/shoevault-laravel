@@ -258,23 +258,23 @@
     </div>
     <!-- Desktop nav buttons inserted here -->
     <div class="res-portal-desktop-nav desktop-only" style="display:flex;align-items:center;gap:10px;margin-right:24px;">
-      <button class="res-portal-nav-btn nav-home" onclick="document.getElementById('products').scrollIntoView({behavior:'smooth'});" title="Home">
+      <button class="res-portal-nav-btn nav-home" onclick="goToSection('products')" title="Home">
         <span class="nav-icon"><i class="fas fa-home"></i></span>
         <span class="nav-label">Home</span>
       </button>
-      <button class="res-portal-nav-btn nav-services" onclick="document.getElementById('services')?.scrollIntoView({behavior:'smooth'});" title="Services">
+      <button class="res-portal-nav-btn nav-services" onclick="goToSection('services')" title="Services">
         <span class="nav-icon"><i class="fas fa-concierge-bell"></i></span>
         <span class="nav-label">Services</span>
       </button>
-      <button class="res-portal-nav-btn nav-testimonials" onclick="document.getElementById('testimonials')?.scrollIntoView({behavior:'smooth'});" title="Testimonials">
+      <button class="res-portal-nav-btn nav-testimonials" onclick="goToSection('testimonials')" title="Testimonials">
         <span class="nav-icon"><i class="fas fa-comment-dots"></i></span>
         <span class="nav-label">Testimonials</span>
       </button>
-      <button class="res-portal-nav-btn nav-about" onclick="document.getElementById('about-us')?.scrollIntoView({behavior:'smooth'});" title="About Us">
+      <button class="res-portal-nav-btn nav-about" onclick="goToSection('about-us')" title="About Us">
         <span class="nav-icon"><i class="fas fa-users"></i></span>
         <span class="nav-label">About Us</span>
       </button>
-      <button class="res-portal-nav-btn nav-contact" onclick="document.getElementById('contact')?.scrollIntoView({behavior:'smooth'});" title="Contact Us">
+      <button class="res-portal-nav-btn nav-contact" onclick="goToSection('contact')" title="Contact Us">
         <span class="nav-icon"><i class="fas fa-envelope"></i></span>
         <span class="nav-label">Contact Us</span>
       </button>
@@ -372,23 +372,23 @@
       <span class="pulse-light pl-3"></span>
     </div>
     <div class="res-portal-nav">
-      <button class="res-portal-nav-btn nav-home">
+      <button class="res-portal-nav-btn nav-home" onclick="goToSection('products')">
         <span class="nav-icon"><i class="fas fa-home"></i></span>
         <span class="nav-label">Home</span>
       </button>
-      <button class="res-portal-nav-btn nav-services">
+      <button class="res-portal-nav-btn nav-services" onclick="goToSection('services')">
         <span class="nav-icon"><i class="fas fa-concierge-bell"></i></span>
         <span class="nav-label">Services</span>
       </button>
-      <button class="res-portal-nav-btn nav-testimonials">
+      <button class="res-portal-nav-btn nav-testimonials" onclick="goToSection('testimonials')">
         <span class="nav-icon"><i class="fas fa-comment-dots"></i></span>
         <span class="nav-label">Testimonials</span>
       </button>
-      <button class="res-portal-nav-btn nav-about">
+      <button class="res-portal-nav-btn nav-about" onclick="goToSection('about-us')">
         <span class="nav-icon"><i class="fas fa-users"></i></span>
         <span class="nav-label">About Us</span>
       </button>
-      <button class="res-portal-nav-btn nav-contact">
+      <button class="res-portal-nav-btn nav-contact" onclick="goToSection('contact')">
         <span class="nav-icon"><i class="fas fa-envelope"></i></span>
         <span class="nav-label">Contact Us</span>
       </button>
@@ -1489,5 +1489,50 @@
       }
     })();
   </script>
+
+    <!-- Smart section navigation: scroll when on portal, otherwise navigate to portal with hash -->
+    <script>
+      (function(){
+        if (window.__svGoToSection) return; window.__svGoToSection = true;
+        // Portal base URL
+        var _portalUrl = @json(route('reservation.home'));
+
+        function isSameOriginAndPath(url) {
+          try {
+            var u = new URL(url, window.location.origin);
+            return (u.origin === window.location.origin) && (u.pathname.replace(/\/+$/,'') === window.location.pathname.replace(/\/+$/,''));
+          } catch(e) { return false; }
+        }
+
+        window.goToSection = function(sectionId){
+          if (!sectionId) return;
+          // If already on the portal page, attempt smooth scroll to element
+          try {
+            if (isSameOriginAndPath(_portalUrl)) {
+              var el = document.getElementById(sectionId);
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // update hash without causing jump
+                history.replaceState(null, '', window.location.pathname + '#' + sectionId);
+                return;
+              }
+              // if element not present, still set hash (no reload)
+              window.location.hash = sectionId;
+              return;
+            }
+          } catch(e) {
+            // fallback to navigation below
+          }
+
+          // Not on portal page: navigate to portal URL with hash
+          try {
+            var base = _portalUrl.split('#')[0];
+            window.location.href = base + '#' + sectionId;
+          } catch(e) {
+            window.location.href = _portalUrl + '#' + sectionId;
+          }
+        };
+      })();
+    </script>
 </body>
 </html>

@@ -18,6 +18,9 @@
       color: #1a202c;
     }
 
+    /* Utility: show on mobile only */
+    .mobile-only { display: none; }
+
     /* Dashboard-specific styles that complement the portal design */
     .dashboard-main {
       min-height: 100vh;
@@ -26,90 +29,103 @@
     }
 
     .dashboard-container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 0 2rem;
+      /* full-bleed with 10px side gutters */
+      width: calc(100% - 20px);
+      max-width: none;
+      margin: 0 10px;
+      padding: 0 10px;
+      box-sizing: border-box;
     }
     
     .dashboard-header {
-      background: linear-gradient(135deg, #2d3748 0%, #4a5568 50%, #2d3748 100%);
-      color: white;
-      padding: 3rem 2rem;
-      border-radius: 20px;
-      margin-bottom: 2rem;
+      background: linear-gradient(120deg, rgba(2,13,39,0.95) 0%, rgba(9,44,128,0.92) 55%, rgba(42,106,255,0.85) 100%);
+      color: #fff;
+      padding: 3.2rem 2.4rem;
+      border-radius: 26px;
+      margin-bottom: 2.4rem;
       text-align: center;
       position: relative;
       overflow: hidden;
-      box-shadow: 0 20px 40px rgba(45, 55, 72, 0.3);
+      box-shadow: 0 24px 54px -12px rgba(8,32,96,0.55), 0 8px 24px -8px rgba(5,20,60,0.45);
+      backdrop-filter: blur(14px) saturate(160%);
+      -webkit-backdrop-filter: blur(14px) saturate(160%);
+      border: 1px solid rgba(255,255,255,0.10);
     }
 
     .dashboard-header::before {
       content: '';
       position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
-      animation: shimmer 3s infinite;
+      inset: 0;
+      background: linear-gradient(115deg, transparent 0%, rgba(255,255,255,0.08) 45%, transparent 60%);
+      animation: headerSheen 5.5s cubic-bezier(.25,.8,.35,1) infinite;
+      pointer-events: none;
+    }
+    .dashboard-header::after {
+      content: '';
+      position: absolute;
+      top: -30%; left: -10%; width: 220px; height: 220px;
+      background: radial-gradient(circle at center, rgba(42,106,255,0.55), rgba(42,106,255,0));
+      filter: blur(70px);
+      opacity: .35;
+      animation: headerAura 7.2s ease-in-out infinite;
+      pointer-events: none;
     }
 
-    @keyframes shimmer {
-      0% { transform: translateX(-100%); }
-      100% { transform: translateX(100%); }
-    }
+    @keyframes headerSheen { 0% { transform: translateX(-120%); } 55% { transform: translateX(140%); } 100% { transform: translateX(140%); } }
+    @keyframes headerAura { 0%,100% { transform: scale(.85) translate(0,0); opacity:.25; } 50% { transform: scale(1.15) translate(18px,12px); opacity:.45; } }
 
     .dashboard-header h1 {
-      font-size: 2.5rem;
+      font-size: 2.4rem;
       font-weight: 800;
-      margin: 0 0 0.5rem 0;
+      margin: 0 0 .65rem 0;
       position: relative;
       z-index: 1;
+      letter-spacing: .6px;
+      display:flex; align-items:center; justify-content:center; gap:.6rem;
+      text-shadow: 0 4px 18px rgba(0,0,0,0.4), 0 2px 8px rgba(42,106,255,0.35);
     }
 
     .dashboard-header p {
-      font-size: 1.1rem;
-      opacity: 0.9;
+      font-size: 1.05rem;
+      opacity: .88;
       margin: 0;
       position: relative;
       z-index: 1;
+      max-width: 720px;
+      margin-inline: auto;
     }
     
     .dashboard-card {
-      background: white;
-      border-radius: 20px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      background: linear-gradient(145deg,#ffffff 0%, #f4f7ff 100%);
+      border-radius: 24px;
+      box-shadow: 0 10px 28px rgba(8,32,96,0.06), 0 6px 16px rgba(8,32,96,0.05);
       overflow: hidden;
-      transition: all 0.3s ease;
-      border: 1px solid rgba(0, 0, 0, 0.05);
+      transition: box-shadow .35s ease, transform .35s ease, border-color .35s ease;
+      border: 1px solid rgba(8,32,96,0.08);
+      position:relative;
     }
+    .dashboard-card:before { content:''; position:absolute; inset:0; background: linear-gradient(115deg, rgba(2,13,39,0.06), rgba(9,44,128,0.08) 55%, rgba(42,106,255,0.07)); opacity:.55; pointer-events:none; }
     
     .dashboard-card:hover {
-      transform: translateY(-8px);
-      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+      transform: translateY(-10px);
+      box-shadow: 0 28px 60px -12px rgba(8,32,96,0.35), 0 10px 24px -8px rgba(5,20,60,0.25);
+      border-color: rgba(42,106,255,0.35);
     }
     
     .card-header {
-      background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
-      color: white;
-      padding: 2rem;
+      background: linear-gradient(120deg, rgba(2,13,39,0.96) 0%, rgba(9,44,128,0.94) 55%, rgba(42,106,255,0.88) 100%);
+      color: #fff;
+      padding: 1.85rem 2rem 1.6rem;
       font-weight: 700;
-      font-size: 1.25rem;
+      font-size: 1.18rem;
       position: relative;
       overflow: hidden;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      backdrop-filter: blur(10px);
     }
+    .card-header:before { content:''; position:absolute; inset:0; background: linear-gradient(110deg, transparent 0%, rgba(255,255,255,0.10) 45%, transparent 60%); animation: headerSheen 6s cubic-bezier(.25,.8,.35,1) infinite; pointer-events:none; }
 
-    .card-header::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      right: 0;
-      width: 100px;
-      height: 100px;
-      background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%);
-      border-radius: 50%;
-      transform: translate(30px, -30px);
-    }
+    .card-header::after { content:''; position:absolute; top:-25%; right:-10%; width:160px; height:160px; background: radial-gradient(circle at center, rgba(42,106,255,0.55), rgba(42,106,255,0)); filter: blur(60px); opacity:.4; }
     
     .card-content {
       padding: 2rem;
@@ -117,40 +133,28 @@
     
     .tab-navigation {
       display: flex;
-      background: #f7fafc;
-      border-radius: 15px;
-      padding: 0.5rem;
-      margin-bottom: 2rem;
-      gap: 0.5rem;
+      background: linear-gradient(145deg,#ffffff 0%, #f2f6ff 100%);
+      border-radius: 18px;
+      padding: 0.6rem 0.6rem;
+      margin-bottom: 2.2rem;
+      gap: 0.6rem;
+      box-shadow: 0 6px 18px rgba(8,32,96,0.07);
+      border:1px solid rgba(8,32,96,0.08);
+      position:relative;
     }
+    .tab-navigation:before { content:''; position:absolute; inset:0; background: linear-gradient(115deg, rgba(2,13,39,0.04), rgba(9,44,128,0.06) 55%, rgba(42,106,255,0.05)); opacity:.6; pointer-events:none; border-radius:inherit; }
     
     .tab-btn {
-      flex: 1;
-      padding: 1rem 1.5rem;
-      border: none;
-      background: transparent;
-      color: #718096;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      border-radius: 12px;
-      font-size: 0.9rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
+      flex: 1; padding: .85rem 1.25rem; border:none; background: rgba(9,44,128,0.06); color:#3b4e6d; font-weight:600; cursor:pointer; transition: all .35s cubic-bezier(.21,.8,.32,1); border-radius:14px; font-size:.85rem; display:flex; align-items:center; justify-content:center; gap:.55rem; position:relative; overflow:hidden;
     }
+    .tab-btn i { color: #092c80; transition: color .35s ease, transform .35s ease; }
     
-    .tab-btn:hover {
-      color: #4299e1;
-      background: rgba(66, 153, 225, 0.1);
-    }
+    .tab-btn:hover { color:#092c80; background: rgba(9,44,128,0.12); box-shadow:0 4px 14px -6px rgba(8,32,96,.25); }
     
     .tab-btn.active {
-      color: white;
-      background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
-      box-shadow: 0 4px 15px rgba(66, 153, 225, 0.4);
-    }
+      color:#fff; background: linear-gradient(120deg, #020d27 0%, #092c80 70%, #2a6aff 100%); box-shadow:0 10px 28px -10px rgba(9,44,128,.55), 0 4px 12px -6px rgba(9,44,128,.35); transform: translateY(-2px); }
+    .tab-btn.active i { color:#fff; }
+    .tab-btn.active:before { content:''; position:absolute; inset:0; background: linear-gradient(110deg, transparent 0%, rgba(255,255,255,0.12) 45%, transparent 60%); animation: headerSheen 6.2s cubic-bezier(.25,.8,.35,1) infinite; pointer-events:none; }
     
     .tab-content {
       display: none;
@@ -161,15 +165,17 @@
     }
     
     .reservation-item, .transaction-item {
-      background: linear-gradient(135deg, #f8fafc 0%, #edf2f7 100%);
-      border-radius: 15px;
-      padding: 1.5rem;
-      margin-bottom: 1.5rem;
-      border-left: 6px solid #4299e1;
-      transition: all 0.3s ease;
+      background: linear-gradient(135deg,#ffffff 0%, #f4f7ff 100%);
+      border-radius: 18px;
+      padding: 1.45rem 1.55rem 1.55rem;
+      margin-bottom: 1.55rem;
+      border-left: 6px solid #092c80;
+      transition: box-shadow .35s ease, transform .35s ease, border-color .35s ease;
       position: relative;
       overflow: hidden;
+      box-shadow: 0 6px 16px rgba(8,32,96,0.07);
     }
+    .reservation-item:before { content:''; position:absolute; inset:0; background: linear-gradient(115deg, rgba(2,13,39,0.04), rgba(9,44,128,0.08) 55%, rgba(42,106,255,0.05)); opacity:.6; pointer-events:none; }
 
     .reservation-item::before {
       content: '';
@@ -181,62 +187,24 @@
       background: linear-gradient(90deg, transparent 0%, rgba(66, 153, 225, 0.5) 50%, transparent 100%);
     }
     
-    .reservation-item:hover {
-      transform: translateX(5px);
-      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-    }
+    .reservation-item:hover { transform: translateY(-6px); box-shadow:0 18px 44px -12px rgba(8,32,96,0.25); border-color:#2a6aff; }
     
-    .reservation-item.cancelled {
-      border-left-color: #e53e3e;
-      background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
-    }
+    .reservation-item.cancelled { border-left-color:#c53030; background: linear-gradient(135deg,#fff5f5 0%, #fee2e2 100%); }
     
-    .reservation-item.completed {
-      border-left-color: #38a169;
-      background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%);
-    }
+    .reservation-item.completed { border-left-color:#2563eb; background: linear-gradient(135deg,#eff6ff 0%, #dbeafe 100%); }
     
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.25rem;
-      padding: 0.5rem 1rem;
-      border-radius: 25px;
-      font-size: 0.75rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
+    .status-badge { display:inline-flex; align-items:center; gap:.3rem; padding:.45rem .9rem; border-radius:999px; font-size:.62rem; font-weight:800; text-transform:uppercase; letter-spacing:.65px; position:relative; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.08); }
+    .status-badge:before { content:''; position:absolute; inset:0; background: linear-gradient(110deg, transparent 0%, rgba(255,255,255,0.25) 50%, transparent 70%); animation: headerSheen 5.8s linear infinite; }
     
-    .status-pending {
-      background: linear-gradient(135deg, #fef5e7 0%, #fed7aa 100%);
-      color: #d69e2e;
-      border: 1px solid #d69e2e;
-    }
+    .status-pending { background: linear-gradient(135deg,#fff9e6 0%, #ffe2a8 100%); color:#b7791f; border:1px solid rgba(183,121,31,.45); }
     
-    .status-confirmed {
-      background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%);
-      color: #319795;
-      border: 1px solid #319795;
-    }
+    .status-confirmed { background: linear-gradient(135deg,#e6f9ff 0%, #c1ecff 100%); color:#075985; border:1px solid rgba(7,89,133,.45); }
     
-    .status-completed {
-      background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%);
-      color: #38a169;
-      border: 1px solid #38a169;
-    }
+    .status-completed { background: linear-gradient(135deg,#edf7ff 0%, #d6edff 100%); color:#1e3a8a; border:1px solid rgba(30,58,138,.45); }
     
-    .status-cancelled {
-      background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
-      color: #e53e3e;
-      border: 1px solid #e53e3e;
-    }
+    .status-cancelled { background: linear-gradient(135deg,#ffe5e5 0%, #ffcaca 100%); color:#c53030; border:1px solid rgba(197,48,48,.45); }
     
-    .status-for_cancellation {
-      background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
-      color: #d63031;
-      border: 1px solid #d63031;
-    }
+    .status-for_cancellation { background: linear-gradient(135deg,#fff3d1 0%, #ffe3a1 100%); color:#b45309; border:1px solid rgba(180,83,9,.45); }
     
     .action-buttons {
       display: flex;
@@ -276,27 +244,13 @@
       left: 100%;
     }
     
-    .btn-primary {
-      background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
-      color: white;
-      box-shadow: 0 4px 15px rgba(66, 153, 225, 0.4);
-    }
+    .btn-primary { background: linear-gradient(120deg, #020d27 0%, #092c80 70%, #2a6aff 100%); color:#fff; box-shadow:0 8px 22px -6px rgba(9,44,128,.55), 0 4px 12px -4px rgba(9,44,128,.35); border:1px solid rgba(255,255,255,0.14); }
     
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(66, 153, 225, 0.6);
-    }
+    .btn-primary:hover { transform: translateY(-4px); box-shadow:0 16px 40px -12px rgba(9,44,128,.55), 0 8px 24px -8px rgba(9,44,128,.45); filter:brightness(1.06); }
     
-    .btn-danger {
-      background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
-      color: white;
-      box-shadow: 0 4px 15px rgba(229, 62, 62, 0.4);
-    }
+    .btn-danger { background: linear-gradient(135deg,#dc2626 0%, #b91c1c 100%); color:#fff; box-shadow:0 8px 22px -8px rgba(220,38,38,.45); border:1px solid rgba(220,38,38,.35); }
     
-    .btn-danger:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(229, 62, 62, 0.6);
-    }
+    .btn-danger:hover { transform: translateY(-4px); box-shadow:0 18px 44px -14px rgba(220,38,38,.55); filter:brightness(1.06); }
     
     .empty-state {
       text-align: center;
@@ -331,6 +285,9 @@
         padding: 0 1rem;
       }
 
+      /* reveal mobile-only blocks */
+      .mobile-only { display: flex; flex-direction: column; align-items: center; text-align: center; }
+
       .dashboard-header {
         padding: 2rem 1.5rem;
         margin-bottom: 1.5rem;
@@ -341,7 +298,7 @@
       }
       
       .tab-navigation {
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
         gap: 0.25rem;
         padding: 0.25rem;
       }
@@ -715,13 +672,20 @@
 <body>
   <!-- Navigation matching portal style -->
   <nav class="res-portal-navbar">
-    <a href="{{ route('reservation.home') }}" class="res-portal-logo-link">
-      <img src="{{ asset('reservation-assets/shoevault-logo.png') }}" alt="ShoeVault Logo" class="res-portal-logo">
-    </a>
+    <div class="nav-left" style="display:flex;align-items:center;margin-right:auto;gap:12px;">
+      <a href="{{ route('reservation.home') }}" class="res-portal-logo-link">
+        <img src="{{ asset('reservation-assets/shoevault-logo.png') }}" alt="ShoeVault Logo" class="res-portal-logo">
+      </a>
+      <!-- Inline dashboard title (moved from main header). Desktop only. -->
+      <div class="navbar-dashboard-info desktop-only" style="display:flex;margin-left:6px;align-items:baseline;">
+        <div class="nav-dashboard-title" style="font-weight:700;color:#fff;font-size:1rem;letter-spacing:.3px;">Welcome, {{ $customer->fullname }}</div>
+        <div class="nav-dashboard-sub" style="font-size:.82rem;color:rgba(255,255,255,0.85);margin-top:2px; margin-left:8px;">Track reservations & manage account</div>
+      </div>
+    </div>
     <div class="cart-container" style="display:flex;align-items:center;gap:10px;">
       <a href="{{ route('reservation.portal') }}" class="res-portal-nav-btn desktop-only" style="text-decoration: none;margin-right:10px;">
         <span class="nav-icon"><i class="fas fa-store"></i></span>
-        <span class="nav-label">Browse Products</span>
+        <span class="nav-label">Products</span>
       </a>
       <div class="user-status-container">
         <div class="sv-user">
@@ -736,7 +700,7 @@
             </div>
             <a href="{{ route('reservation.portal') }}" class="sv-user-item" role="menuitem">
               <i class="fas fa-store"></i>
-              <span>Browse Products</span>
+              <span>Products</span>
             </a>
             <div class="sv-user-divider" style="height: 1px; background-color: #e2e8f0; margin: 8px 0;"></div>
             <form method="POST" action="{{ route('customer.logout') }}">
@@ -752,10 +716,10 @@
     </div>
   </nav>
 
-  <div class="dashboard-main" style="padding-top: 100px;">
+  <div class="dashboard-main" style="padding-top: 150px;">
     <div class="dashboard-container">
-    <!-- Dashboard Header -->
-    <div class="dashboard-header">
+    <!-- Mobile header restored (visible on small screens only) -->
+    <div class="dashboard-header mobile-only" style="margin-bottom:1.4rem;">
       <h1><i class="fas fa-tachometer-alt"></i> Welcome, {{ $customer->fullname }}!</h1>
       <p>Track your reservations and manage your account</p>
     </div>
