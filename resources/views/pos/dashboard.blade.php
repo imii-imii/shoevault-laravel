@@ -492,7 +492,7 @@
             position: relative;
             display: flex;
             align-items: center;
-            background: var(--white);
+            background: transparent;
         }
 
 
@@ -551,11 +551,13 @@
         .products-grid {
             flex: 1;
             display: grid;
-            /* Limit to 4 columns on large screens for better sizing at 100% scale */
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: var(--spacing-md);
             overflow-y: auto;
             padding: var(--spacing-sm);
+        }
+        @media (max-width: 680px) {
+            .products-grid { grid-template-columns: 1fr; }
         }
 
         .loading-products {
@@ -575,22 +577,21 @@
 
         .product-card {
             background: var(--white);
-            border-radius: var(--radius-2xl);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            border-radius: var(--radius-xl);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
             transition: all var(--transition-normal);
             position: relative;
             overflow: hidden;
-            border: none;
+            border: 1px solid var(--gray-200);
             display: flex;
             flex-direction: column;
-            /* Increased height to avoid content overflow at 100% scale */
-            height: 280px;
-            padding: var(--spacing-md);
+            height: 180px; /* further compact to fit 8 cards (4 rows) */
+            padding: 0.5rem 0.6rem 0.45rem;
         }
 
         .product-card:hover {
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-            transform: translateY(-4px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.10);
+            transform: translateY(-3px) scale(0.985);
         }
 
         .product-image {
@@ -685,31 +686,38 @@
 
         .product-info h3 {
             font-family: var(--font-secondary);
-            font-size: 1rem;
-            font-weight: 700;
+            font-size: 0.9rem; /* slightly reduced for compact layout */
+            font-weight: 800;
+            letter-spacing: .15px;
             color: var(--primary);
-            margin-bottom: 0.5rem;
-            line-height: 1.25;
+            margin-bottom: 0.35rem;
+            line-height: 1.18;
         }
 
         .product-info .brand {
-            color: var(--gray-500);
-            font-size: 0.8rem;
-            font-weight: 500;
+            font-size: 0.65rem; /* reduced */
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 0.5rem;
+            color: var(--gray-500);
+            margin-top: -0.15rem;
+            margin-bottom: 0.3rem;
+            letter-spacing: .55px;
         }
 
-        /* Product color (e.g., Red, Blue) */
-        .product-info .product-color {
-            color: #4b5563; /* gray-600 */
-            font-size: 0.8rem;
-            font-weight: 600;
-            text-transform: capitalize;
-            margin-top: -0.2rem;
-            margin-bottom: 0.4rem;
+        /* filter-search-row restored outside brand block */
+        .filter-search-row {
+            display: flex;
+            align-items: stretch;
+            gap: var(--spacing-md);
+            background: linear-gradient(145deg, rgba(17,44,112,0.12) 0%, rgba(42,106,255,0.12) 100%);
+            border: 1px solid rgba(42,106,255,0.25);
+            padding: var(--spacing-md);
+            border-radius: var(--radius-2xl);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 28px -8px rgba(42,106,255,0.25);
         }
+        .filter-search-row .search-container { flex: 1; }
+        .filter-search-row .filters-row { align-items: stretch; }
 
         /* Color row + image preview button aligned to the right */
         .color-row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom: 0.4rem; }
@@ -727,13 +735,14 @@
             justify-content: space-between;
             align-items: center;
             width: 100%;
-            margin-bottom: var(--spacing-md);
+            margin-bottom: 0.5rem; /* tighten vertical space */
         }
 
         .product-info .price {
-            font-size: 1.1rem;
-            font-weight: 800;
-            color: var(--primary);
+            font-size: 0.95rem; /* slight reduction */
+            font-weight: 900;
+            color: var(--primary-dark);
+            letter-spacing: .25px;
         }
 
         .product-stock {
@@ -760,19 +769,74 @@
         }
 
         .sizes-label {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: 600;
             color: var(--gray-700);
-            margin-bottom: 0.4rem;
+            margin-bottom: 0.35rem;
         }
 
         .size-buttons {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.4rem;
-            max-height: 84px; /* cap the area to prevent card overflow; leave room for footer */
-            overflow-y: auto;  /* allow scrolling when many sizes */
-            padding-right: 14px; /* room for scrollbar and to avoid touching card edge */
+            gap: 0.3rem;
+            max-height: 56px; /* further reduced to save vertical space */
+            overflow-y: auto;
+            padding-right: 8px;
+        .category-tabs {
+            display: flex;
+            gap: var(--spacing-sm);
+            flex-wrap: wrap;
+            background: linear-gradient(145deg, #ffffff 0%, #f0f5ff 100%);
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--radius-2xl);
+            border: 1px solid rgba(42,106,255,0.20);
+            box-shadow: 0 4px 18px -6px rgba(42,106,255,0.25);
+        }
+        .category-tab {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px 8px 14px;
+            background: linear-gradient(135deg, #ffffff 0%, #eaf1ff 100%);
+            color: #1e3a8a;
+            border: 1px solid rgba(42,106,255,0.25);
+            border-radius: 999px;
+            font-family: var(--font-secondary);
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: .3px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: background .35s cubic-bezier(.22,1,.36,1), color .25s ease, transform .35s ease, box-shadow .35s ease;
+        }
+        .category-tab:before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(42,106,255,0.2) 0%, rgba(17,44,112,0.2) 100%);
+            opacity: 0;
+            transition: opacity .35s ease;
+        }
+        .category-tab:hover {
+            color: #fff;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 28px -10px rgba(42,106,255,0.45);
+        }
+        .category-tab:hover:before { opacity: 1; }
+        .category-tab.actives {
+            background: linear-gradient(135deg, #112c70 0%, #2a6aff 100%);
+            color: #fff;
+            border-color: rgba(255,255,255,0.4);
+            box-shadow: 0 10px 32px -8px rgba(17,44,112,0.6);
+        }
+        .category-tab.actives:before { opacity: 0; }
+        .category-tab i { font-size: .85rem; }
+        @media (max-width: 780px) {
+            .filter-search-row { flex-direction: column; }
+            .filter-search-row .filters-row { width: 100%; justify-content: flex-start; }
+            .category-tabs { justify-content: flex-start; }
+        }
             padding-top: 4px; /* breathing room so scrollbar/content don't touch card bottom */
             margin-bottom: 6px; /* extra visual gap */
             -webkit-overflow-scrolling: touch;
@@ -870,6 +934,29 @@
             font-size: 1.25rem;
             font-weight: 600;
             color: var(--primary);
+        }
+            .filter-select {
+                padding: 10px 14px;
+                border: 1px solid rgba(42,106,255,0.35);
+                border-radius: 14px;
+                background: linear-gradient(135deg,#ffffff 0%, #f5f9ff 100%);
+                color: #1e3a8a;
+                font-size: 0.75rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: box-shadow .25s ease, transform .25s ease, background .35s ease, border-color .25s ease;
+                min-width: 140px;
+            }
+            .filter-select:focus {
+                outline: none;
+                border-color: #2a6aff;
+                box-shadow: 0 0 0 3px rgba(42,106,255,0.2);
+            }
+            .filter-select:hover {
+                border-color: #2a6aff;
+                box-shadow: 0 6px 20px -6px rgba(42,106,255,0.35);
+            }
+            .filter-select:active { transform: translateY(1px); }
             display: flex;
             align-items: center;
             gap: var(--spacing-sm);
@@ -1586,6 +1673,34 @@
             <section class="products-section">
                 <!-- Category Filter -->
                 <div class="category-filter">
+                    <div class="filter-search-row">
+                        <div class="search-container">
+                            <div class="search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="search-input" placeholder="Search shoes by name, brand, or model...">
+                                <button class="clear-search" id="clear-search">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="filters-row">
+                            <div class="brand-filter-container">
+                                <select id="brand-filter" class="filter-select">
+                                    <option value="all">All Brands</option>
+                                </select>
+                            </div>
+                            <div class="sort-filter-container">
+                                <select id="sort-filter" class="filter-select">
+                                    <option value="name-asc">Name A-Z</option>
+                                    <option value="name-desc">Name Z-A</option>
+                                    <option value="price-asc">Price Low to High</option>
+                                    <option value="price-desc">Price High to Low</option>
+                                    <option value="brand-asc">Brand A-Z</option>
+                                    <option value="brand-desc">Brand Z-A</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
                     <div class="category-tabs">
                         <button class="category-tab actives" data-category="all">
                             <i class="fas fa-th-large"></i>
@@ -1603,35 +1718,6 @@
                             <i class="fas fa-gem"></i>
                             <span>Accessories</span>
                         </button>
-                    </div>
-
-                    <div class="filters-row">
-                        <div class="brand-filter-container">
-                            <select id="brand-filter" class="filter-select">
-                                <option value="all">All Brands</option>
-                            </select>
-                        </div>
-
-                        <div class="sort-filter-container">
-                            <select id="sort-filter" class="filter-select">
-                                <option value="name-asc">Name A-Z</option>
-                                <option value="name-desc">Name Z-A</option>
-                                <option value="price-asc">Price Low to High</option>
-                                <option value="price-desc">Price High to Low</option>
-                                <option value="brand-asc">Brand A-Z</option>
-                                <option value="brand-desc">Brand Z-A</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="search-container">
-                        <div class="search-box">
-                            <i class="fas fa-search"></i>
-                            <input type="text" id="search-input" placeholder="Search shoes by name, brand, or model...">
-                            <button class="clear-search" id="clear-search">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
                     </div>
                 </div>
 
