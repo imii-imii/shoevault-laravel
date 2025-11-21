@@ -134,7 +134,7 @@ button, a, input, textarea, select, .btn, .lr-btn, .res-portal-nav-btn, .res-por
     background: linear-gradient(90deg, #020d27 0%, #092c80 100%) !important;
     padding: 10px !important;
     margin: 6px 0 !important;
-    width: fit-content !important;
+    width: 100% !important;
     box-sizing: border-box !important;
     box-shadow: 0 1px 4px rgba(50,81,154,0.08) !important;
     border-radius: 8px !important;
@@ -204,7 +204,7 @@ button, a, input, textarea, select, .btn, .lr-btn, .res-portal-nav-btn, .res-por
   .res-portal-nav-btn .fa {
     font-size: 0.9rem !important;
   }
-  .res-portal-filter-bar { display:flex !important; flex-direction: column !important; align-items: stretch !important; justify-content: flex-start !important; gap: 10px !important; padding: 0 12px !important; position: relative !important; width: 100% !important; box-sizing: border-box !important; overflow-x: hidden; margin: 12px 0 !important; }
+  .res-portal-filter-bar { display:flex !important; flex-direction: column !important; align-items: stretch !important; justify-content: flex-start !important; gap: 10px !important; padding: 0 !important; position: relative !important; width: 100% !important; box-sizing: border-box !important; overflow-x: hidden; margin: 12px 0 !important; }
   /* Mobile categories: equal-sized chips, multi-row grid, edge-to-edge */
   .res-portal-categories {
     display: grid !important;
@@ -330,8 +330,8 @@ body {
 html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavior: none; }
 
 /* Filter bar (categories + price range) - single-line compact */
-.res-portal-filter-bar { --filter-height: 32px; display:flex; align-items:center; justify-content:space-between; gap:20px; padding: 0 20px; box-sizing:border-box; margin:24px 100px 10px 100px; position: relative; width: calc(100% - 200px); }
-.res-portal-filter-bar .res-portal-categories { min-width:0; display:flex; align-items:center; gap:18px; overflow-x:auto; white-space: nowrap; margin: 12px 0; padding: 0; width: auto; max-width: 100%; flex: 1 1 auto; justify-content:flex-start; }
+.res-portal-filter-bar { --filter-height: 32px; display:flex; align-items:center; justify-content:space-between; gap:20px; padding: 0; box-sizing:border-box; margin:24px 100px 10px 100px; position: relative; width: calc(100% - 200px); }
+.res-portal-filter-bar .res-portal-categories { min-width:0; display:flex; align-items:center; gap:18px; overflow-x:auto; white-space: nowrap; margin: 12px 0; padding: 0; width: 100%; max-width: 100%; flex: 1 1 auto; justify-content:flex-start; }
 .res-portal-price-compact { display:flex; align-items:center; gap:12px; position: static; white-space: nowrap; }
 .res-portal-price-filter { display:flex; align-items:center; gap:6px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:0 8px 0 6px; box-shadow:0 2px 8px rgba(0,0,0,0.04); height: var(--filter-height); }
 .res-portal-price-filter i { color:#1d4ed8; }
@@ -478,7 +478,7 @@ html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavi
 
 .res-portal-banner {
   width: 90%;
-  margin: 9vw auto 3vw auto;
+  margin: 8vw auto 3vw auto;
   background: #05070d;
   display: flex;
   align-items: center;
@@ -700,7 +700,7 @@ html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavi
   color: #fff;
   display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   opacity: 0;
   width: 0;
   white-space: nowrap;
@@ -1594,13 +1594,13 @@ html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavi
   padding: 20px;
 }
 /* Sorting filter (chips) */
-.res-portal-sorting-filter { margin-top: 0; background:#f7faff; border-radius:12px; display:ruby; flex-direction:column; gap:10px; }
+.res-portal-sorting-filter { margin-top: 0; background:#f7faff; border-radius:12px; display:flex; justify-content: center; gap:10px; }
 .sorting-label { font-weight:700; color:#2343ce; font-size:1rem; display:flex; align-items:center; gap:6px; letter-spacing:.2px; }
 .sorting-label i { color:#2343ce; }
 .sorting-options { display:flex; gap:8px; flex-wrap:wrap; }
 .sort-chip { background:#f3f6fd; color:#2343ce; border:none; border-radius:999px; padding:6px 18px; font-size:.88rem; font-weight:600; cursor:pointer; transition: background .18s, color .18s, box-shadow .18s; box-shadow:0 2px 8px rgba(35,67,206,0.07); text-decoration:none; display:inline-flex; align-items:center; }
 .sort-chip.active, .sort-chip:hover, .sort-chip:focus { background: linear-gradient(90deg,#2343ce 0%, #2a6aff 100%); color:#fff; box-shadow:0 4px 16px rgba(35,67,206,0.13); }
-@media (max-width: 900px){ .res-portal-sorting-filter { padding:12px 12px; } }
+@media (max-width: 900px){ .res-portal-sorting-filter { padding:0; } }
 
 @media (max-width:700px){
   .res-portal-nav-btn { width:46px !important; flex-direction:column !important; padding:4px !important; overflow:visible !important; }
@@ -1632,4 +1632,62 @@ html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavi
   text-align: center;
   color: white;
 }
+}
+/* ===================== Popular Sidebars (Desktop) ===================== */
+@media (min-width: 1300px) {
+  .popular-sidebar { position: fixed; top: 120px; bottom: 50px; width: 250px; padding: 18px 16px 34px; margin: 0 24px; box-sizing: border-box; overflow-y: auto; background: linear-gradient(135deg, rgba(2,13,39,0.95) 0%, rgba(9,44,128,0.92) 55%, rgba(25,78,210,0.85) 100%); color:#fff; z-index: 900; display:flex; flex-direction:column; gap:18px; border-radius: 22px; border: 1px solid rgba(255,255,255,0.10); box-shadow: 0 18px 42px -12px rgba(8,32,96,0.55), 0 6px 18px -6px rgba(5,20,60,0.45); backdrop-filter: blur(18px) saturate(160%); -webkit-backdrop-filter: blur(18px) saturate(160%); }
+  /* Shimmer overlay + subtle particle sparks */
+  .popular-sidebar { overflow:hidden; }
+  .popular-sidebar:after { content:''; position:absolute; inset:0; background: linear-gradient(110deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.18) 45%, rgba(255,255,255,0) 65%); transform: translateX(-120%); animation: sidebarSheen 5.5s cubic-bezier(.25,.8,.35,1) infinite; pointer-events:none; }
+  .popular-sidebar:before { content:''; position:absolute; top:-20px; left:-20px; width:80px; height:80px; background: radial-gradient(circle at center, rgba(255,184,71,0.55), rgba(255,184,71,0)); filter: blur(24px); opacity:.35; animation: flameAura 7s ease-in-out infinite; pointer-events:none; }
+  .popular-sidebar.right { right:10px; left:auto; }
+  .popular-sidebar.left { left:10px; right:auto; }
+  .popular-sidebar-title { font-size: 0.95rem; font-weight:800; letter-spacing:.5px; display:flex; align-items:center; gap:6px; margin:0 0 4px 2px; }
+  .popular-sidebar-title i { color:#ffb347; animation: flamePulse 2.8s ease-in-out infinite, flameFlicker .9s linear infinite alternate; }
+  /* Sidebar product cards - compact, white cards for clarity */
+  .popular-sidebar .popular-card {
+    background: #ffffff; /* white card */
+    color: var(--primary);
+    border: 1px solid rgba(15,23,42,0.06);
+    padding: 14px 14px 12px;
+    margin: 0;
+    border-radius: 18px;
+    box-shadow: 0 10px 26px rgba(15,23,42,0.06);
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow .28s ease, transform .28s ease, background .28s ease;
+  }
+  /* remove bright radial overlay used for glassy look */
+  .popular-sidebar .popular-card:before { display: none; content: none; }
+  .popular-sidebar .popular-card:hover { box-shadow: 0 18px 44px rgba(15,23,42,0.10); transform: translateY(-4px); background: #ffffff; }
+  .popular-sidebar .popular-card .card-image-top { height: 110px; margin: -14px -14px 10px -14px; border-radius: 14px 14px 10px 10px; background: #f7f7fb; }
+  .popular-sidebar .popular-card .card-image-top img { transition: transform .45s cubic-bezier(.22,1,.36,1); }
+  .popular-sidebar .popular-card:hover .card-image-top img { transform: scale(1.04); }
+  .popular-sidebar .popular-card .res-portal-product-title { font-size: 0.78rem; font-weight:700; letter-spacing:.2px; color: #111827; }
+  .popular-sidebar .popular-card .res-portal-product-brand { font-size: 0.64rem; opacity:.8; letter-spacing:.4px; color: #6b7280; }
+  .popular-sidebar .popular-card .res-portal-product-price { font-size: 0.78rem; margin-top: 6px; font-weight:800; color: var(--primary-dark); text-shadow: none; }
+  .popular-sidebar .popular-card .res-portal-product-stock { font-size: 0.66rem; margin-top: 2px; font-weight:600; color:#2563eb; }
+  .popular-sidebar .popular-card .res-portal-add-cart-btn { height: 32px; font-size: 0.72rem; margin: 8px -14px -12px -14px; border-radius: 0 0 14px 14px; background: linear-gradient(90deg,#2a6aff 0%, #123c8c 100%); box-shadow: 0 6px 16px rgba(18,60,120,0.12); color: #fff; }
+  .popular-sidebar .popular-card .res-portal-add-cart-btn:hover { filter:brightness(1.05); }
+  .popular-sidebar .popular-card .res-portal-add-cart-btn:active { transform:translateY(0); }
+  .popular-sidebar::-webkit-scrollbar { width: 6px; }
+  .popular-sidebar::-webkit-scrollbar-track { background: rgba(255,255,255,0.08); }
+  .popular-sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.28); border-radius: 10px; }
+  /* Adjust main layout to accommodate sidebars */
+  .res-portal-filter-bar { margin-left:360px; margin-right:360px; width: calc(100% - 720px); }
+  .res-portal-products-grid { margin-left:360px; margin-right:360px; width: calc(100% - 720px); }
+  .res-portal-banner { width: calc(100% - 720px); margin-left:360px; margin-right:360px; }
+}
+/* Keyframes for popular sidebar animations */
+@keyframes sidebarSheen { 0% { transform: translateX(-120%); } 55% { transform: translateX(140%); } 100% { transform: translateX(140%); } }
+@keyframes flameAura { 0%,100% { transform: scale(.85) translate(0,0); opacity:.28; } 50% { transform: scale(1.15) translate(12px,10px); opacity:.46; } }
+@keyframes flamePulse { 0%,100% { transform: scale(1) rotate(0deg); filter: drop-shadow(0 0 0 rgba(255,184,71,0)); } 50% { transform: scale(1.25) rotate(-6deg); filter: drop-shadow(0 0 8px rgba(255,184,71,.55)); } }
+@keyframes flameFlicker { 0% { filter: brightness(1) saturate(1); } 100% { filter: brightness(1.25) saturate(1.1); } }
+@keyframes cardGlow { 0%,100% { box-shadow: 0 10px 26px rgba(15,23,42,0.06), 0 0 0 0 rgba(255,184,71,0); border-color: rgba(15,23,42,0.06); } 50% { box-shadow: 0 18px 44px rgba(15,23,42,0.12), 0 0 0 4px rgba(255,184,71,0.18); border-color: rgba(255,184,71,0.45); } }
+/* Stagger glow across top 3 cards */
+@media (min-width:1300px){
+  .popular-sidebar .popular-card { animation: cardGlow 7s ease-in-out infinite; }
+  .popular-sidebar .popular-card:nth-child(1){ animation-delay:.5s; }
+  .popular-sidebar .popular-card:nth-child(2){ animation-delay:1.8s; }
+  .popular-sidebar .popular-card:nth-child(3){ animation-delay:3.1s; }
 }

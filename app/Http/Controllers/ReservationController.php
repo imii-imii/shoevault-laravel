@@ -106,7 +106,23 @@ class ReservationController extends Controller
         $meta = $seoService->getPortalMeta();
         $structuredData = $seoService->getWebsiteStructuredData();
 
-        return view('reservation.portal', compact('products', 'categories', 'brands', 'selectedCategory', 'selectedBrand', 'customer', 'meta', 'structuredData', 'paginationData'));
+        // Popular products sidebars (men & women) limited to 3 each
+        $menPopularProducts = $this->getPopularProductsForCategory('men', 3);
+        $womenPopularProducts = $this->getPopularProductsForCategory('women', 3);
+
+        return view('reservation.portal', compact(
+            'products',
+            'categories',
+            'brands',
+            'selectedCategory',
+            'selectedBrand',
+            'customer',
+            'meta',
+            'structuredData',
+            'paginationData',
+            'menPopularProducts',
+            'womenPopularProducts'
+        ));
     }
 
     /**
@@ -648,5 +664,81 @@ class ReservationController extends Controller
         } while (\App\Models\Reservation::where('reservation_id', $reservationId)->exists());
         
         return $reservationId;
+    }
+
+    /**
+     * Compute popular products for a given category based on reservation item frequency
+     * over the last 30 days (pending & confirmed). Falls back to latest products when
+     * there is no reservation data.
+     */
+    private function getPopularProductsForCategory(string $category, int $limit = 5)
+    {
+        // Base eligible products
+        $baseProducts = Product::with('sizes')
+            ->active()
+            ->reservationInventory()
+            ->inStock()
+            ->where('category', $category)
+            ->get();
+
+        if ($baseProducts->isEmpty()) {
+            return collect();
+        }
+
+        // Gather reservation frequency in last 30 days
+        $since = now()->subDays(30);
+        $reservations = \App\Models\Reservation::query()
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->where('reserved_at', '>=', $since)
+            ->select(['items'])
+            ->get();
+
+        $popularityMap = [];
+        foreach ($reservations as $reservation) {
+            $items = (array)($reservation->items ?? []);
+            foreach ($items as $it) {
+                $pid = $it['product_id'] ?? null;
+                $qty = (int)($it['quantity'] ?? 0);
+                if ($pid && $qty > 0) {
+                    $popularityMap[$pid] = ($popularityMap[$pid] ?? 0) + $qty;
+                }
+            }
+        }
+
+        // Attach popularity score
+        $scored = $baseProducts->map(function ($p) use ($popularityMap) {
+            $p->setAttribute('popularity_score', (int)($popularityMap[$p->product_id] ?? 0));
+            return $p;
+        });
+
+        // Sort by popularity desc then by created_at desc for tie-breakers
+        $sorted = $scored->sort(function ($a, $b) {
+            $cmp = $b->popularity_score <=> $a->popularity_score;
+            if ($cmp === 0) {
+                return $b->created_at <=> $a->created_at;
+            }
+            return $cmp;
+        })->values();
+
+        // If all zero popularity, fallback to latest products
+        $hasPopularity = $sorted->firstWhere('popularity_score', '>', 0) !== null;
+        if (!$hasPopularity) {
+            return Product::with('sizes')
+                ->active()
+                ->reservationInventory()
+                ->inStock()
+                ->where('category', $category)
+                ->orderByDesc('created_at')
+                ->take($limit)
+                ->get();
+        }
+
+        $result = $sorted->take($limit);
+
+        // Annotate availability for sidebar cards
+        [$holdsBySize] = $this->computeReservationHoldsMaps();
+        $result = $this->annotateProductsWithAvailability($result, $holdsBySize);
+
+        return $result;
     }
 }

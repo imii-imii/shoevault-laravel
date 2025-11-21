@@ -203,6 +203,51 @@
   </style>
 </head>
 <body>
+  <!-- Desktop popular sidebars -->
+  @if(isset($menPopularProducts) && isset($womenPopularProducts))
+    <div class="popular-sidebar left desktop-only">
+      <h3 class="popular-sidebar-title"><i class="fas fa-fire"></i> Popular Men</h3>
+      @foreach($menPopularProducts as $p)
+        <div class="res-portal-product-card popular-card" data-product-id="{{ $p->product_id }}" data-product-name="{{ $p->name }}" data-product-brand="{{ $p->brand }}" data-product-price="{{ number_format($p->price, 2) }}" data-product-category="{{ $p->category }}">
+          <div class="res-portal-product-img card-image-top">
+            @if($p->image_url)
+              <img src="{{ asset($p->image_url) }}" alt="{{ $p->name }}" loading="lazy">
+            @else
+              <i class="fas fa-image" style="font-size:1.6rem;color:#a0aec0;"></i>
+            @endif
+          </div>
+          <div class="res-portal-product-info">
+            <div class="res-portal-product-title" title="{{ $p->name }}">{{ Str::limit($p->name, 40) }}</div>
+            <div class="res-portal-product-brand">{{ strtoupper($p->brand) }}</div>
+            <span class="res-portal-product-price">₱ {{ number_format((float)$p->price, 0, '.', ',') }}</span>
+            <span class="res-portal-product-stock">{{ $p->available_total_stock ?? $p->getTotalStock() }} in stock</span>
+          </div>
+          <button class="res-portal-add-cart-btn" data-available-sizes="{{ ($p->available_size_labels ?? null) ?: $p->sizes->where('is_available', true)->where('stock', '>', 0)->pluck('size')->join(',') }}">Add to Cart</button>
+        </div>
+      @endforeach
+    </div>
+    <div class="popular-sidebar right desktop-only">
+      <h3 class="popular-sidebar-title"><i class="fas fa-fire"></i> Popular Women</h3>
+      @foreach($womenPopularProducts as $p)
+        <div class="res-portal-product-card popular-card" data-product-id="{{ $p->product_id }}" data-product-name="{{ $p->name }}" data-product-brand="{{ $p->brand }}" data-product-price="{{ number_format($p->price, 2) }}" data-product-category="{{ $p->category }}">
+          <div class="res-portal-product-img card-image-top">
+            @if($p->image_url)
+              <img src="{{ asset($p->image_url) }}" alt="{{ $p->name }}" loading="lazy">
+            @else
+              <i class="fas fa-image" style="font-size:1.6rem;color:#a0aec0;"></i>
+            @endif
+          </div>
+          <div class="res-portal-product-info">
+            <div class="res-portal-product-title" title="{{ $p->name }}">{{ Str::limit($p->name, 40) }}</div>
+            <div class="res-portal-product-brand">{{ strtoupper($p->brand) }}</div>
+            <span class="res-portal-product-price">₱ {{ number_format((float)$p->price, 0, '.', ',') }}</span>
+            <span class="res-portal-product-stock">{{ $p->available_total_stock ?? $p->getTotalStock() }} in stock</span>
+          </div>
+          <button class="res-portal-add-cart-btn" data-available-sizes="{{ ($p->available_size_labels ?? null) ?: $p->sizes->where('is_available', true)->where('stock', '>', 0)->pluck('size')->join(',') }}">Add to Cart</button>
+        </div>
+      @endforeach
+    </div>
+  @endif
   <nav class="res-portal-navbar">
     <a href="{{ route('reservation.home') }}" class="res-portal-logo-link">
       <img src="{{ asset('reservation-assets/shoevault-logo.png') }}" alt="Logo" class="res-portal-logo">
@@ -372,8 +417,8 @@
                   /* Brand filter dropdown for both desktop and mobile */
                   .brands-dropdown { position: relative; width: 100%; }
                   .brands-dropdown-btn {
-                    width: 100%;
-                    min-width: 400px;
+                    width: 350px;
+                    min-width: 100%;
                     background: linear-gradient(90deg, #2343ce 0%, #2a6aff 100%);
                     color: #fff;
                     border: 1px solid #e5eafe;
@@ -427,11 +472,12 @@
                   }
                   @media (max-width: 900px) {
                     .brands-dropdown { width: calc(100vw - 50px); margin: 0; max-width: unset; }
-                    .brands-dropdown-btn { width: 100%; }
+                    .brands-dropdown-btn { width: 102%; }
                     .brands-dropdown-list { width: 100%; min-width: 0; }
                   }
               </style>
-            <div class="res-portal-categories">
+          </div>
+          <div class="res-portal-categories">
             <button class="res-portal-category-btn {{ ($selectedCategory ?? 'All') === 'All' ? 'active' : '' }}" data-category="All">All</button>
             @php
               $staticCats = ['men' => 'Men', 'women' => 'Women', 'accessories' => 'Accessories'];
@@ -445,7 +491,6 @@
                 <button class="res-portal-category-btn {{ ($selectedCategory === $category) ? 'active' : '' }}" data-category="{{ $category }}">{{ $category }}</button>
               @endif
             @endforeach
-            </div>
           </div>
         </div>
         <div class="res-portal-filter-right">
@@ -489,10 +534,11 @@
         }
         .res-portal-filter-left {
           flex: 1;
-          min-width: 180px;
+          min-width: fit-content;
           max-width: 100%;
           display: flex;
           align-items: flex-start;
+          flex-direction: column;
         }
         .res-portal-filter-right {
           flex: 2;
@@ -552,7 +598,7 @@
         .res-portal-filter-right {
           background: #f7faff;
           border-radius: 12px;
-          padding: 16px 18px 14px 18px;
+          padding: 0;
         }
         .res-portal-price-compact {
           width: 100%;
@@ -584,8 +630,12 @@
             width: 100%;
             align-items: stretch;
           }
+
+          .res-portal-filter-left {
+          gap: 15px;
+          }
           .res-portal-filter-right {
-            padding: 12px 8px 10px 8px;
+            padding: 0;
           }
           .res-portal-brands-filter {
             flex-direction: column;
