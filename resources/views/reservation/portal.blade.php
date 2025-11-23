@@ -106,6 +106,19 @@
     .login-coachmark:before { content:""; position:absolute; top:-10px; right:18px; width:18px; height:18px; background:#0f172a; transform: rotate(45deg); border-radius:4px; border:1px solid rgba(255,255,255,.08); box-shadow: 0 10px 20px -6px rgba(15,23,42,.35); }
     @keyframes cm-pop { 0% { transform: translateY(-6px) scale(.92); opacity:0; } 60% { transform: translateY(2px) scale(1.02); opacity:1; } 100% { transform: translateY(0) scale(1); opacity:1; } }
     @media (max-width: 700px) { .login-coachmark { top: 50px; right: 4px; } .login-coachmark:before { right: 34px; } }
+    /* Futuristic user menu */
+    .sv-user { position:relative; }
+    .sv-user-menu { position:absolute; top:110%; right:0; width:min(300px,80vw); padding:16px 16px 14px; border-radius:22px; background:linear-gradient(145deg,rgba(255,255,255,.92) 0%, rgba(245,249,255,.88) 65%, rgba(238,245,255,.82) 100%); backdrop-filter:blur(22px) saturate(180%); -webkit-backdrop-filter:blur(22px) saturate(180%); border:1px solid rgba(35,67,206,.18); box-shadow:0 30px 54px -18px rgba(8,32,96,.35), 0 12px 32px -12px rgba(8,32,96,.28); display:none; transform-origin:top right; overflow:hidden; }
+    .sv-user-menu:before { content:''; position:absolute; inset:0; background:linear-gradient(115deg,rgba(2,13,39,.05),rgba(9,44,128,.09) 55%,rgba(42,106,255,.08)); pointer-events:none; }
+    .sv-user-menu:after { content:''; position:absolute; inset:0; background:radial-gradient(circle at top right, rgba(42,106,255,.35), transparent 70%); mix-blend-mode:overlay; opacity:.55; pointer-events:none; }
+    .sv-user-menu.open { display:block !important; animation:userMenuIn .42s cubic-bezier(.22,1.2,.4,1); }
+    @keyframes userMenuIn { 0% { opacity:0; transform:translateY(-12px) scale(.94); } 55% { opacity:1; transform:translateY(4px) scale(1.02); } 100% { opacity:1; transform:translateY(0) scale(1); } }
+    .sv-user-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:14px; font-size:.78rem; font-weight:700; letter-spacing:.5px; color:#0f172a; background:linear-gradient(135deg,rgba(255,255,255,.65),rgba(245,249,255,.55)); text-decoration:none; transition:background .35s ease, transform .25s ease, box-shadow .35s ease; position:relative; overflow:hidden; }
+    .sv-user-item:before { content:''; position:absolute; inset:0; background:linear-gradient(110deg, transparent 0%, rgba(255,255,255,.28) 50%, transparent 70%); opacity:0; transition:opacity .5s ease; }
+    .sv-user-item:hover { background:linear-gradient(135deg,rgba(255,255,255,.85),rgba(245,249,255,.75)); box-shadow:0 10px 24px -8px rgba(8,32,96,.25); transform:translateY(-2px); }
+    .sv-user-item:hover:before { opacity:1; }
+    .sv-user-item.danger { background:linear-gradient(135deg,rgba(255,245,245,.70),rgba(255,230,230,.65)); color:#b91c1c; border:1px solid rgba(220,38,38,.25); }
+    .sv-user-item.danger:hover { background:linear-gradient(135deg,rgba(255,230,230,.92),rgba(255,245,245,.85)); box-shadow:0 12px 26px -10px rgba(220,38,38,.45); }
     
     /* Pagination Styles */
     .pagination-wrapper {
@@ -415,7 +428,7 @@
             </div>
             <style>
                   /* Brand filter dropdown for both desktop and mobile */
-                  .brands-dropdown { position: relative; width: 100%; }
+                  .brands-dropdown { position: relative; width: 100%; overflow: visible; }
                   .brands-dropdown-btn {
                     width: 350px;
                     min-width: 100%;
@@ -448,12 +461,15 @@
                     border-radius: 14px;
                     box-shadow: 0 8px 32px rgba(35,67,206,0.13);
                     border: 1px solid #e5eafe;
-                    z-index: 100;
+                    z-index: 999999; /* ensure dropdown floats above other elements */
                     max-height: 220px;
                     overflow-y: auto;
                     margin-top: 4px;
                     padding: 4px 0;
                     animation: brandsDropdownIn .22s cubic-bezier(.22,1.19,.4,1);
+                    will-change: transform, opacity; /* hint to browser and reduce layering issues */
+                    -webkit-backface-visibility: hidden;
+                    backface-visibility: hidden;
                   }
                   @keyframes brandsDropdownIn {
                     0% { opacity: 0; transform: translateY(-8px) scale(0.98); }
@@ -548,6 +564,7 @@
           flex-direction: column;
           align-items: flex-end;
           gap: 10px;
+          margin-top: 20px;
         }
         .res-portal-brands-filter {
           display: flex;
@@ -617,7 +634,7 @@
           gap: 8px;
           justify-content: flex-end;
         }
-        @media (max-width: 900px) {
+        @media (max-width: 1080px) {
           .res-portal-filters-container {
             flex-direction: column;
             gap: 14px;
@@ -636,6 +653,7 @@
           }
           .res-portal-filter-right {
             padding: 0;
+            margin-top: 0;
           }
           .res-portal-brands-filter {
             flex-direction: column;
@@ -659,6 +677,7 @@
             gap: 6px;
           }
         }
+        
       </style>
     </div>
   <div class="res-portal-products-grid" id="products">
@@ -764,41 +783,101 @@
             var dropdownSelected = document.getElementById('brandsDropdownSelected');
             
             if (dropdownBtn && dropdownList) {
+              // Create a portal container for the dropdown to avoid stacking context issues
+              var portalContainer = null;
+              var isOpen = false;
+
+              function ensurePortal() {
+                if (!portalContainer) {
+                  portalContainer = document.createElement('div');
+                  portalContainer.id = 'brandsDropdownPortal';
+                  portalContainer.style.position = 'absolute';
+                  portalContainer.style.top = '0';
+                  portalContainer.style.left = '0';
+                  portalContainer.style.zIndex = '999999';
+                  portalContainer.style.pointerEvents = 'none';
+                  document.body.appendChild(portalContainer);
+                }
+              }
+
+              function openDropdown() {
+                ensurePortal();
+                // move the dropdownList into portal
+                if (dropdownList.parentNode !== portalContainer) {
+                  portalContainer.appendChild(dropdownList);
+                }
+                // Position it under the button
+                var rect = dropdownBtn.getBoundingClientRect();
+                dropdownList.style.display = 'block';
+                dropdownList.style.position = 'absolute';
+                dropdownList.style.left = (rect.left + window.scrollX) + 'px';
+                dropdownList.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+                dropdownList.style.minWidth = Math.max(rect.width, 200) + 'px';
+                dropdownList.style.pointerEvents = 'auto';
+                isOpen = true;
+                // attach reposition handlers
+                window.addEventListener('scroll', repositionDropdown, true);
+                window.addEventListener('resize', repositionDropdown);
+              }
+
+              function closeDropdown() {
+                dropdownList.style.display = 'none';
+                isOpen = false;
+                window.removeEventListener('scroll', repositionDropdown, true);
+                window.removeEventListener('resize', repositionDropdown);
+              }
+
+              function repositionDropdown() {
+                if (!isOpen) return;
+                var rect = dropdownBtn.getBoundingClientRect();
+                dropdownList.style.left = (rect.left + window.scrollX) + 'px';
+                dropdownList.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+                dropdownList.style.minWidth = Math.max(rect.width, 200) + 'px';
+              }
+
               dropdownBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                dropdownList.style.display = dropdownList.style.display === 'block' ? 'none' : 'block';
-              });
-              
-              document.querySelectorAll('.brands-dropdown-option').forEach(function(opt) {
-                opt.addEventListener('click', function(e) {
-                  const brand = this.getAttribute('data-brand');
-                  dropdownList.style.display = 'none';
-                  if (dropdownSelected) dropdownSelected.textContent = this.textContent;
-                  
-                  // Update active state
-                  document.querySelectorAll('.brands-dropdown-option').forEach(function(o) {
-                    o.classList.remove('active');
-                  });
-                  this.classList.add('active');
-                  
-                  // Filter products dynamically without page reload
-                  if (typeof window.filterProductsByBrand === 'function') {
-                    window.filterProductsByBrand(brand === 'All' ? '' : brand);
-                  } else {
-                    // Fallback to page reload if dynamic filtering isn't available
-                    const url = new URL(window.location.href);
-                    url.searchParams.set('brand', brand);
-                    url.searchParams.delete('page');
-                    window.location.href = url.toString();
-                  }
-                });
-              });
-              
-              document.addEventListener('click', function(e) {
-                if (!dropdownList.contains(e.target) && !dropdownBtn.contains(e.target)) {
-                  dropdownList.style.display = 'none';
+                if (isOpen) {
+                  closeDropdown();
+                } else {
+                  openDropdown();
                 }
               });
+
+              // wire up options (they may be moved into portal, so delegate via portal)
+              function onOptionClick(e) {
+                var opt = e.target.closest('.brands-dropdown-option');
+                if (!opt) return;
+                e.stopPropagation();
+                const brand = opt.getAttribute('data-brand');
+                closeDropdown();
+                if (dropdownSelected) dropdownSelected.textContent = opt.textContent;
+
+                // Update active state
+                document.querySelectorAll('.brands-dropdown-option').forEach(function(o) {
+                  o.classList.remove('active');
+                });
+                opt.classList.add('active');
+
+                // Filter products dynamically without page reload
+                if (typeof window.filterProductsByBrand === 'function') {
+                  window.filterProductsByBrand(brand === 'All' ? '' : brand);
+                } else {
+                  const url = new URL(window.location.href);
+                  url.searchParams.set('brand', brand);
+                  url.searchParams.delete('page');
+                  window.location.href = url.toString();
+                }
+              }
+
+              // Use event delegation on document so clicks work regardless of where the options live
+              document.addEventListener('click', function(e) {
+                // if click is inside dropdownList or button, ignore
+                if (dropdownList.contains(e.target) || dropdownBtn.contains(e.target)) return;
+                if (isOpen) closeDropdown();
+              });
+
+              document.addEventListener('click', onOptionClick, true);
             }
           }, 100);
         });
@@ -1130,6 +1209,36 @@
           duration: 600,
           delay: 900,
           easing: 'easeOutQuad'
+        });
+
+        // 11a. Brand chips intro animation
+        anime({
+          targets: '.res-portal-brands-filter',
+          translateY: [18, 0],
+          opacity: [0, 1],
+          scale: [0.96, 1],
+          duration: 620,
+          delay: anime.stagger(60, { start: 960 }),
+          easing: 'easeOutExpo'
+        });
+
+        // 11b. Sorting filter intro (label + chips)
+        anime({
+          targets: '.sorting-label',
+          translateX: [14, 0],
+          opacity: [0, 1],
+          duration: 520,
+          delay: 1040,
+          easing: 'easeOutQuad'
+        });
+
+        anime({
+          targets: '.sorting-options .sort-chip',
+          translateX: [12, 0],
+          opacity: [0, 1],
+          duration: 560,
+          delay: anime.stagger(70, { start: 1100 }),
+          easing: 'easeOutExpo'
         });
 
         // 12. Product cards entrance with stagger from center

@@ -7,6 +7,10 @@ button, a, input, textarea, select, .btn, .lr-btn, .res-portal-nav-btn, .res-por
   -webkit-tap-highlight-color: transparent;
 }
 
+@media (max-width: 1600px) {
+  .desktop-only { display: none !important; }
+  }
+
 @media (max-width: 700px) {
   .res-portal-main-mobile > .res-portal-search,
   .res-portal-main-mobile > .res-portal-banner,
@@ -1594,7 +1598,7 @@ html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavi
   padding: 20px;
 }
 /* Sorting filter (chips) */
-.res-portal-sorting-filter { margin-top: 0; background:#f7faff; border-radius:12px; display:flex; justify-content: center; gap:10px; }
+.res-portal-sorting-filter { margin-top: 0px; background:#f7faff; border-radius:12px; display:flex; justify-content: center; gap:10px; }
 .sorting-label { font-weight:700; color:#2343ce; font-size:1rem; display:flex; align-items:center; gap:6px; letter-spacing:.2px; }
 .sorting-label i { color:#2343ce; }
 .sorting-options { display:flex; gap:8px; flex-wrap:wrap; }

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Customer Dashboard - ShoeVault</title>
+  <title>Reservations - ShoeVault</title>
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <link rel="stylesheet" href="{{ asset('css/reservation-portal.css') }}">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Roboto+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -17,6 +17,22 @@
       font-family: 'Montserrat', sans-serif;
       color: #1a202c;
     }
+    .reservation-stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:20px; margin:0 0 42px 0; }
+    .reservation-stat-card { position:relative; display:flex; align-items:center; gap:16px; padding:1.25rem 1.35rem 1.25rem 1.25rem; border-radius:24px; background:linear-gradient(145deg,rgba(255,255,255,.85) 0%, rgba(245,249,255,.75) 65%, rgba(238,245,255,.65) 100%); backdrop-filter:blur(18px) saturate(180%); -webkit-backdrop-filter:blur(18px) saturate(180%); box-shadow:0 22px 46px -14px rgba(8,32,96,.28), 0 8px 26px -10px rgba(8,32,96,.18); border:1px solid rgba(35,67,206,.20); overflow:hidden; transition:box-shadow .5s cubic-bezier(.21,.8,.32,1), transform .5s cubic-bezier(.21,.8,.32,1); }
+    .reservation-stat-card:before { content:''; position:absolute; inset:0; background:linear-gradient(115deg, rgba(2,13,39,.08), rgba(9,44,128,.10) 55%, rgba(42,106,255,.09)); opacity:.55; pointer-events:none; }
+    .reservation-stat-card:after { content:''; position:absolute; inset:0; background:repeating-linear-gradient(135deg, rgba(255,255,255,.0) 0px, rgba(255,255,255,.12) 2px, rgba(255,255,255,.0) 4px); mix-blend-mode:overlay; opacity:0; animation:statScan 6.5s linear infinite; pointer-events:none; }
+    @keyframes statScan { 0% { opacity:0; transform:translateX(-140%) skewX(-12deg); } 12% { opacity:.55; } 35% { opacity:.18; } 55% { opacity:.35; transform:translateX(140%) skewX(-12deg); } 100% { opacity:0; transform:translateX(140%) skewX(-12deg); } }
+    .reservation-stat-card .stat-icon { width:52px; height:52px; border-radius:18px; display:grid; place-items:center; font-size:1.45rem; color:#fff; position:relative; z-index:1; box-shadow:0 12px 28px -10px rgba(0,0,0,.25), 0 4px 14px -6px rgba(0,0,0,.18); }
+    .reservation-stat-card .stat-info { position:relative; z-index:1; display:flex; flex-direction:column; }
+    .reservation-stat-card .stat-value { font-size:1.75rem; font-weight:800; letter-spacing:.55px; line-height:1.05; background:linear-gradient(90deg,#020d27,#092c80,#2a6aff); -webkit-background-clip:text; color:transparent; filter:drop-shadow(0 2px 6px rgba(42,106,255,.28)); }
+    .reservation-stat-card .stat-label { font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:1px; opacity:.72; }
+    .reservation-stat-card.stat-pending .stat-icon { background:linear-gradient(145deg,#fde68a,#facc15,#eab308); }
+    .reservation-stat-card.stat-completed .stat-icon { background:linear-gradient(145deg,#93c5fd,#3b82f6,#1d4ed8); }
+    .reservation-stat-card.stat-cancelled .stat-icon { background:linear-gradient(145deg,#fda4af,#dc2626,#b91c1c); }
+    .reservation-stat-card.stat-all .stat-icon { background:linear-gradient(145deg,#c4b5fd,#8b5cf6,#4c1d95); }
+    .reservation-stat-card:hover { transform:translateY(-10px) scale(1.02); box-shadow:0 34px 70px -20px rgba(8,32,96,.38), 0 16px 36px -14px rgba(8,32,96,.30); }
+    .reservation-stat-card:hover:after { opacity:.55; }
+    @media (max-width:780px){ .reservation-stats-grid{ grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:14px; } .reservation-stat-card{ padding:1rem 1.05rem; border-radius:20px; } .reservation-stat-card .stat-icon{ width:46px; height:46px; font-size:1.2rem; } .reservation-stat-card .stat-value{ font-size:1.4rem; } }
 
     /* Utility: show on mobile only */
     .mobile-only { display: none; }
@@ -298,7 +314,7 @@
       }
       
       .tab-navigation {
-        flex-wrap: nowrap;
+        flex-wrap: wrap;
         gap: 0.25rem;
         padding: 0.25rem;
       }
@@ -337,7 +353,17 @@
 
     /* Additional sv-user styles to ensure dropdown works */
     .sv-user { position: relative; }
-    .sv-user-menu.open { display: block !important; animation: sv-fade-in-up 0.16s ease; }
+    .sv-user-menu { position:absolute; top:110%; right:0; width:min(300px,80vw); padding:16px 16px 14px; border-radius:22px; background:linear-gradient(145deg,rgba(255,255,255,.92) 0%, rgba(245,249,255,.88) 65%, rgba(238,245,255,.82) 100%); backdrop-filter:blur(22px) saturate(180%); -webkit-backdrop-filter:blur(22px) saturate(180%); border:1px solid rgba(35,67,206,.18); box-shadow:0 30px 54px -18px rgba(8,32,96,.35), 0 12px 32px -12px rgba(8,32,96,.28); display:none; transform-origin:top right; overflow:hidden; }
+    .sv-user-menu:before { content:''; position:absolute; inset:0; background:linear-gradient(115deg,rgba(2,13,39,.05),rgba(9,44,128,.09) 55%,rgba(42,106,255,.08)); pointer-events:none; }
+    .sv-user-menu:after { content:''; position:absolute; inset:0; background:radial-gradient(circle at top right, rgba(42,106,255,.35), transparent 70%); mix-blend-mode:overlay; opacity:.55; pointer-events:none; }
+    .sv-user-menu.open { display:block !important; animation:userMenuIn .42s cubic-bezier(.22,1.2,.4,1); }
+    @keyframes userMenuIn { 0% { opacity:0; transform:translateY(-12px) scale(.94); } 55% { opacity:1; transform:translateY(4px) scale(1.02); } 100% { opacity:1; transform:translateY(0) scale(1); } }
+    .sv-user-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:14px; font-size:.78rem; font-weight:700; letter-spacing:.5px; color:#0f172a; background:linear-gradient(135deg,rgba(255,255,255,.65),rgba(245,249,255,.55)); text-decoration:none; transition:background .35s ease, transform .25s ease, box-shadow .35s ease; position:relative; overflow:hidden; }
+    .sv-user-item:before { content:''; position:absolute; inset:0; background:linear-gradient(110deg, transparent 0%, rgba(255,255,255,.28) 50%, transparent 70%); opacity:0; transition:opacity .5s ease; }
+    .sv-user-item:hover { background:linear-gradient(135deg,rgba(255,255,255,.85),rgba(245,249,255,.75)); box-shadow:0 10px 24px -8px rgba(8,32,96,.25); transform:translateY(-2px); }
+    .sv-user-item:hover:before { opacity:1; }
+    .sv-user-item.danger { background:linear-gradient(135deg,rgba(255,245,245,.70),rgba(255,230,230,.65)); color:#b91c1c; border:1px solid rgba(220,38,38,.25); }
+    .sv-user-item.danger:hover { background:linear-gradient(135deg,rgba(255,230,230,.92),rgba(255,245,245,.85)); box-shadow:0 12px 26px -10px rgba(220,38,38,.45); }
     
     @keyframes sv-fade-in-up {
       0% {
@@ -677,9 +703,12 @@
         <img src="{{ asset('reservation-assets/shoevault-logo.png') }}" alt="ShoeVault Logo" class="res-portal-logo">
       </a>
       <!-- Inline dashboard title (moved from main header). Desktop only. -->
-      <div class="navbar-dashboard-info desktop-only" style="display:flex;margin-left:6px;align-items:baseline;">
-        <div class="nav-dashboard-title" style="font-weight:700;color:#fff;font-size:1rem;letter-spacing:.3px;">Welcome, {{ $customer->fullname }}</div>
-        <div class="nav-dashboard-sub" style="font-size:.82rem;color:rgba(255,255,255,0.85);margin-top:2px; margin-left:8px;">Track reservations & manage account</div>
+      <div class="navbar-dashboard-info desktop-only" style="display:flex;margin-left:6px;align-items:center;gap:12px;">
+        <div class="nav-dashboard-title" style="display:flex;align-items:center;gap:6px;font-weight:700;color:#fff;font-size:1.05rem;letter-spacing:.4px;">
+          <i class="fas fa-calendar-check" style="font-size:1rem;"></i>
+          Reservations
+        </div>
+        <div class="nav-dashboard-sub" style="font-size:.75rem;font-weight:600;color:rgba(255,255,255,0.75);padding:.25rem .6rem;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(255,255,255,.08);backdrop-filter:blur(6px);">Welcome, {{ $customer->fullname }}</div>
       </div>
     </div>
     <div class="cart-container" style="display:flex;align-items:center;gap:10px;">
@@ -720,14 +749,52 @@
     <div class="dashboard-container">
     <!-- Mobile header restored (visible on small screens only) -->
     <div class="dashboard-header mobile-only" style="margin-bottom:1.4rem;">
-      <h1><i class="fas fa-tachometer-alt"></i> Welcome, {{ $customer->fullname }}!</h1>
-      <p>Track your reservations and manage your account</p>
+      <h1><i class="fas fa-calendar-check"></i> Reservations</h1>
+      <p>Review, track and manage all your reservations</p>
+    </div>
+
+    <!-- Reservation Stats Summary -->
+    @php
+      $pendingCount = count($pendingReservations);
+      $completedCount = count($completedReservations);
+      $cancelledCount = count($cancelledReservations);
+      $allCount = count($allReservations);
+    @endphp
+    <div class="reservation-stats-grid" aria-label="Reservation summary">
+      <div class="reservation-stat-card stat-pending" role="group" aria-label="Pending reservations">
+        <div class="stat-icon"><i class="fas fa-clock"></i></div>
+        <div class="stat-info">
+          <div class="stat-value">{{ $pendingCount }}</div>
+          <div class="stat-label">Pending</div>
+        </div>
+      </div>
+      <div class="reservation-stat-card stat-completed" role="group" aria-label="Completed reservations">
+        <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+        <div class="stat-info">
+          <div class="stat-value">{{ $completedCount }}</div>
+          <div class="stat-label">Completed</div>
+        </div>
+      </div>
+      <div class="reservation-stat-card stat-cancelled" role="group" aria-label="Cancelled reservations">
+        <div class="stat-icon"><i class="fas fa-times-circle"></i></div>
+        <div class="stat-info">
+          <div class="stat-value">{{ $cancelledCount }}</div>
+          <div class="stat-label">Cancelled</div>
+        </div>
+      </div>
+      <div class="reservation-stat-card stat-all" role="group" aria-label="Total reservations">
+        <div class="stat-icon"><i class="fas fa-list"></i></div>
+        <div class="stat-info">
+          <div class="stat-value">{{ $allCount }}</div>
+          <div class="stat-label">Total</div>
+        </div>
+      </div>
     </div>
 
     <!-- Reservations Card with Tabs -->
     <div class="dashboard-card">
       <div class="card-header">
-        <i class="fas fa-calendar-alt"></i> My Reservations
+        <i class="fas fa-calendar-alt"></i> Reservations
       </div>
       <div class="card-content">
         <!-- Tab Navigation -->
@@ -1294,6 +1361,23 @@
       }
     });
 
+  </script>
+  <script>
+    // Page entrance animations using anime.js (if available)
+    (function(){
+      if (typeof anime === 'undefined') return; if (window.__reservationsAnimated) return; window.__reservationsAnimated = true;
+      function run(){
+        // Header (mobile only visible)
+        anime({ targets: '.dashboard-header.mobile-only', opacity:[0,1], translateY:[-12,0], duration:650, easing:'easeOutQuad', delay:50 });
+        // Stats cards stagger
+        anime({ targets: '.reservation-stat-card', opacity:[0,1], translateY:[16,0], duration:640, easing:'easeOutQuad', delay: anime.stagger(90, {start:120}) });
+        // Tabs container
+        anime({ targets: '.tab-navigation', opacity:[0,1], translateY:[10,0], duration:560, easing:'easeOutQuad', delay:420 });
+        // Reservation items (first visible tab only at first)
+        anime({ targets: '#pending-content .reservation-item, #pending-content .empty-state', opacity:[0,1], scale:[.96,1], duration:520, easing:'easeOutQuad', delay: anime.stagger(70,{start:520}) });
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
+    })();
   </script>
 </body>
 </html>
