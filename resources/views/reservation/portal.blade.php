@@ -222,6 +222,17 @@
       <h3 class="popular-sidebar-title"><i class="fas fa-fire"></i> Popular Men</h3>
       @foreach($menPopularProducts as $p)
         <div class="res-portal-product-card popular-card" data-product-id="{{ $p->product_id }}" data-product-name="{{ $p->name }}" data-product-brand="{{ $p->brand }}" data-product-price="{{ number_format($p->price, 2) }}" data-product-category="{{ $p->category }}">
+          <!-- Trending/Popular badges for sidebar -->
+          @if(isset($p->is_trending) && $p->is_trending)
+          <div class="trending-badge sidebar-badge" style="position:absolute;top:8px;left:8px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:.55rem;font-weight:700;padding:2px 6px;border-radius:999px;letter-spacing:.2px;z-index:5;">
+            🔥 HOT
+          </div>
+          @elseif(isset($p->is_popular) && $p->is_popular)
+          <div class="popular-badge sidebar-badge" style="position:absolute;top:8px;left:8px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;font-size:.55rem;font-weight:700;padding:2px 6px;border-radius:999px;letter-spacing:.2px;z-index:5;">
+            ⭐ TOP
+          </div>
+          @endif
+          
           <div class="res-portal-product-img card-image-top">
             @if($p->image_url)
               <img src="{{ asset($p->image_url) }}" alt="{{ $p->name }}" loading="lazy">
@@ -243,6 +254,17 @@
       <h3 class="popular-sidebar-title"><i class="fas fa-fire"></i> Popular Women</h3>
       @foreach($womenPopularProducts as $p)
         <div class="res-portal-product-card popular-card" data-product-id="{{ $p->product_id }}" data-product-name="{{ $p->name }}" data-product-brand="{{ $p->brand }}" data-product-price="{{ number_format($p->price, 2) }}" data-product-category="{{ $p->category }}">
+          <!-- Trending/Popular badges for sidebar -->
+          @if(isset($p->is_trending) && $p->is_trending)
+          <div class="trending-badge sidebar-badge" style="position:absolute;top:8px;left:8px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:.55rem;font-weight:700;padding:2px 6px;border-radius:999px;letter-spacing:.2px;z-index:5;">
+            🔥 HOT
+          </div>
+          @elseif(isset($p->is_popular) && $p->is_popular)
+          <div class="popular-badge sidebar-badge" style="position:absolute;top:8px;left:8px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;font-size:.55rem;font-weight:700;padding:2px 6px;border-radius:999px;letter-spacing:.2px;z-index:5;">
+            ⭐ TOP
+          </div>
+          @endif
+          
           <div class="res-portal-product-img card-image-top">
             @if($p->image_url)
               <img src="{{ asset($p->image_url) }}" alt="{{ $p->name }}" loading="lazy">
@@ -525,13 +547,23 @@
               </button>
             </div>
           </div>
-          @php $currentSort = request()->get('sort', 'popular'); @endphp
+          @php $currentSort = $sort ?? 'popular'; @endphp
+          @php $currentDirection = $sortDirection ?? 'desc'; @endphp
             <div class="res-portal-sorting-filter" aria-label="Sorting Options">
               <div class="sorting-label"><i class="fas fa-sort"></i> Sort:</div>
               <div class="sorting-options">
-                <a href="{{ request()->fullUrlWithQuery(['sort'=>'alpha']) }}" class="sort-chip {{ $currentSort === 'alpha' ? 'active' : '' }}" data-sort="alpha">Alphabetically</a>
-                <a href="{{ request()->fullUrlWithQuery(['sort'=>'latest']) }}" class="sort-chip {{ $currentSort === 'latest' ? 'active' : '' }}" data-sort="latest">Latest</a>
-                <a href="{{ request()->fullUrlWithQuery(['sort'=>'popular']) }}" class="sort-chip {{ $currentSort === 'popular' ? 'active' : '' }}" data-sort="popular">Popular</a>
+                <button type="button" class="sort-chip {{ $currentSort === 'alpha' ? 'active' : '' }}" data-sort="alpha">
+                  Alphabetically
+                  <i class="fas fa-sort-{{ $currentSort === 'alpha' ? ($currentDirection === 'asc' ? 'up' : 'down') : 'up' }}" id="alpha-icon"></i>
+                </button>
+                <button type="button" class="sort-chip {{ $currentSort === 'latest' ? 'active' : '' }}" data-sort="latest">
+                  Added
+                  <i class="fas fa-sort-{{ $currentSort === 'latest' ? ($currentDirection === 'asc' ? 'up' : 'down') : 'down' }}" id="latest-icon"></i>
+                </button>
+                <button type="button" class="sort-chip {{ $currentSort === 'popular' ? 'active' : '' }}" data-sort="popular">
+                  Popular
+                  <i class="fas fa-sort-{{ $currentSort === 'popular' ? ($currentDirection === 'asc' ? 'up' : 'down') : 'down' }}" id="popular-icon"></i>
+                </button>
               </div>
           </div>
         </div>
@@ -683,6 +715,36 @@
   <div class="res-portal-products-grid" id="products">
       @include('reservation.partials.product-grid', ['products' => $products])
     </div>
+
+    @if(isset($paginationData) && $paginationData['last_page'] > 1)
+    <div class="pagination-wrapper">
+      <div class="sv-pagination">
+        {{-- Previous button --}}
+        <button class="sv-pagination-btn {{ $paginationData['current_page'] == 1 ? 'disabled' : '' }}" 
+                onclick="window.location.href='{{ request()->fullUrlWithQuery(['page' => max(1, $paginationData['current_page'] - 1)]) }}'">
+          <i class="fas fa-chevron-left"></i>
+        </button>
+
+        {{-- Page numbers --}}
+        @for($i = 1; $i <= $paginationData['last_page']; $i++)
+          @if($i == 1 || $i == $paginationData['last_page'] || ($i >= $paginationData['current_page'] - 2 && $i <= $paginationData['current_page'] + 2))
+            <button class="sv-pagination-btn {{ $i == $paginationData['current_page'] ? 'active' : '' }}" 
+                    onclick="window.location.href='{{ request()->fullUrlWithQuery(['page' => $i]) }}'">
+              {{ $i }}
+            </button>
+          @elseif(($i == $paginationData['current_page'] - 3 && $i > 2) || ($i == $paginationData['current_page'] + 3 && $i < $paginationData['last_page'] - 1))
+            <span class="sv-pagination-dots">...</span>
+          @endif
+        @endfor
+
+        {{-- Next button --}}
+        <button class="sv-pagination-btn {{ $paginationData['current_page'] == $paginationData['last_page'] ? 'disabled' : '' }}" 
+                onclick="window.location.href='{{ request()->fullUrlWithQuery(['page' => min($paginationData['last_page'], $paginationData['current_page'] + 1)]) }}'">
+          <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+    @endif
   </div>
 
   <!-- Floating Shoe Conversion Button (now inside main container) -->
@@ -1066,6 +1128,338 @@
       setCollapse(0);
       window.addEventListener('scroll', onScroll, { passive: true });
       searchEl.addEventListener('click', onClick, true);
+    })();
+  </script>
+
+  <!-- Dynamic Sorting JavaScript -->
+  <script>
+    (function() {
+      let currentSort = '{{ $sort ?? "popular" }}';
+      let currentDirection = '{{ $sortDirection ?? "desc" }}';
+
+      function updateSortIcon(sortType, direction) {
+        const icons = {
+          'alpha': document.getElementById('alpha-icon'),
+          'latest': document.getElementById('latest-icon'),
+          'popular': document.getElementById('popular-icon')
+        };
+
+        // Reset all icons to default
+        Object.entries(icons).forEach(([type, icon]) => {
+          if (icon) {
+            if (type === sortType) {
+              // Update active sort icon
+              icon.className = `fas fa-sort-${direction === 'asc' ? 'up' : 'down'}`;
+            } else {
+              // Default icons for inactive sorts
+              icon.className = type === 'alpha' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+            }
+          }
+        });
+      }
+
+      function performSort(sortType) {
+        // Toggle direction if clicking the same sort
+        if (currentSort === sortType) {
+          currentDirection = currentDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+          // Set default direction for new sort
+          if (sortType === 'alpha') {
+            currentDirection = 'asc';  // Alphabetically: A-Z (ascending)
+          } else if (sortType === 'latest') {
+            currentDirection = 'desc'; // Added: newest first (descending)
+          } else if (sortType === 'popular') {
+            currentDirection = 'desc'; // Popular: most popular first (descending)
+          } else {
+            currentDirection = 'desc'; // Default fallback
+          }
+        }
+        
+        currentSort = sortType;
+        
+        // Update active states
+        document.querySelectorAll('.sort-chip').forEach(chip => {
+          chip.classList.remove('active');
+        });
+        document.querySelector(`[data-sort="${sortType}"]`).classList.add('active');
+        
+        // Update icons
+        updateSortIcon(sortType, currentDirection);
+        
+        // Add loading state
+        const productsGrid = document.querySelector('.res-portal-products-grid');
+        if (productsGrid) {
+          productsGrid.style.opacity = '0.6';
+          productsGrid.style.pointerEvents = 'none';
+        }
+        
+        // Get current filters
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // Detect current active category from button state
+        const activeBtn = document.querySelector('.res-portal-category-btn.active');
+        const currentCategory = activeBtn ? activeBtn.dataset.category : 'All';
+        
+        // Preserve current category in URL params
+        if (currentCategory && currentCategory !== 'All') {
+          urlParams.set('category', currentCategory);
+        } else {
+          urlParams.delete('category');
+        }
+        
+        // If sort type changed (not just direction), reset to page 1
+        if (currentSort !== sortType) {
+          urlParams.set('page', '1');
+        }
+        
+        urlParams.set('sort', sortType);
+        urlParams.set('direction', currentDirection);
+        
+        // Make AJAX request to the filter API endpoint
+        fetch('/api/products/filter?' + urlParams.toString(), {
+          method: 'GET',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+          }
+        })
+        .then(response => response.json())
+        .then(data => {
+          // Update the products grid with the returned HTML
+          if (data.html) {
+            const productsGrid = document.querySelector('.res-portal-products-grid');
+            if (productsGrid) {
+              productsGrid.innerHTML = data.html;
+              
+              // Restore grid state
+              productsGrid.style.opacity = '1';
+              productsGrid.style.pointerEvents = 'auto';
+              
+              // Update URL without page reload
+              window.history.pushState({}, '', window.location.pathname + '?' + urlParams.toString());
+              
+              // Update pagination data and render pagination if available
+              if (data.pagination) {
+                window.paginationData = data.pagination;
+                renderSortingPagination(sortType, currentDirection);
+              }
+              
+              // Update category button states to reflect current selection
+              updateCategoryButtonStates();
+              
+              // Trigger product card animations if anime.js is available
+              if (typeof anime !== 'undefined') {
+                anime({
+                  targets: '.res-portal-product-card',
+                  translateY: [20, 0],
+                  opacity: [0, 1],
+                  scale: [0.95, 1],
+                  duration: 400,
+                  delay: anime.stagger(30),
+                  easing: 'easeOutExpo'
+                });
+              }
+            }
+          }
+        })
+        .catch(error => {
+          console.error('Sorting failed:', error);
+          // Restore grid state on error
+          const productsGrid = document.querySelector('.res-portal-products-grid');
+          if (productsGrid) {
+            productsGrid.style.opacity = '1';
+            productsGrid.style.pointerEvents = 'auto';
+          }
+        });
+      }
+
+      // Initialize sorting event listeners
+      document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.sort-chip').forEach(chip => {
+          chip.addEventListener('click', function(e) {
+            e.preventDefault();
+            performSort(this.getAttribute('data-sort'));
+          });
+        });
+
+        // Set initial icon states
+        updateSortIcon(currentSort, currentDirection);
+      });
+
+      // Function to update category button states based on current URL
+      function updateCategoryButtonStates() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentCategory = urlParams.get('category') || 'All';
+        
+        // Remove active class from all category buttons
+        document.querySelectorAll('.res-portal-category-btn').forEach(btn => {
+          btn.classList.remove('active');
+        });
+        
+        // Add active class to current category button
+        const activeBtn = document.querySelector(`[data-category="${currentCategory}"]`);
+        if (activeBtn) {
+          activeBtn.classList.add('active');
+        }
+      }
+
+      // Function to render pagination for sorting results
+      function renderSortingPagination(sortType, direction) {
+        // Remove existing pagination wrapper
+        const existingPaginationWrapper = document.querySelector('.pagination-wrapper');
+        if (existingPaginationWrapper) existingPaginationWrapper.remove();
+        
+        if (!window.paginationData || window.paginationData.last_page <= 1) return;
+        
+        const paginationWrapper = document.createElement('div');
+        paginationWrapper.className = 'pagination-wrapper';
+        
+        const paginationDiv = document.createElement('div');
+        paginationDiv.className = 'sv-pagination';
+        
+        // Previous button
+        const prevBtn = document.createElement('button');
+        prevBtn.className = 'sv-pagination-btn';
+        prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+        prevBtn.disabled = window.paginationData.current_page === 1;
+        prevBtn.onclick = () => loadSortedPage(sortType, direction, window.paginationData.current_page - 1);
+        paginationDiv.appendChild(prevBtn);
+        
+        // Page numbers (simplified version)
+        const currentPage = window.paginationData.current_page;
+        const lastPage = window.paginationData.last_page;
+        
+        for (let i = 1; i <= lastPage; i++) {
+          if (i === 1 || i === lastPage || (i >= currentPage - 2 && i <= currentPage + 2)) {
+            const pageBtn = document.createElement('button');
+            pageBtn.className = 'sv-pagination-btn' + (i === currentPage ? ' active' : '');
+            pageBtn.textContent = i;
+            pageBtn.onclick = () => loadSortedPage(sortType, direction, i);
+            paginationDiv.appendChild(pageBtn);
+          } else if ((i === currentPage - 3 && i > 2) || (i === currentPage + 3 && i < lastPage - 1)) {
+            const dots = document.createElement('span');
+            dots.className = 'sv-pagination-dots';
+            dots.textContent = '...';
+            paginationDiv.appendChild(dots);
+          }
+        }
+        
+        // Next button
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'sv-pagination-btn';
+        nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+        nextBtn.disabled = currentPage === lastPage;
+        nextBtn.onclick = () => loadSortedPage(sortType, direction, currentPage + 1);
+        paginationDiv.appendChild(nextBtn);
+        
+        paginationWrapper.appendChild(paginationDiv);
+        
+        // Insert pagination after the products grid
+        const productsGrid = document.querySelector('.res-portal-products-grid');
+        if (productsGrid && productsGrid.parentNode) {
+          productsGrid.parentNode.insertBefore(paginationWrapper, productsGrid.nextSibling);
+        }
+      }
+
+      // Function to load a specific page with current sort
+      function loadSortedPage(sortType, direction, page) {
+        currentSort = sortType;
+        currentDirection = direction;
+        
+        // Add loading state
+        const productsGrid = document.querySelector('.res-portal-products-grid');
+        if (productsGrid) {
+          productsGrid.style.opacity = '0.6';
+          productsGrid.style.pointerEvents = 'none';
+        }
+        
+        // Get current filters and add pagination
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // Detect current active category from button state
+        const activeBtn = document.querySelector('.res-portal-category-btn.active');
+        const currentCategory = activeBtn ? activeBtn.dataset.category : 'All';
+        
+        // Preserve current category in URL params
+        if (currentCategory && currentCategory !== 'All') {
+          urlParams.set('category', currentCategory);
+        } else {
+          urlParams.delete('category');
+        }
+        
+        // If sort type changed (not just direction), reset to page 1
+        const currentUrlSort = urlParams.get('sort') || 'popular';
+        if (currentUrlSort !== sortType && page === 1) {
+          // This ensures we start from page 1 when sort changes
+        }
+        
+        urlParams.set('sort', sortType);
+        urlParams.set('direction', direction);
+        urlParams.set('page', page);
+        
+        // Make AJAX request to the filter API endpoint
+        fetch('/api/products/filter?' + urlParams.toString(), {
+          method: 'GET',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+          }
+        })
+        .then(response => response.json())
+        .then(data => {
+          // Update the products grid with the returned HTML
+          if (data.html) {
+            const productsGrid = document.querySelector('.res-portal-products-grid');
+            if (productsGrid) {
+              productsGrid.innerHTML = data.html;
+              
+              // Restore grid state
+              productsGrid.style.opacity = '1';
+              productsGrid.style.pointerEvents = 'auto';
+              
+              // Update URL without page reload
+              window.history.pushState({}, '', window.location.pathname + '?' + urlParams.toString());
+              
+              // Update pagination data and render pagination
+              if (data.pagination) {
+                window.paginationData = data.pagination;
+                renderSortingPagination(sortType, direction);
+              }
+              
+              // Update category button states to reflect current selection
+              updateCategoryButtonStates();
+              
+              // Scroll to top of products grid smoothly
+              const portalMain = document.querySelector('.res-portal-main');
+              if (portalMain && page > 1) {
+                portalMain.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+              
+              // Trigger product card animations if anime.js is available
+              if (typeof anime !== 'undefined') {
+                anime({
+                  targets: '.res-portal-product-card',
+                  translateY: [20, 0],
+                  opacity: [0, 1],
+                  scale: [0.95, 1],
+                  duration: 400,
+                  delay: anime.stagger(30),
+                  easing: 'easeOutExpo'
+                });
+              }
+            }
+          }
+        })
+        .catch(error => {
+          console.error('Page loading failed:', error);
+          // Restore grid state on error
+          const productsGrid = document.querySelector('.res-portal-products-grid');
+          if (productsGrid) {
+            productsGrid.style.opacity = '1';
+            productsGrid.style.pointerEvents = 'auto';
+          }
+        });
+      }
     })();
   </script>
 

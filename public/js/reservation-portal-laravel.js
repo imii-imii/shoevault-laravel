@@ -40,6 +40,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!isNaN(max) && max !== '') params.set('maxPrice', max);
         if (searchTerm && searchTerm.trim()) params.set('search', searchTerm.trim());
         if (page > 1) params.set('page', page);
+        
+        // Include current sort parameters from URL
+        const currentUrl = new URLSearchParams(window.location.search);
+        const currentSort = currentUrl.get('sort');
+        const currentDirection = currentUrl.get('direction');
+        if (currentSort) params.set('sort', currentSort);
+        if (currentDirection) params.set('direction', currentDirection);
+        
         return `/api/products/filter?${params.toString()}`;
     }
 

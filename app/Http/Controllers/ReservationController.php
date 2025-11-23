@@ -49,9 +49,73 @@ class ReservationController extends Controller
             $query->where('brand', $selectedBrand);
         }
 
+        // Handle sorting - default to popular descending
+        $sort = $request->get('sort', 'popular');
+        $sortDirection = $request->get('direction', 'desc');
+
         // Pagination: 20 items per page
         $perPage = 20;
-        $products = $query->paginate($perPage);
+        
+        // Apply default popular sorting (same logic as getFilteredProducts)
+        if ($sort === 'popular') {
+            $allProducts = $query->get();
+            
+            // Get 60-day sales data
+            $since60Days = now()->subDays(60);
+            $salesData = DB::table('transaction_items')
+                ->join('transactions', 'transaction_items.transaction_id', '=', 'transactions.transaction_id')
+                ->join('product_sizes', 'transaction_items.product_size_id', '=', 'product_sizes.product_size_id')
+                ->where('transactions.sale_date', '>=', $since60Days)
+                ->select('product_sizes.product_id', DB::raw('SUM(transaction_items.quantity) as total_sold'))
+                ->groupBy('product_sizes.product_id')
+                ->pluck('total_sold', 'product_id')
+                ->toArray();
+
+            // Add popularity scores and sort
+            $allProducts = $allProducts->map(function ($product) use ($salesData) {
+                $totalSold = $salesData[$product->product_id] ?? 0;
+                $product->setAttribute('popularity_score', (int)$totalSold);
+                return $product;
+            });
+            
+            // Always sort DESC first (most popular first), then reverse if ASC is requested
+            $allProducts = $allProducts->sortByDesc(function ($product) {
+                // Primary sort by popularity_score, secondary sort by product_id for consistent ordering
+                return [$product->getAttribute('popularity_score'), $product->product_id];
+            })->values();
+            
+            // If ASC requested, reverse the DESC order to ensure exact opposite
+            if ($sortDirection === 'asc') {
+                $allProducts = $allProducts->reverse()->values();
+            }
+            
+            // Manual pagination
+            $currentPage = $request->get('page', 1);
+            $offset = ($currentPage - 1) * $perPage;
+            $itemsForCurrentPage = $allProducts->slice($offset, $perPage)->values();
+            
+            $products = new \Illuminate\Pagination\LengthAwarePaginator(
+                $itemsForCurrentPage,
+                $allProducts->count(),
+                $perPage,
+                $currentPage,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
+        } else {
+            // For non-popular sorts, use regular pagination with query ordering
+            switch ($sort) {
+                case 'alpha':
+                    $query->orderBy('name', $sortDirection);
+                    break;
+                case 'latest':
+                    $query->orderBy('created_at', $sortDirection);
+                    break;
+                default:
+                    $query->orderBy('created_at', 'desc'); // fallback
+                    break;
+            }
+            $products = $query->paginate($perPage);
+        }
 
         // Compute current reservation holds and annotate product availability for the portal
         [$holdsBySize, $holdsByProduct] = $this->computeReservationHoldsMaps();
@@ -106,9 +170,9 @@ class ReservationController extends Controller
         $meta = $seoService->getPortalMeta();
         $structuredData = $seoService->getWebsiteStructuredData();
 
-        // Popular products sidebars (men & women) limited to 3 each
-        $menPopularProducts = $this->getPopularProductsForCategory('men', 3);
-        $womenPopularProducts = $this->getPopularProductsForCategory('women', 3);
+        // Popular products sidebars (men & women) - get top 3 from popular sort results
+        $menPopularProducts = $this->getTopPopularFromSort('men', 3);
+        $womenPopularProducts = $this->getTopPopularFromSort('women', 3);
 
         return view('reservation.portal', compact(
             'products',
@@ -116,6 +180,8 @@ class ReservationController extends Controller
             'brands',
             'selectedCategory',
             'selectedBrand',
+            'sort',
+            'sortDirection',
             'customer',
             'meta',
             'structuredData',
@@ -258,10 +324,92 @@ class ReservationController extends Controller
             });
         }
 
+        // Handle sorting
+        $sort = $request->get('sort', 'popular');
+        $sortDirection = $request->get('direction', 'desc'); // asc or desc
+        
+        switch ($sort) {
+            case 'alpha':
+                $query->orderBy('name', $sortDirection);
+                break;
+                
+            case 'latest':
+                $query->orderBy('created_at', $sortDirection);
+                break;
+                
+            case 'popular':
+            default:
+                // Popular sorting will be handled after the query execution
+                // using the same 60-day sales data logic as the sidebar
+                $query->orderBy('created_at', 'desc'); // Default fallback ordering
+                break;
+        }
+
         // Pagination: 20 items per page
         $perPage = 20;
         $page = $request->get('page', 1);
-        $products = $query->paginate($perPage);
+        
+        // For popular sorting, we need to get all products first, add popularity scores, then sort
+        if ($sort === 'popular') {
+            $allProducts = $query->get();
+            
+            // Get 60-day sales data
+            $since60Days = now()->subDays(60);
+            $salesData = DB::table('transaction_items')
+                ->join('transactions', 'transaction_items.transaction_id', '=', 'transactions.transaction_id')
+                ->join('product_sizes', 'transaction_items.product_size_id', '=', 'product_sizes.product_size_id')
+                ->where('transactions.sale_date', '>=', $since60Days)
+                ->select('product_sizes.product_id', DB::raw('SUM(transaction_items.quantity) as total_sold'))
+                ->groupBy('product_sizes.product_id')
+                ->pluck('total_sold', 'product_id')
+                ->toArray();
+            
+            // Get 7-day sales data for trending badges
+            $since7Days = now()->subDays(7);
+            $trendingData = DB::table('transaction_items')
+                ->join('transactions', 'transaction_items.transaction_id', '=', 'transactions.transaction_id')
+                ->join('product_sizes', 'transaction_items.product_size_id', '=', 'product_sizes.product_size_id')
+                ->where('transactions.sale_date', '>=', $since7Days)
+                ->select('product_sizes.product_id', DB::raw('SUM(transaction_items.quantity) as recent_sold'))
+                ->groupBy('product_sizes.product_id')
+                ->pluck('recent_sold', 'product_id')
+                ->toArray();
+
+            // Add popularity scores and sort
+            $allProducts = $allProducts->map(function ($product) use ($salesData) {
+                $totalSold = $salesData[$product->product_id] ?? 0;
+                $product->setAttribute('popularity_score', (int)$totalSold);
+                return $product;
+            });
+            
+            // Always sort DESC first (most popular first), then reverse if ASC is requested
+            $allProducts = $allProducts->sortByDesc(function ($product) {
+                // Primary sort by popularity_score, secondary sort by product_id for consistent ordering
+                return [$product->getAttribute('popularity_score'), $product->product_id];
+            })->values();
+            
+            // If ASC requested, reverse the DESC order to ensure exact opposite
+            if ($sortDirection === 'asc') {
+                $allProducts = $allProducts->reverse()->values();
+            }
+            
+            // Manual pagination
+            $currentPage = request()->get('page', 1);
+            $offset = ($currentPage - 1) * $perPage;
+            $itemsForCurrentPage = $allProducts->slice($offset, $perPage)->values();
+            
+            $products = new \Illuminate\Pagination\LengthAwarePaginator(
+                $itemsForCurrentPage,
+                $allProducts->count(),
+                $perPage,
+                $currentPage,
+                ['path' => request()->url(), 'query' => request()->query()]
+            );
+        } else {
+            $products = $query->paginate($perPage);
+        }
+
+
 
         // Annotate availability using reservation holds (operate on the page collection only)
         [$holdsBySize, $holdsByProduct] = $this->computeReservationHoldsMaps();
@@ -602,6 +750,8 @@ class ReservationController extends Controller
                 }
             }
 
+
+
             // Product-level computed attributes for the view
             $product->setAttribute('available_total_stock', $availableTotal);
             $product->setAttribute('available_size_labels', implode(',', $availableSizeLabels));
@@ -667,63 +817,44 @@ class ReservationController extends Controller
     }
 
     /**
-     * Compute popular products for a given category based on reservation item frequency
-     * over the last 30 days (pending & confirmed). Falls back to latest products when
-     * there is no reservation data.
+     * Get popular products for a given category based on 60-day sales data
+     * (same algorithm used for popular badge in main product grid)
      */
     private function getPopularProductsForCategory(string $category, int $limit = 5)
     {
-        // Base eligible products
-        $baseProducts = Product::with('sizes')
+        // Get base products for the category
+        $products = Product::with(['sizes'])
             ->active()
             ->reservationInventory()
             ->inStock()
             ->where('category', $category)
             ->get();
 
-        if ($baseProducts->isEmpty()) {
+        if ($products->isEmpty()) {
             return collect();
         }
 
-        // Gather reservation frequency in last 30 days
-        $since = now()->subDays(30);
-        $reservations = \App\Models\Reservation::query()
-            ->whereIn('status', ['pending', 'confirmed'])
-            ->where('reserved_at', '>=', $since)
-            ->select(['items'])
-            ->get();
+        // Calculate 60-day sales popularity (same as main grid algorithm)
+        $since60Days = now()->subDays(60);
+        $salesData = DB::table('transaction_items')
+            ->join('transactions', 'transaction_items.transaction_id', '=', 'transactions.transaction_id')
+            ->join('product_sizes', 'transaction_items.product_size_id', '=', 'product_sizes.product_size_id')
+            ->where('transactions.sale_date', '>=', $since60Days)
+            ->select('product_sizes.product_id', DB::raw('SUM(transaction_items.quantity) as total_sold'))
+            ->groupBy('product_sizes.product_id')
+            ->pluck('total_sold', 'product_id')
+            ->toArray();
+        
+        // Add popularity scores and sort
+        $productsWithPopularity = $products->map(function ($product) use ($salesData) {
+            $totalSold = $salesData[$product->product_id] ?? 0;
+            $product->setAttribute('popularity_score', (int)$totalSold);
+            return $product;
+        })->sortByDesc('popularity_score')->values();
 
-        $popularityMap = [];
-        foreach ($reservations as $reservation) {
-            $items = (array)($reservation->items ?? []);
-            foreach ($items as $it) {
-                $pid = $it['product_id'] ?? null;
-                $qty = (int)($it['quantity'] ?? 0);
-                if ($pid && $qty > 0) {
-                    $popularityMap[$pid] = ($popularityMap[$pid] ?? 0) + $qty;
-                }
-            }
-        }
-
-        // Attach popularity score
-        $scored = $baseProducts->map(function ($p) use ($popularityMap) {
-            $p->setAttribute('popularity_score', (int)($popularityMap[$p->product_id] ?? 0));
-            return $p;
-        });
-
-        // Sort by popularity desc then by created_at desc for tie-breakers
-        $sorted = $scored->sort(function ($a, $b) {
-            $cmp = $b->popularity_score <=> $a->popularity_score;
-            if ($cmp === 0) {
-                return $b->created_at <=> $a->created_at;
-            }
-            return $cmp;
-        })->values();
-
-        // If all zero popularity, fallback to latest products
-        $hasPopularity = $sorted->firstWhere('popularity_score', '>', 0) !== null;
-        if (!$hasPopularity) {
-            return Product::with('sizes')
+        // If no products have sales, fallback to latest products
+        if ($productsWithPopularity->max('popularity_score') == 0) {
+            $productsWithPopularity = Product::with('sizes')
                 ->active()
                 ->reservationInventory()
                 ->inStock()
@@ -731,13 +862,73 @@ class ReservationController extends Controller
                 ->orderByDesc('created_at')
                 ->take($limit)
                 ->get();
+        } else {
+            $productsWithPopularity = $productsWithPopularity->take($limit);
         }
 
-        $result = $sorted->take($limit);
+
 
         // Annotate availability for sidebar cards
         [$holdsBySize] = $this->computeReservationHoldsMaps();
-        $result = $this->annotateProductsWithAvailability($result, $holdsBySize);
+        $result = $this->annotateProductsWithAvailability($productsWithPopularity, $holdsBySize);
+
+        return $result;
+    }
+
+    /**
+     * Get top popular products from the same sorting algorithm used in the main grid
+     * This ensures sidebar popular sections match the popular sort view
+     */
+    private function getTopPopularFromSort(string $category, int $limit = 3)
+    {
+        // Use the same query logic as getFilteredProducts for popular sort
+        $query = Product::with('sizes')
+            ->active()
+            ->reservationInventory()
+            ->inStock()
+            ->where('category', $category);
+
+        // Get all products for this category
+        $allProducts = $query->get();
+        
+        if ($allProducts->isEmpty()) {
+            return collect();
+        }
+
+        // Apply the same 60-day sales popularity logic as getFilteredProducts
+        $since60Days = now()->subDays(60);
+        $salesData = DB::table('transaction_items')
+            ->join('transactions', 'transaction_items.transaction_id', '=', 'transactions.transaction_id')
+            ->join('product_sizes', 'transaction_items.product_size_id', '=', 'product_sizes.product_size_id')
+            ->where('transactions.sale_date', '>=', $since60Days)
+            ->select('product_sizes.product_id', DB::raw('SUM(transaction_items.quantity) as total_sold'))
+            ->groupBy('product_sizes.product_id')
+            ->pluck('total_sold', 'product_id')
+            ->toArray();
+
+        // Add popularity scores and sort (exact same logic as getFilteredProducts)
+        $allProducts = $allProducts->map(function ($product) use ($salesData) {
+            $totalSold = $salesData[$product->product_id] ?? 0;
+            $product->setAttribute('popularity_score', (int)$totalSold);
+            return $product;
+        });
+        
+        // Sort by popularity DESC (most popular first) with product_id as tiebreaker
+        $allProducts = $allProducts->sortByDesc(function ($product) {
+            return [$product->getAttribute('popularity_score'), $product->product_id];
+        })->values();
+
+        // Take top results
+        $topProducts = $allProducts->take($limit);
+
+        // Annotate availability using reservation holds
+        [$holdsBySize] = $this->computeReservationHoldsMaps();
+        $result = $this->annotateProductsWithAvailability($topProducts, $holdsBySize);
+
+        // Filter out products with no available stock
+        $result = $result->filter(function($p) {
+            return ($p->available_total_stock ?? 0) > 0;
+        })->values();
 
         return $result;
     }

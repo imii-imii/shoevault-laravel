@@ -48,7 +48,7 @@ class MockTransactionsSeeder extends Seeder
         ['fullname' => 'Carlos Mendoza', 'email' => 'carlos.mendoza@example.com', 'phone' => '09171234004'],
         ['fullname' => 'Lisa Garcia', 'email' => 'lisa.garcia@example.com', 'phone' => '09171234005'],
         ['fullname' => 'Michael Johnson', 'email' => 'michael.johnson@example.com', 'phone' => '09171234006'],
-        ['fullname' => 'Sarah Williams', 'email' => 'sarah.williams@example.com', 'phone' => '09171234007'],
+        ['fullname' => 'Sarah Williams', 'email' => 'isthisreallyrequired2@gmail.com', 'phone' => '09171234007'],
         ['fullname' => 'David Brown', 'email' => 'david.brown@example.com', 'phone' => '09171234008'],
         ['fullname' => 'Jennifer Davis', 'email' => 'jennifer.davis@example.com', 'phone' => '09171234009'],
         ['fullname' => 'Robert Miller', 'email' => 'robert.miller@example.com', 'phone' => '09171234010'],
@@ -124,7 +124,7 @@ class MockTransactionsSeeder extends Seeder
         
         // Date range: January 1, 2022 to November 7, 2025
         $startDate = Carbon::createFromDate(2022, 1, 1)->startOfDay();
-        $endDate = Carbon::createFromDate(2025, 11, 16)->endOfDay();
+        $endDate = Carbon::createFromDate(2025, 11, 21)->endOfDay();
 
         echo "[MockTransactionsSeeder] Generating transactions and reservations from {$startDate->toDateString()} to {$endDate->toDateString()}...\n";
 
@@ -215,11 +215,7 @@ class MockTransactionsSeeder extends Seeder
             $totalItems += $itemsCreatedToday;
             
             // Calculate daily revenue for reporting
-            $dailyRevenue = 0;
-            $todaysTransactions = Transaction::whereDate('sale_date', $currentDate->toDateString())->get();
-            foreach ($todaysTransactions as $txn) {
-                $dailyRevenue += $txn->total_amount;
-            }
+            $dailyRevenue = Transaction::whereDate('sale_date', $currentDate->toDateString())->sum('total_amount');
             
             if ($currentDate->day === 1 || $transactionsCreated % 50 === 0 || $itemsCreatedToday > 0 || $holidayMultiplier > 1.2 || $holidayMultiplier < 1.0) {
                 $holidayNote = "";
@@ -236,7 +232,7 @@ class MockTransactionsSeeder extends Seeder
 
         // Calculate final statistics
         $totalRevenue = Transaction::sum('total_amount');
-        $monthlyAverage = $totalRevenue / 35; // Approximate months from Jan 2023 to Nov 2025
+        $monthlyAverage = $totalRevenue / 47; // Approximate months from Jan 2022 to Nov 2025
         
         echo "[MockTransactionsSeeder] Complete!\n";
         echo "  - Transactions: {$transactionsCreated}\n";
@@ -567,9 +563,7 @@ class MockTransactionsSeeder extends Seeder
         $dailySeq = Transaction::whereDate('sale_date', $transactionTime->toDateString())->count() + 1;
         $txnId = 'TXN-' . $transactionTime->format('Ymd') . '-' . str_pad($dailySeq, 4, '0', STR_PAD_LEFT);
         
-        $subtotal = $reservation->total_amount;
-        $discountAmount = 0; // Reservations don't typically have discounts
-        $total = $subtotal;
+        $total = $reservation->total_amount;
         
         // Amount paid: simulate payment
         $roundBase = (mt_rand(0, 1) === 1) ? 10 : 5;
@@ -582,8 +576,6 @@ class MockTransactionsSeeder extends Seeder
             'sale_type' => 'reservation',
             'reservation_id' => $reservation->reservation_id,
             'user_id' => $staff['user_id'],
-            'subtotal' => round($subtotal, 2),
-            'discount_amount' => $discountAmount,
             'total_amount' => round($total, 2),
             'amount_paid' => round($amountPaid, 2),
             'change_given' => $change,
@@ -594,6 +586,10 @@ class MockTransactionsSeeder extends Seeder
         
         // Create transaction items from reservation items
         foreach ($reservation->items as $item) {
+            $baseAmount = $item['unit_price'] * $item['quantity'];
+            $discountAmount = 0; // Reservations don't typically have item discounts
+            $itemSubtotal = $baseAmount - $discountAmount;
+            
             TransactionItem::create([
                 'transaction_id' => $txnId,
                 'product_size_id' => $item['product_size_id'],
@@ -604,6 +600,8 @@ class MockTransactionsSeeder extends Seeder
                 'quantity' => $item['quantity'],
                 'size' => $item['size'],
                 'unit_price' => $item['unit_price'],
+                'discount_amount' => $discountAmount,
+                'subtotal' => round($itemSubtotal, 2),
                 'cost_price' => round($item['unit_price'] * rand(50, 75) / 100, 2),
                 'created_at' => $transactionTime,
                 'updated_at' => $transactionTime,
@@ -652,7 +650,14 @@ class MockTransactionsSeeder extends Seeder
             $quantity = rand(1, 2);
             $unitPrice = (float) $product->price;
             $costPrice = round($unitPrice * rand(50, 75) / 100, 2);
-            $subtotal += $unitPrice * $quantity;
+            $baseAmount = $unitPrice * $quantity;
+            
+            // Item-level discount logic (15% chance of 5-10% discount per item)
+            $itemDiscountRate = (mt_rand(1, 100) <= 15) ? rand(5, 10) / 100 : 0;
+            $itemDiscountAmount = round($baseAmount * $itemDiscountRate, 2);
+            $itemSubtotal = $baseAmount - $itemDiscountAmount;
+            
+            $subtotal += $baseAmount;
             
             $builtItems[] = [
                 'transaction_id' => $txnId,
@@ -664,6 +669,8 @@ class MockTransactionsSeeder extends Seeder
                 'quantity' => $quantity,
                 'size' => $ps->size,
                 'unit_price' => $unitPrice,
+                'discount_amount' => $itemDiscountAmount,
+                'subtotal' => round($itemSubtotal, 2),
                 'cost_price' => $costPrice,
                 'created_at' => $transactionTime,
                 'updated_at' => $transactionTime,
@@ -675,25 +682,23 @@ class MockTransactionsSeeder extends Seeder
             return null;
         }
         
-        // Discount logic (15% chance of 5-10% discount)
-        $discountRate = (mt_rand(1, 100) <= 15) ? rand(5, 10) / 100 : 0;
-        $discountAmount = round($subtotal * $discountRate, 2);
-        $total = $subtotal - $discountAmount;
+        // Calculate total after applying item-level discounts
+        $totalAfterDiscounts = array_sum(array_map(function($item) {
+            return $item['subtotal'];
+        }, $builtItems));
         
         // Amount paid: simulate payment
         $roundBase = (mt_rand(0, 1) === 1) ? 10 : 5;
-        $amountPaid = ceil($total / $roundBase) * $roundBase;
-        if ($amountPaid < $total) { $amountPaid = $total; }
-        $change = round($amountPaid - $total, 2);
+        $amountPaid = ceil($totalAfterDiscounts / $roundBase) * $roundBase;
+        if ($amountPaid < $totalAfterDiscounts) { $amountPaid = $totalAfterDiscounts; }
+        $change = round($amountPaid - $totalAfterDiscounts, 2);
         
         $transaction = Transaction::create([
             'transaction_id' => $txnId,
             'sale_type' => 'pos',
             'reservation_id' => null,
             'user_id' => $staff['user_id'],
-            'subtotal' => round($subtotal, 2),
-            'discount_amount' => $discountAmount,
-            'total_amount' => round($total, 2),
+            'total_amount' => round($totalAfterDiscounts, 2),
             'amount_paid' => round($amountPaid, 2),
             'change_given' => $change,
             'sale_date' => $transactionTime,

@@ -964,11 +964,13 @@
                   @endif
                 </div>
                 
-                <div class="action-buttons">
-                  <button class="btn btn-danger" onclick="cancelReservation('{{ $reservation->reservation_id }}')">
-                    <i class="fas fa-times"></i> Cancel
-                  </button>
-                </div>
+                @if(in_array($reservation->status, ['pending', 'for_cancellation']))
+                  <div class="action-buttons">
+                    <button class="btn btn-danger" onclick="cancelReservation('{{ $reservation->reservation_id }}')">
+                      <i class="fas fa-times"></i> Cancel
+                    </button>
+                  </div>
+                @endif
               </div>
             @endforeach
           @else

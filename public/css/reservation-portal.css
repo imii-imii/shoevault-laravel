@@ -1602,8 +1602,10 @@ html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavi
 .sorting-label { font-weight:700; color:#2343ce; font-size:1rem; display:flex; align-items:center; gap:6px; letter-spacing:.2px; }
 .sorting-label i { color:#2343ce; }
 .sorting-options { display:flex; gap:8px; flex-wrap:wrap; }
-.sort-chip { background:#f3f6fd; color:#2343ce; border:none; border-radius:999px; padding:6px 18px; font-size:.88rem; font-weight:600; cursor:pointer; transition: background .18s, color .18s, box-shadow .18s; box-shadow:0 2px 8px rgba(35,67,206,0.07); text-decoration:none; display:inline-flex; align-items:center; }
+.sort-chip { background:#f3f6fd; color:#2343ce; border:none; border-radius:999px; padding:6px 18px; font-size:.88rem; font-weight:600; cursor:pointer; transition: background .18s, color .18s, box-shadow .18s; box-shadow:0 2px 8px rgba(35,67,206,0.07); text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
+.sort-chip i { font-size:0.75rem; opacity:0.7; transition: opacity .18s; }
 .sort-chip.active, .sort-chip:hover, .sort-chip:focus { background: linear-gradient(90deg,#2343ce 0%, #2a6aff 100%); color:#fff; box-shadow:0 4px 16px rgba(35,67,206,0.13); }
+.sort-chip.active i, .sort-chip:hover i, .sort-chip:focus i { opacity:1; }
 @media (max-width: 900px){ .res-portal-sorting-filter { padding:0; } }
 
 @media (max-width:700px){
@@ -1694,4 +1696,30 @@ html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavi
   .popular-sidebar .popular-card:nth-child(1){ animation-delay:.5s; }
   .popular-sidebar .popular-card:nth-child(2){ animation-delay:1.8s; }
   .popular-sidebar .popular-card:nth-child(3){ animation-delay:3.1s; }
+}
+
+/* Trending and Popular Badge Animations */
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.9; }
+}
+
+.trending-badge, .popular-badge {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  z-index: 10;
+}
+
+.trending-badge {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Sidebar badge specific styles */
+.sidebar-badge {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  font-size: 0.55rem !important;
+  padding: 2px 6px !important;
+}
+
+.sidebar-badge.trending-badge {
+  animation: pulse 1.8s ease-in-out infinite;
 }
