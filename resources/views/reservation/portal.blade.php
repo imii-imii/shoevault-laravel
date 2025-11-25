@@ -16,8 +16,12 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
   <style>
-    /* Desktop nav buttons only visible on desktop */
-    .res-portal-desktop-nav { display: flex; }
+    /* Desktop nav buttons - ensure consistent display across all desktop scales (100%, 125%, etc) */
+    .res-portal-desktop-nav { 
+      display: flex !important; 
+      align-items: center;
+      gap: 10px;
+    }
     @media (max-width: 900px) {
       .res-portal-desktop-nav { display: none !important; }
     }
