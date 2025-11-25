@@ -550,7 +550,7 @@
         .products-grid {
             flex: 1;
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(4, minmax(0, 1fr));
             gap: var(--spacing-md);
             overflow-y: auto;
             padding: var(--spacing-sm);
@@ -584,7 +584,7 @@
             border: 1px solid var(--gray-200);
             display: flex;
             flex-direction: column;
-            height: 180px; /* further compact to fit 8 cards (4 rows) */
+            height: 200px; /* further compact to fit 8 cards (4 rows) */
             padding: 0.5rem 0.6rem 0.45rem;
         }
 
@@ -701,6 +701,14 @@
             margin-top: -0.15rem;
             margin-bottom: 0.3rem;
             letter-spacing: .55px;
+        }
+
+        /* Meta shown inside cart item (category / color) */
+        .item-info .meta {
+            color: var(--gray-500);
+            font-size: 0.78rem;
+            margin-top: 0.25rem;
+            font-weight: 500;
         }
 
         /* filter-search-row restored outside brand block */
@@ -845,6 +853,26 @@
         .size-buttons::-webkit-scrollbar { width: 8px; }
         .size-buttons::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 6px; }
         .size-buttons::-webkit-scrollbar-track { background: transparent; }
+
+        /* Keep size buttons compact and prevent them from expanding the card
+           when there are many sizes. Make the list horizontally scrollable
+           and ensure each size button doesn't wrap. This preserves consistent
+           product-card heights across the grid. */
+        .size-buttons {
+            display: flex;
+            gap: 0.35rem;
+            align-items: center;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 4px;
+        }
+
+        .size-buttons .size-btn {
+            flex: 0 0 auto;
+            min-width: 36px;
+        }
 
         .size-btn {
             width: 38px;            /* consistent width for all size buttons */
@@ -2092,9 +2120,11 @@ function addToCartWithSize(productId, size) {
             id: productId, // Already converted to integer
             name: product.name,
             brand: product.brand,
+            category: product.category || product.category_name || '',
             size: String(size), // Ensure size is stored as string
             price: parseFloat(price),
             stock: productStock, // Already converted to integer
+            color: sizeInfo.color || product.color || '',
             quantity: 1
         };
 
@@ -2130,6 +2160,7 @@ function updateCartDisplay() {
                 <div class="cart-item-main">
                     <div class="item-info">
                         <h5>${item.name} <span style="color:#718096; font-weight:500">• Size ${item.size || ''}</span></h5>
+                        <div class="meta">${item.category ? item.category : ''}${(item.category && item.color) ? ' • ' : ''}${item.color ? item.color : ''}</div>
                         <p>₱${item.price.toLocaleString()} ${hasDiscount ? `<span class="discount-amount">(-₱${discountAmount.toLocaleString()})</span>` : ''}</p>
                     </div>
                     <div class="item-right">

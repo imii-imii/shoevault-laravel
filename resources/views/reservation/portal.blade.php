@@ -16,14 +16,18 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
   <style>
-    /* Desktop nav buttons only visible on desktop */
-    .res-portal-desktop-nav { display: flex; }
-    @media (max-width: 900px) {
+    /* Desktop nav buttons - ensure consistent display across all desktop scales (100%, 125%, etc) */
+    .res-portal-desktop-nav { 
+      display: flex !important; 
+      align-items: center;
+      gap: 10px;
+    }
+    @media (max-width: 1160px) {
       .res-portal-desktop-nav { display: none !important; }
     }
     /* Mobile nav only visible on mobile */
     .res-portal-nav { display: none !important; }
-    @media (max-width: 900px) {
+    @media (max-width: 1160px) {
       .res-portal-nav { display: flex !important; }
     }
     .res-portal-logo-link {
@@ -508,7 +512,7 @@
                     background: linear-gradient(90deg, #2343ce 0%, #2a6aff 100%);
                     color: #fff;
                   }
-                  @media (max-width: 900px) {
+                  @media (max-width: 1160px) {
                     .brands-dropdown { width: calc(100vw - 50px); margin: 0; max-width: unset; }
                     .brands-dropdown-btn { width: 102%; }
                     .brands-dropdown-list { width: 100%; min-width: 0; }
@@ -666,7 +670,7 @@
           gap: 8px;
           justify-content: flex-end;
         }
-        @media (max-width: 1080px) {
+        @media (max-width: 1160px) {
           .res-portal-filters-container {
             flex-direction: column;
             gap: 14px;

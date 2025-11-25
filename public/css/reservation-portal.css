@@ -1,5 +1,5 @@
 /* Responsive helpers */
-.desktop-only { display: block; }
+.desktop-only { display: none; }
 .mobile-only { display: none !important; }
 
 /* Remove mobile tap highlight on interactive elements for a cleaner touch UX */
@@ -7,11 +7,12 @@ button, a, input, textarea, select, .btn, .lr-btn, .res-portal-nav-btn, .res-por
   -webkit-tap-highlight-color: transparent;
 }
 
-@media (max-width: 1600px) {
-  .desktop-only { display: none !important; }
+@media (max-width: 1100px) {
+  .desktop-only { display: block !important; }
+
   }
 
-@media (max-width: 700px) {
+@media (max-width: 1100px) {
   .res-portal-main-mobile > .res-portal-search,
   .res-portal-main-mobile > .res-portal-banner,
   .res-portal-main-mobile > .res-portal-nav,
@@ -364,7 +365,7 @@ html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavi
 }
 
 /* Desktop floating glassy navbar (leave mobile untouched) */
-@media (min-width: 901px) {
+@media (min-width: 1100px) {
   .res-portal-navbar {
     width: calc(100% - 40px);
     margin: 12px 20px 0 20px;
@@ -624,7 +625,7 @@ html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavi
 @media (max-width: 900px) {
   .res-portal-banner { width: 90%; padding: 10px 18px; min-height: 105px; }
 }
-@media (max-width: 700px) {
+@media (max-width: 1100px) {
   .res-portal-banner { width: 100%; margin: 12px 0 16px; padding: 14px 16px 18px; border-radius: 14px; min-height: 120px; }
   .banner-title { font-size: 1.15rem; letter-spacing: .25px; }
   .banner-tagline { font-size: .68rem; line-height: 1.28; margin-top: 4px; margin-bottom: 6px; max-width: 95%; }
@@ -725,7 +726,7 @@ html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavi
   align-items: center;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 1100px) {
   .res-portal-categories {
     display: flex !important;
     gap: 8px !important;
@@ -1608,7 +1609,7 @@ html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavi
 .sort-chip.active i, .sort-chip:hover i, .sort-chip:focus i { opacity:1; }
 @media (max-width: 900px){ .res-portal-sorting-filter { padding:0; } }
 
-@media (max-width:700px){
+@media (max-width:1100px){
   .res-portal-nav-btn { width:46px !important; flex-direction:column !important; padding:4px !important; overflow:visible !important; }
   .res-portal-nav-btn:hover, .res-portal-nav-btn.active { width:46px !important; background: rgba(255,255,255,0.22) !important; box-shadow: 0 4px 12px -4px rgba(0,0,0,.35) !important; transform:none !important; }
   .res-portal-nav-btn .nav-label { opacity:1 !important; width:100% !important; }
@@ -1640,7 +1641,7 @@ html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavi
 }
 }
 /* ===================== Popular Sidebars (Desktop) ===================== */
-@media (min-width: 1300px) {
+@media (min-width: 1600px) {
   .popular-sidebar { position: fixed; top: 120px; bottom: 50px; width: 250px; padding: 18px 16px 34px; margin: 0 24px; box-sizing: border-box; overflow-y: auto; background: linear-gradient(135deg, rgba(2,13,39,0.95) 0%, rgba(9,44,128,0.92) 55%, rgba(25,78,210,0.85) 100%); color:#fff; z-index: 900; display:flex; flex-direction:column; gap:18px; border-radius: 22px; border: 1px solid rgba(255,255,255,0.10); box-shadow: 0 18px 42px -12px rgba(8,32,96,0.55), 0 6px 18px -6px rgba(5,20,60,0.45); backdrop-filter: blur(18px) saturate(160%); -webkit-backdrop-filter: blur(18px) saturate(160%); }
   /* Shimmer overlay + subtle particle sparks */
   .popular-sidebar { overflow:hidden; }
@@ -1691,7 +1692,7 @@ html, body { width: 100%; max-width: 100%; overflow-x: hidden; overscroll-behavi
 @keyframes flameFlicker { 0% { filter: brightness(1) saturate(1); } 100% { filter: brightness(1.25) saturate(1.1); } }
 @keyframes cardGlow { 0%,100% { box-shadow: 0 10px 26px rgba(15,23,42,0.06), 0 0 0 0 rgba(255,184,71,0); border-color: rgba(15,23,42,0.06); } 50% { box-shadow: 0 18px 44px rgba(15,23,42,0.12), 0 0 0 4px rgba(255,184,71,0.18); border-color: rgba(255,184,71,0.45); } }
 /* Stagger glow across top 3 cards */
-@media (min-width:1300px){
+@media (min-width:1600px){
   .popular-sidebar .popular-card { animation: cardGlow 7s ease-in-out infinite; }
   .popular-sidebar .popular-card:nth-child(1){ animation-delay:.5s; }
   .popular-sidebar .popular-card:nth-child(2){ animation-delay:1.8s; }
