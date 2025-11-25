@@ -22,12 +22,12 @@
       align-items: center;
       gap: 10px;
     }
-    @media (max-width: 900px) {
+    @media (max-width: 1160px) {
       .res-portal-desktop-nav { display: none !important; }
     }
     /* Mobile nav only visible on mobile */
     .res-portal-nav { display: none !important; }
-    @media (max-width: 900px) {
+    @media (max-width: 1160px) {
       .res-portal-nav { display: flex !important; }
     }
     .res-portal-logo-link {
@@ -512,7 +512,7 @@
                     background: linear-gradient(90deg, #2343ce 0%, #2a6aff 100%);
                     color: #fff;
                   }
-                  @media (max-width: 900px) {
+                  @media (max-width: 1160px) {
                     .brands-dropdown { width: calc(100vw - 50px); margin: 0; max-width: unset; }
                     .brands-dropdown-btn { width: 102%; }
                     .brands-dropdown-list { width: 100%; min-width: 0; }
@@ -670,7 +670,7 @@
           gap: 8px;
           justify-content: flex-end;
         }
-        @media (max-width: 1080px) {
+        @media (max-width: 1160px) {
           .res-portal-filters-container {
             flex-direction: column;
             gap: 14px;
