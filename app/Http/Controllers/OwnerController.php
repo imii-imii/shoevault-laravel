@@ -626,6 +626,7 @@ class OwnerController extends Controller
             $endDate = $request->input('end_date');
             $range = $request->input('range', 'day');
             $brand = $request->input('brand', 'all');
+            $predictive = $request->input('predictive', false);
             
 
             // Validate dates
@@ -640,12 +641,14 @@ class OwnerController extends Controller
                 ], 400);
             }
             
-            $data = $this->getDashboardKPIsByDateRange($startDate, $endDate, $range, $brand);
+            $data = $this->getDashboardKPIsByDateRange($startDate, $endDate, $range, $brand, $predictive);
             
             // Debug: Log the final response data
             Log::info('getDashboardData response', [
                 'kpis' => $data['kpis'] ?? null,
-                'forecast_data_count' => isset($data['forecast']) ? count($data['forecast']) : 0
+                'forecast_data_count' => isset($data['forecast']) ? count($data['forecast']) : 0,
+                'insights_count' => isset($data['insights']) ? count($data['insights']) : 0,
+                'insights_sample' => isset($data['insights']) ? array_slice($data['insights'], 0, 2) : null
             ]);
             
             return response()->json([
@@ -695,6 +698,7 @@ class OwnerController extends Controller
             'totalValue' => Product::join('product_sizes', 'products.product_id', '=', 'product_sizes.product_id')
                           ->sum(DB::raw('products.price * product_sizes.stock')),
             'popularProducts' => $rangeData['popular_products'],
+            'insights' => $rangeData['insights'],
         ];
     }
 
@@ -704,8 +708,12 @@ class OwnerController extends Controller
     private function applyBrandFilter($query, $brand)
     {
         if ($brand && $brand !== 'all') {
-            return $query->whereHas('items', function($subQuery) use ($brand) {
-                $subQuery->where('product_brand', $brand);
+            // For raw database queries, use EXISTS subquery to filter by brand
+            return $query->whereExists(function($subQuery) use ($brand) {
+                $subQuery->select(DB::raw(1))
+                    ->from('transaction_items')
+                    ->whereRaw('transaction_items.transaction_id = transactions.transaction_id')
+                    ->where('transaction_items.product_brand', $brand);
             });
         }
         return $query;
@@ -714,7 +722,7 @@ class OwnerController extends Controller
     /**
      * Get dashboard KPIs for specific date range
      */
-    private function getDashboardKPIsByDateRange($startDate, $endDate, $range, $brand = 'all')
+    private function getDashboardKPIsByDateRange($startDate, $endDate, $range, $brand = 'all', $predictive = false)
     {
         $dateCol = $this->salesDateColumn();
         $amountExpr = $this->salesAmountExpression();
@@ -845,11 +853,462 @@ class OwnerController extends Controller
             ],
             'forecast' => $forecast,
             'popular_products' => $popularProducts,
+            'insights' => $predictive ? $this->generatePredictiveInsights($startDate, $endDate, $range, $brand) : $this->generateBusinessInsights($startDate, $endDate, $range, $brand),
             'date_range' => [
                 'start' => $startDate,
                 'end' => $endDate,
                 'range' => $range
             ]
+        ];
+    }
+
+    /**
+     * Generate business insights based on historical data analysis
+     */
+    private function generateBusinessInsights($startDate, $endDate, $range, $brand = 'all')
+    {
+        $insights = [];
+        $dateCol = $this->salesDateColumn();
+        
+
+        
+        // 1. Sales Performance Analysis
+        $currentPeriodSales = $this->calculatePeriodSales($startDate, $endDate, $brand);
+        $previousPeriodDates = $this->getPreviousPeriodDates($startDate, $endDate, $range);
+        $previousPeriodSales = $this->calculatePeriodSales($previousPeriodDates['start'], $previousPeriodDates['end'], $brand);
+        
+
+        
+        if ($previousPeriodSales > 0) {
+            $growthRate = (($currentPeriodSales - $previousPeriodSales) / $previousPeriodSales) * 100;
+            $insights[] = [
+                'type' => $growthRate >= 0 ? 'positive' : 'negative',
+                'icon' => $growthRate >= 0 ? '📈' : '📉',
+                'title' => $growthRate >= 0 ? 'Sales Growth' : 'Sales Decline',
+                'message' => abs(round($growthRate, 1)) . '% ' . ($growthRate >= 0 ? 'increase' : 'decrease') . ' vs previous ' . $range,
+                'value' => '₱' . number_format($currentPeriodSales, 2),
+                'priority' => abs($growthRate) > 10 ? 'high' : 'medium'
+            ];
+        }
+        
+        // 2. Top Performing Products/Brands Analysis
+        if ($brand === 'all') {
+            $topBrand = $this->getTopPerformingBrand($startDate, $endDate);
+            if ($topBrand) {
+                $insights[] = [
+                    'type' => 'info',
+                    'icon' => '👑',
+                    'title' => 'Top Performing Brand',
+                    'message' => $topBrand['brand'] . ' leads with ' . $topBrand['percentage'] . '% of total sales',
+                    'value' => '₱' . number_format($topBrand['sales'], 2),
+                    'priority' => 'medium'
+                ];
+            }
+        }
+        
+
+        
+        // 4. Transaction Volume Analysis
+        $transactionStats = $this->getTransactionStats($startDate, $endDate, $brand);
+        if ($transactionStats['avg_value'] > 0) {
+            $insights[] = [
+                'type' => $transactionStats['avg_value'] > 2000 ? 'positive' : 'info',
+                'icon' => '💰',
+                'title' => 'Transaction Analysis',
+                'message' => 'Average transaction: ₱' . number_format($transactionStats['avg_value'], 2) . ' (' . $transactionStats['total_transactions'] . ' transactions)',
+                'value' => number_format($transactionStats['avg_value'], 2),
+                'priority' => 'medium'
+            ];
+        }
+        
+        // 5. Reservation Performance
+        $reservationStats = $this->getReservationInsights($startDate, $endDate, $brand);
+        if ($reservationStats['total'] > 0) {
+            $conversionRate = ($reservationStats['completed'] / $reservationStats['total']) * 100;
+            $insights[] = [
+                'type' => $conversionRate >= 80 ? 'positive' : ($conversionRate >= 60 ? 'info' : 'negative'),
+                'icon' => '📋',
+                'title' => 'Reservation Performance',
+                'message' => round($conversionRate, 1) . '% completion rate (' . $reservationStats['completed'] . '/' . $reservationStats['total'] . ' reservations)',
+                'value' => round($conversionRate, 1) . '%',
+                'priority' => $conversionRate < 60 ? 'high' : 'medium'
+            ];
+        }
+        
+        // If no insights were generated, add a default message
+        if (empty($insights)) {
+            // Check if there's any data at all in the date range
+            $totalTransactions = DB::table('transactions')
+                ->whereBetween($dateCol, [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+                ->count();
+                
+
+            
+            if ($totalTransactions > 0) {
+                $insights[] = [
+                    'type' => 'info',
+                    'icon' => '📊',
+                    'title' => 'Period Analysis',
+                    'message' => "Found {$totalTransactions} transactions in this period. Data analysis is being processed.",
+                    'value' => "{$totalTransactions} transactions",
+                    'priority' => 'medium'
+                ];
+            } else {
+                $insights[] = [
+                    'type' => 'neutral',
+                    'icon' => '📈',
+                    'title' => 'No Activity',
+                    'message' => 'No transactions found for the selected period.',
+                    'value' => '0 transactions',
+                    'priority' => 'low'
+                ];
+            }
+        }
+
+        
+        return array_slice($insights, 0, 5); // Limit to top 5 insights
+    }
+
+    /**
+     * Generate predictive business insights for forecasting mode
+     */
+    private function generatePredictiveInsights($startDate, $endDate, $range, $brand = 'all')
+    {
+        $insights = [];
+        
+        // For predictive insights, use range-specific data windows to match forecast charts
+        // This ensures insights are based on the same comprehensive data as predictive charts
+        $analysisEndDate = now()->format('Y-m-d');
+        $historicalDays = $this->getHistoricalDaysForPredictiveRange($range);
+        $analysisStartDate = now()->subDays($historicalDays)->format('Y-m-d');
+        $analysisRange = $range; // Use the same range for period comparison
+        
+        // 1. Revenue Trend Forecast (based on comprehensive historical trend)
+        $currentPeriodSales = $this->calculatePeriodSales($analysisStartDate, $analysisEndDate, $brand);
+        $previousPeriodDates = $this->getPreviousPeriodDates($analysisStartDate, $analysisEndDate, $analysisRange);
+        $previousPeriodSales = $this->calculatePeriodSales($previousPeriodDates['start'], $previousPeriodDates['end'], $brand);
+        
+        if ($currentPeriodSales > 0 && $previousPeriodSales > 0) {
+            // Calculate actual growth trend
+            $historicalGrowthRate = (($currentPeriodSales - $previousPeriodSales) / $previousPeriodSales) * 100;
+            
+            // Calculate appropriate projection based on the forecast period
+            $projectedRevenue = $this->calculatePeriodAdjustedProjection($currentPeriodSales, $historicalGrowthRate, $range);
+            
+            $insights[] = [
+                'type' => 'forecast',
+                'icon' => '💰',
+                'title' => 'Revenue Trend Forecast',
+                'message' => "Based on {$this->getAnalysisPeriodDescription($range)}, next {$this->getRangePeriod($analysisRange)} revenue projected: ₱" . number_format($projectedRevenue, 2) . " (" . ($historicalGrowthRate > 0 ? '+' : '') . round($historicalGrowthRate, 1) . "% trend)",
+                'value' => '₱' . number_format($projectedRevenue, 2),
+                'priority' => 'high'
+            ];
+        }
+        
+        // 2. Brand Performance Continuation (using comprehensive data range)
+        if ($brand === 'all') {
+            $topBrand = $this->getTopPerformingBrand($analysisStartDate, $analysisEndDate);
+            if ($topBrand && $topBrand['percentage'] > 30) {
+                $insights[] = [
+                    'type' => 'positive',
+                    'icon' => '👑',
+                    'title' => 'Market Leader Analysis',
+                    'message' => $topBrand['brand'] . ' dominates with ' . $topBrand['percentage'] . '% market share (' . $this->getAnalysisPeriodDescription($range) . ')',
+                    'value' => $topBrand['percentage'] . '%',
+                    'priority' => 'medium'
+                ];
+            }
+        }
+        
+        // 3. Transaction Volume Analysis (using comprehensive data range)
+        $transactionStats = $this->getTransactionStats($analysisStartDate, $analysisEndDate, $brand);
+        if ($transactionStats['total_transactions'] > 0) {
+            $avgTransactionValue = $transactionStats['avg_value'];
+            $insights[] = [
+                'type' => 'info',
+                'icon' => '📊',
+                'title' => 'Transaction Pattern',
+                'message' => $this->getAnalysisPeriodDescription($range) . ' shows ' . $transactionStats['total_transactions'] . ' transactions with ₱' . number_format($avgTransactionValue, 2) . ' average value',
+                'value' => $transactionStats['total_transactions'] . ' transactions',
+                'priority' => 'medium'
+            ];
+        }
+        
+        // 4. Overall Business Performance Summary (based on comprehensive analysis)
+        if ($currentPeriodSales > 0 && $previousPeriodSales > 0) {
+            $salesRatio = $currentPeriodSales / $previousPeriodSales;
+            $performanceType = $salesRatio >= 1.1 ? 'strong' : ($salesRatio >= 0.9 ? 'stable' : 'declining');
+            
+            $insights[] = [
+                'type' => $performanceType === 'strong' ? 'positive' : ($performanceType === 'stable' ? 'info' : 'warning'),
+                'icon' => $performanceType === 'strong' ? '📈' : ($performanceType === 'stable' ? '📊' : '📉'),
+                'title' => 'Overall Performance Trend',
+                'message' => 'Business showing ' . $performanceType . ' performance in recent analysis period',
+                'value' => '₱' . number_format($currentPeriodSales, 2),
+                'priority' => 'medium'
+            ];
+        }
+        
+        return array_slice($insights, 0, 5); // Limit to top 5 insights
+    }
+    
+    /**
+     * Get period description for range
+     */
+    private function getRangePeriod($range)
+    {
+        switch ($range) {
+            case 'weekly': return '7 days';
+            case 'monthly': return '30 days';
+            case 'quarterly': return '3 months';
+            case 'yearly': return '12 months';
+            default: return 'period';
+        }
+    }
+    
+    /**
+     * Get historical days for predictive analysis based on range
+     * Matches the data windows used in forecast charts
+     */
+    private function getHistoricalDaysForPredictiveRange($range)
+    {
+        switch ($range) {
+            case 'weekly': return 90;     // 3 months for weekly predictions
+            case 'monthly': return 365;   // 1 year for monthly predictions  
+            case 'quarterly': return 730; // 2 years for quarterly predictions
+            case 'yearly': return 1095;   // 3 years for yearly predictions
+            default: return 90;
+        }
+    }
+    
+    /**
+     * Get analysis period description for user-friendly messaging
+     */
+    private function getAnalysisPeriodDescription($range)
+    {
+        switch ($range) {
+            case 'weekly': return '3-month analysis';
+            case 'monthly': return '1-year analysis';
+            case 'quarterly': return '2-year analysis'; 
+            case 'yearly': return '3-year analysis';
+            default: return '3-month analysis';
+        }
+    }
+    
+    /**
+     * Calculate period-adjusted projection that represents the next forecast period
+     * rather than applying multi-year growth to multi-year totals
+     */
+    private function calculatePeriodAdjustedProjection($historicalTotal, $growthRate, $range)
+    {
+        switch ($range) {
+            case 'weekly':
+                // Historical: 3 months total, Forecast: next 7 days
+                // Convert 3-month total to weekly average, then apply growth
+                $weeklyAverage = $historicalTotal / (90 / 7); // 90 days ÷ 7 days per week
+                return $weeklyAverage * (1 + ($growthRate / 100));
+                
+            case 'monthly':
+                // Historical: 1 year total, Forecast: next 30 days  
+                // Convert 1-year total to monthly average, then apply growth
+                $monthlyAverage = $historicalTotal / 12; // 12 months
+                return $monthlyAverage * (1 + ($growthRate / 100));
+                
+            case 'quarterly':
+                // Historical: 2 years total, Forecast: next 3 months
+                // Convert 2-year total to quarterly average, then apply growth
+                $quarterlyAverage = $historicalTotal / 8; // 8 quarters in 2 years
+                return $quarterlyAverage * (1 + ($growthRate / 100));
+                
+            case 'yearly':
+                // Historical: 3 years total, Forecast: next 12 months
+                // Convert 3-year total to yearly average, then apply growth
+                $yearlyAverage = $historicalTotal / 3; // 3 years
+                return $yearlyAverage * (1 + ($growthRate / 100));
+                
+            default:
+                // Fallback: simple growth application
+                return $historicalTotal * (1 + ($growthRate / 100));
+        }
+    }
+
+    /**
+     * Calculate sales for a specific period
+     */
+    private function calculatePeriodSales($startDate, $endDate, $brand = 'all')
+    {
+        $dateCol = $this->salesDateColumn();
+        $amountExpr = $this->salesAmountExpression();
+        
+        $query = DB::table('transactions')
+            ->whereBetween($dateCol, [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+            
+        $this->applyBrandFilter($query, $brand);
+        
+        return $query->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
+    }
+    
+    /**
+     * Get previous period dates based on current date range
+     */
+    private function getPreviousPeriodDates($startDate, $endDate, $range)
+    {
+        $start = new \DateTime($startDate);
+        $end = new \DateTime($endDate);
+        $diff = $start->diff($end)->days + 1;
+        
+        $previousStart = clone $start;
+        $previousEnd = clone $end;
+        
+        switch ($range) {
+            case 'day':
+                $previousStart->modify('-1 day');
+                $previousEnd->modify('-1 day');
+                break;
+            case 'weekly':
+                $previousStart->modify('-1 week');
+                $previousEnd->modify('-1 week');
+                break;
+            case 'monthly':
+                $previousStart->modify('-1 month');
+                $previousEnd->modify('-1 month');
+                break;
+            case 'quarterly':
+                $previousStart->modify('-3 months');
+                $previousEnd->modify('-3 months');
+                break;
+            case 'yearly':
+                $previousStart->modify('-1 year');
+                $previousEnd->modify('-1 year');
+                break;
+            default:
+                $previousStart->modify("-{$diff} days");
+                $previousEnd->modify("-{$diff} days");
+        }
+        
+        return [
+            'start' => $previousStart->format('Y-m-d'),
+            'end' => $previousEnd->format('Y-m-d')
+        ];
+    }
+    
+    /**
+     * Get top performing brand for the period
+     */
+    private function getTopPerformingBrand($startDate, $endDate)
+    {
+        $dateCol = $this->salesDateColumn();
+        
+        $brandSales = DB::table('transaction_items')
+            ->join('transactions', 'transaction_items.transaction_id', '=', 'transactions.transaction_id')
+            ->whereBetween("transactions.{$dateCol}", [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->select('transaction_items.product_brand as brand', 
+                    DB::raw('SUM(transaction_items.unit_price * transaction_items.quantity) as sales'))
+            ->groupBy('transaction_items.product_brand')
+            ->orderBy('sales', 'desc')
+            ->get();
+            
+        if ($brandSales->count() > 0) {
+            $totalSales = $brandSales->sum('sales');
+            $topBrand = $brandSales->first();
+            $percentage = ($topBrand->sales / $totalSales) * 100;
+            
+            return [
+                'brand' => $topBrand->brand ?: 'Unknown',
+                'sales' => $topBrand->sales,
+                'percentage' => round($percentage, 1)
+            ];
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Get peak sales hour
+     */
+    private function getPeakSalesHour($startDate, $endDate, $brand = 'all')
+    {
+        $dateCol = $this->salesDateColumn();
+        $amountExpr = $this->salesAmountExpression();
+        
+        $query = DB::table('transactions')
+            ->whereBetween($dateCol, [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+            
+        $this->applyBrandFilter($query, $brand);
+        
+        $hourlySales = $query->select(
+                DB::raw("HOUR({$dateCol}) as hour"),
+                DB::raw("SUM({$amountExpr}) as sales")
+            )
+            ->groupBy('hour')
+            ->orderBy('sales', 'desc')
+            ->first();
+            
+        if ($hourlySales) {
+            $hour = $hourlySales->hour;
+            $hourFormatted = ($hour == 0) ? '12 AM' : (($hour < 12) ? $hour . ' AM' : (($hour == 12) ? '12 PM' : ($hour - 12) . ' PM'));
+            
+            return [
+                'hour' => $hourFormatted,
+                'sales' => $hourlySales->sales
+            ];
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Get transaction statistics
+     */
+    private function getTransactionStats($startDate, $endDate, $brand = 'all')
+    {
+        $dateCol = $this->salesDateColumn();
+        $amountExpr = $this->salesAmountExpression();
+        
+        $query = DB::table('transactions')
+            ->whereBetween($dateCol, [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+            
+        $this->applyBrandFilter($query, $brand);
+        
+        $stats = $query->select(
+                DB::raw("COUNT(*) as total_transactions"),
+                DB::raw("AVG({$amountExpr}) as avg_value"),
+                DB::raw("SUM({$amountExpr}) as total_value")
+            )->first();
+            
+        return [
+            'total_transactions' => $stats->total_transactions ?? 0,
+            'avg_value' => $stats->avg_value ?? 0,
+            'total_value' => $stats->total_value ?? 0
+        ];
+    }
+    
+    /**
+     * Get reservation insights
+     */
+    private function getReservationInsights($startDate, $endDate, $brand = 'all')
+    {
+        $query = DB::table('reservations')
+            ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+            
+        if ($brand && $brand !== 'all') {
+            $query->whereHas('items', function($q) use ($brand) {
+                $q->where('product_brand', $brand);
+            });
+        }
+        
+        $completed = $query->where('status', 'completed')->count();
+        $total = DB::table('reservations')
+            ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->count();
+            
+        return [
+            'completed' => $completed,
+            'total' => $total,
+            'cancelled' => DB::table('reservations')
+                ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+                ->where('status', 'cancelled')
+                ->count()
         ];
     }
 

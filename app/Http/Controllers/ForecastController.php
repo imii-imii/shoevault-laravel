@@ -24,6 +24,7 @@ class ForecastController extends Controller
         $range = $request->query('range', 'day');
         $anchor = $request->query('anchor_date');
         $brand = $request->query('brand', 'all');
+        $predictive = $request->query('predictive', 'false') === 'true';
         
         try {
             $anchorDate = $anchor ? Carbon::parse($anchor) : Carbon::today();
@@ -34,9 +35,9 @@ class ForecastController extends Controller
         [$start, $end, $labels, $buckets] = $this->makeWindow($range, $anchorDate);
 
         if ($type === 'demand') {
-            $data = $this->buildDemandData($start, $end, $range, $buckets, $brand);
+            $data = $this->buildDemandData($start, $end, $range, $buckets, $brand, $predictive);
         } else { // default to sales
-            $data = $this->buildSalesData($start, $end, $range, $buckets, $brand);
+            $data = $this->buildSalesData($start, $end, $range, $buckets, $brand, $predictive);
         }
 
         return response()->json([
@@ -124,7 +125,7 @@ class ForecastController extends Controller
     /**
      * Sales revenue series by time bucket and sale_type (pos vs reservation)
      */
-    private function buildSalesData(Carbon $start, Carbon $end, string $range, array $buckets, string $brand = 'all'): array
+    private function buildSalesData(Carbon $start, Carbon $end, string $range, array $buckets, string $brand = 'all', bool $predictive = false): array
     {
         // Build base query on transactions
         $expr = $this->bucketExpression('t.sale_date', $range);
@@ -155,6 +156,12 @@ class ForecastController extends Controller
             }
         }
 
+        // Apply predictive adjustments if in predictive mode
+        if ($predictive) {
+            $pos = $this->applyPredictiveAdjustments($pos);
+            $reservation = $this->applyPredictiveAdjustments($reservation);
+        }
+
         return [
             'pos' => $pos,
             'reservation' => $reservation,
@@ -164,7 +171,7 @@ class ForecastController extends Controller
     /**
      * Demand (units sold) by brand - returns total quantities per brand for horizontal bar chart
      */
-    private function buildDemandData(Carbon $start, Carbon $end, string $range, array $buckets, string $brand = 'all'): array
+    private function buildDemandData(Carbon $start, Carbon $end, string $range, array $buckets, string $brand = 'all', bool $predictive = false): array
     {
         // Get total quantity sold by brand for the entire time period
         $query = DB::table('transaction_items as ti')
@@ -187,6 +194,11 @@ class ForecastController extends Controller
         foreach ($rows as $row) {
             $brands[] = $row->brand;
             $quantities[] = (int)$row->total_qty;
+        }
+
+        // Apply predictive adjustments if in predictive mode
+        if ($predictive) {
+            $quantities = $this->applyPredictiveAdjustments($quantities);
         }
 
         return [
@@ -271,5 +283,40 @@ class ForecastController extends Controller
         // day: hour 10..19 -> index 0..9
         $pos = array_search($bucketValue, $buckets, true);
         return $pos === false ? null : $pos;
+    }
+
+    /**
+     * Apply trend-based projections using actual historical patterns
+     * This creates realistic forecasts based on real data trends
+     */
+    private function applyPredictiveAdjustments(array $data): array
+    {
+        if (count($data) < 2) {
+            return $data; // Need at least 2 data points for trend analysis
+        }
+        
+        $adjusted = [];
+        
+        // Calculate actual trend from the data
+        $firstHalf = array_slice($data, 0, floor(count($data) / 2));
+        $secondHalf = array_slice($data, floor(count($data) / 2));
+        
+        $firstAvg = count($firstHalf) > 0 ? array_sum($firstHalf) / count($firstHalf) : 0;
+        $secondAvg = count($secondHalf) > 0 ? array_sum($secondHalf) / count($secondHalf) : 0;
+        
+        // Calculate trend factor based on actual data progression
+        $trendFactor = ($firstAvg > 0) ? ($secondAvg / $firstAvg) : 1.0;
+        
+        // Apply the calculated trend to project forward
+        foreach ($data as $index => $value) {
+            // Project based on position in array and calculated trend
+            $position = ($index + 1) / count($data);
+            $projected = $value * (1 + (($trendFactor - 1) * $position));
+            
+            // Ensure non-negative values
+            $adjusted[] = max($projected, 0);
+        }
+        
+        return $adjusted;
     }
 }

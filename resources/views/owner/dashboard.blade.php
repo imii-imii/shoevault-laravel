@@ -182,6 +182,34 @@
             .odash-predictive-btn.active::after { opacity:.6; background: linear-gradient(135deg, rgba(255,255,255,.15) 0%, rgba(255,255,255,0) 60%); }
             .odash-predictive-btn:focus-visible { outline:2px solid #93c5fd; outline-offset:2px; }
 
+        /* Business Insights Styles */
+        .insights-container { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+        .insight-card { 
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); 
+            border: 1px solid #e2e8f0; 
+            border-radius: 12px; 
+            padding: 16px; 
+            position: relative; 
+            transition: all 0.3s ease; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .insight-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .insight-card.positive { border-left: 4px solid #10b981; background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%); }
+        .insight-card.negative { border-left: 4px solid #ef4444; background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%); }
+        .insight-card.info { border-left: 4px solid #3b82f6; background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%); }
+        .insight-card.positive .insight-icon { color: #10b981; }
+        .insight-card.negative .insight-icon { color: #ef4444; }
+        .insight-card.info .insight-icon { color: #3b82f6; }
+        .insight-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+        .insight-title { font-size: 14px; font-weight: 700; color: #1f2937; margin: 0; }
+        .insight-icon { font-size: 18px; margin-right: 8px; }
+        .insight-value { font-size: 12px; font-weight: 600; padding: 4px 8px; background: rgba(59, 130, 246, 0.1); color: #1e40af; border-radius: 6px; }
+        .insight-message { font-size: 13px; color: #4b5563; line-height: 1.4; margin: 4px 0; }
+        .insight-action { font-size: 11px; color: #6b7280; font-style: italic; margin-top: 8px; display: block; }
+        .insight-priority-high { border-left-width: 6px; }
+        .insight-priority-high::before { content: "!"; position: absolute; top: 8px; right: 8px; width: 18px; height: 18px; background: #ef4444; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
         /* Futuristic gauge styles (refined for semicircular segmented look) */
         .f-gauge { position: relative; display:flex; align-items:center; justify-content:center; }
         .f-gauge svg { overflow: visible; }
@@ -449,6 +477,21 @@
                     </div>
                 </div>
 
+                <!-- Business Insights Section -->
+                <div class="odash-card" style="margin-top: 16px;">
+                    <div class="odash-card-header">
+                        <div class="odash-title">📊 Business Insights</div>
+                        <div class="odash-subtitle">Historical data analysis and recommendations</div>
+                    </div>
+                    <div id="insights-container" style="padding: 16px;">
+                        <!-- Insights will be populated here -->
+                        <div class="insights-loading" style="text-align: center; padding: 40px; color: #6b7280;">
+                            <div class="loading-spinner" style="margin: 0 auto 16px; width: 24px; height: 24px; border: 2px solid #e5e7eb; border-top: 2px solid #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                            <p>Analyzing data for insights...</p>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Popular Products and Stock Levels -->
                 <div class="odash-row-products">
                     <!-- Popular Products List (Scrollable) -->
@@ -503,6 +546,7 @@
                         </div>
                     </div>
                 </div>
+                
             </div>
         </section>
 
@@ -1148,8 +1192,8 @@ document.addEventListener('DOMContentLoaded', function() {
             updateWindowText(r);
             updateNavigationButtons(r);
             
-            // Refresh KPIs when range changes
-            refreshDashboardKPIs();
+            // Refresh full dashboard data including insights when range changes
+            refreshDashboardData();
             
             document.dispatchEvent(new CustomEvent('odash:filter-range-changed',{ detail:{ range:r, anchorDate }}));
             // Note: Dashboard data refresh is handled by the odash:filter-range-changed event listener
@@ -1158,8 +1202,8 @@ document.addEventListener('DOMContentLoaded', function() {
         prevBtn.addEventListener('click', ()=> {
             if (!prevBtn.disabled) {
                 shiftAnchor(rangeSelect.value, -1);
-                // Update both KPIs and forecast, but preserve forecast mode
-                refreshDashboardKPIs(); // Update KPIs only
+                // Update full dashboard data including insights, but preserve forecast mode
+                refreshDashboardData(); // Update full dashboard data
                 
                 // Check if predictive mode is active
                 const predictiveToggle = document.getElementById('odash-predictive-mode');
@@ -1176,8 +1220,8 @@ document.addEventListener('DOMContentLoaded', function() {
         nextBtn.addEventListener('click', ()=> {
             if (!nextBtn.disabled) {
                 shiftAnchor(rangeSelect.value, 1);
-                // Update both KPIs and forecast, but preserve forecast mode
-                refreshDashboardKPIs(); // Update KPIs only
+                // Update full dashboard data including insights, but preserve forecast mode
+                refreshDashboardData(); // Update full dashboard data
                 
                 // Check if predictive mode is active
                 const predictiveToggle = document.getElementById('odash-predictive-mode');
@@ -1199,8 +1243,8 @@ document.addEventListener('DOMContentLoaded', function() {
             window.forecastAnchorDate = anchorDate; // Sync global state
             updateWindowText('day'); 
             document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:'day', anchorDate }}));
-            // Update KPIs (always needed for historical data)
-            refreshDashboardKPIs();
+            // Update full dashboard data including insights (always needed for historical data)
+            refreshDashboardData();
             
             // Only update forecast if not in predictive mode (predictive mode uses current date)
             const isPredictive = isPredictiveModeActive();
@@ -1232,8 +1276,8 @@ document.addEventListener('DOMContentLoaded', function() {
             window.forecastAnchorDate = anchorDate; // Sync global state
             updateWindowText('weekly'); 
             document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:'weekly', anchorDate }}));
-            // Update KPIs (always needed for historical data)
-            refreshDashboardKPIs();
+            // Update full dashboard data including insights (always needed for historical data)
+            refreshDashboardData();
             
             // Only update forecast if not in predictive mode (predictive mode uses current date)
             const isPredictive = isPredictiveModeActive();
@@ -1251,8 +1295,8 @@ document.addEventListener('DOMContentLoaded', function() {
             window.forecastAnchorDate = anchorDate; // Sync global state
             updateWindowText('monthly'); 
             document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:'monthly', anchorDate }}));
-            // Update KPIs (always needed for historical data)
-            refreshDashboardKPIs();
+            // Update full dashboard data including insights (always needed for historical data)
+            refreshDashboardData();
             
             // Only update forecast if not in predictive mode (predictive mode uses current date)
             const isPredictive = isPredictiveModeActive();
@@ -1273,8 +1317,8 @@ document.addEventListener('DOMContentLoaded', function() {
             window.forecastAnchorDate = anchorDate; // Sync global state
             updateWindowText('quarterly');
             document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:'quarterly', anchorDate }}));
-            // Update KPIs (always needed for historical data)
-            refreshDashboardKPIs();
+            // Update full dashboard data including insights (always needed for historical data)
+            refreshDashboardData();
             
             // Only update forecast if not in predictive mode (predictive mode uses current date)
             const predictiveToggle = document.getElementById('odash-predictive-mode');
@@ -1299,8 +1343,8 @@ document.addEventListener('DOMContentLoaded', function() {
             window.forecastAnchorDate = anchorDate; // Sync global state
             updateWindowText(r);
             document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:r, anchorDate }}));
-            // Update KPIs (always needed for historical data)
-            refreshDashboardKPIs();
+            // Update full dashboard data including insights (always needed for historical data)
+            refreshDashboardData();
             
             // Only update forecast if not in predictive mode (predictive mode uses current date)
             const predictiveToggle = document.getElementById('odash-predictive-mode');
@@ -1545,6 +1589,11 @@ async function fetchForecast(range, mode, anchor, abortSignal = null) {
         const selectedBrand = brandSelect ? brandSelect.value : 'all';
         if (selectedBrand && selectedBrand !== 'all') {
             url.searchParams.set('brand', selectedBrand);
+        }
+        
+        // Add predictive mode parameter for statistical forecasting
+        if (isPredictive) {
+            url.searchParams.set('predictive', 'true');
         }
         
         const fetchOptions = { 
@@ -1973,13 +2022,23 @@ async function performForecastUpdate(range, mode) {
                 }
             }
             
-            forecastChart.update();
-        }
-        currentMode = mode;
-        window.currentForecastMode = currentMode;
-        if (forecastShell) {
-            const scrim = forecastShell.querySelector('.loading-scrim');
-            if (scrim) scrim.remove();
+            // Coordinate chart update with insights for synchronized appearance
+            const updateChartNow = () => {
+                forecastChart.update();
+                currentMode = mode;
+                window.currentForecastMode = currentMode;
+                if (forecastShell) {
+                    const scrim = forecastShell.querySelector('.loading-scrim');
+                    if (scrim) scrim.remove();
+                }
+            };
+            
+            // If insights are being updated, wait for them to synchronize appearance
+            if (window.insightsReady === false) {
+                document.addEventListener('insights-updated', updateChartNow, { once: true });
+            } else {
+                updateChartNow();
+            }
         }
         
         // Clear the current forecast request reference
@@ -2145,13 +2204,24 @@ async function performForecastUpdate(range, mode) {
         forecastChart.data.datasets[1].pointBackgroundColor = resvPointBackground;
         forecastChart.data.datasets[2].data = posTrend;
         forecastChart.data.datasets[3].data = resvTrend;
-        forecastChart.update();
-    }
-    currentMode = mode;
-    window.currentForecastMode = currentMode;
-    if (forecastShell) {
-        const scrim = forecastShell.querySelector('.loading-scrim');
-        if (scrim) scrim.remove();
+        
+        // Coordinate chart update with insights for synchronized appearance
+        const updateChartNow = () => {
+            forecastChart.update();
+            currentMode = mode;
+            window.currentForecastMode = currentMode;
+            if (forecastShell) {
+                const scrim = forecastShell.querySelector('.loading-scrim');
+                if (scrim) scrim.remove();
+            }
+        };
+        
+        // If insights are being updated, wait for them to synchronize appearance
+        if (window.insightsReady === false) {
+            document.addEventListener('insights-updated', updateChartNow, { once: true });
+        } else {
+            updateChartNow();
+        }
     }
     
     // Clear the current forecast request reference
@@ -2252,6 +2322,11 @@ function initializeDashboardKPIs() {
     if (kpiCompleted) kpiCompleted.textContent = 'Loading...';
     if (kpiCancelled) kpiCancelled.textContent = 'Loading...';
     
+    // Initialize insights from Laravel data if available
+    if (window.laravelData && window.laravelData.dashboardData && window.laravelData.dashboardData.insights) {
+        updateBusinessInsights(window.laravelData.dashboardData.insights);
+    }
+    
     // Use the existing dashboard refresh function to fetch today's data
     performDashboardRefresh();
 }
@@ -2294,6 +2369,8 @@ function refreshDashboardData() {
 
 // Actual function that performs the dashboard data refresh
 function performDashboardRefresh() {
+    // Reset insights synchronization flag
+    window.insightsReady = false;
     const rangeSelect = document.getElementById('dbf-range');
     const dateInput = document.getElementById('dbf-date');
     const weekInput = document.getElementById('dbf-week');
@@ -2382,6 +2459,10 @@ function performDashboardRefresh() {
     const brandSelect = document.getElementById('dbf-brand');
     const selectedBrand = brandSelect ? brandSelect.value : 'all';
     
+    // Get predictive mode status
+    const predictiveToggle = document.getElementById('odash-predictive-mode');
+    const isPredictive = predictiveToggle && predictiveToggle.classList.contains('active');
+    
     // Make API call to fetch filtered data
     fetch(window.laravelData?.routes?.apiDashboardData || '/api/dashboard-data', {
         method: 'POST',
@@ -2393,7 +2474,8 @@ function performDashboardRefresh() {
             start_date: formatDate(startDate),
             end_date: formatDate(endDate),
             range: range,
-            brand: selectedBrand
+            brand: selectedBrand,
+            predictive: isPredictive
         }),
         signal: abortController.signal
     })
@@ -2408,6 +2490,7 @@ function performDashboardRefresh() {
         if (!abortController.signal.aborted) {
 
             if (data.success) {
+                console.log('Dashboard API response:', data);
                 updateDashboardWithData(data.data);
             } else {
                 console.error('Failed to fetch dashboard data:', data.message);
@@ -2544,6 +2627,9 @@ function performKPIRefresh() {
     const brandSelect = document.getElementById('dbf-brand');
     const selectedBrand = brandSelect ? brandSelect.value : 'all';
     
+    // Get predictive mode status
+    const isPredictiveKPI = isPredictiveModeActive();
+    
     // Create AbortController for request cancellation
     const abortController = new AbortController();
     window.currentKPIRequest = abortController;
@@ -2559,7 +2645,8 @@ function performKPIRefresh() {
             start_date: formatDate(startDate),
             end_date: formatDate(endDate),
             range: range,
-            brand: selectedBrand
+            brand: selectedBrand,
+            predictive: isPredictiveKPI
         }),
         signal: abortController.signal
     })
@@ -2816,6 +2903,19 @@ function updateDashboardWithData(data) {
     if (data.popular_products) {
         updatePopularProducts(data.popular_products);
     }
+    
+    // Update business insights and coordinate with forecast chart timing
+    if (data.insights) {
+        updateBusinessInsights(data.insights);
+        
+        // Signal that insights are ready so forecast chart can sync its appearance
+        window.insightsReady = true;
+        document.dispatchEvent(new CustomEvent('insights-updated'));
+    }
+    
+    // Note: Forecast chart updates are handled by separate forecast API calls
+    // to preserve the current mode (sales vs demand). Timing coordination
+    // is handled through the insights-updated event.
 
 }
 
@@ -2860,6 +2960,95 @@ function updatePopularProducts(productsData) {
         el.classList.add('reveal', 'in');
         el.style.transitionDelay = `${i * 30}ms`;
     });
+}
+
+// Function to update business insights
+function updateBusinessInsights(insightsData) {
+    console.log('updateBusinessInsights called with:', insightsData);
+    const container = document.getElementById('insights-container');
+    if (!container) {
+        console.error('insights-container not found');
+        return;
+    }
+    if (!Array.isArray(insightsData)) {
+        console.error('insightsData is not an array:', insightsData);
+        return;
+    }
+
+    // Clear loading state
+    container.innerHTML = '';
+    
+    // Check if predictive mode is active
+    const isPredictiveMode = isPredictiveModeActive();
+
+    if (insightsData.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #6b7280;">
+                <div style="font-size: 24px; margin-bottom: 12px;">📊</div>
+                <p>No insights available for this period.</p>
+                <small>Try selecting a different date range or brand.</small>
+            </div>
+        `;
+        return;
+    }
+
+    // Create insights grid container
+    const insightsGrid = document.createElement('div');
+    insightsGrid.className = 'insights-container';
+
+    insightsData.forEach((insight, index) => {
+        const priorityClass = insight.priority === 'high' ? 'insight-priority-high' : '';
+        const insightCard = document.createElement('div');
+        insightCard.className = `insight-card ${insight.type} ${priorityClass}`;
+        
+        insightCard.innerHTML = `
+            <div class="insight-header">
+                <div style="display: flex; align-items: center;">
+                    <span class="insight-icon">${insight.icon}</span>
+                    <h4 class="insight-title">${insight.title}</h4>
+                </div>
+                ${insight.value ? `<span class="insight-value">${insight.value}</span>` : ''}
+            </div>
+            <p class="insight-message">${insight.message}</p>
+            ${insight.action ? `<small class="insight-action">💡 ${insight.action}</small>` : ''}
+        `;
+        
+        // Add entrance animation
+        insightCard.style.opacity = '0';
+        insightCard.style.transform = 'translateY(20px)';
+        insightsGrid.appendChild(insightCard);
+        
+        // Animate in with staggered delay
+        setTimeout(() => {
+            insightCard.style.transition = 'all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1)';
+            insightCard.style.opacity = '1';
+            insightCard.style.transform = 'translateY(0)';
+        }, index * 100);
+    });
+
+    container.appendChild(insightsGrid);
+    
+    // Add section header if insights exist
+    if (insightsData.length > 0) {
+        const header = document.createElement('div');
+        header.style.cssText = 'margin-bottom: 16px; text-align: center;';
+        
+        // Different header based on predictive mode
+        const headerText = isPredictiveMode 
+            ? `📊 Predictive insights based on statistical forecasting models` 
+            : `🔍 Analyzing ${insightsData.length} key insights from your data`;
+        const headerStyle = isPredictiveMode 
+            ? 'background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border: 1px solid #f59e0b;'
+            : 'background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 1px solid #bae6fd;';
+        const textColor = isPredictiveMode ? '#92400e' : '#0369a1';
+        
+        header.innerHTML = `
+            <div style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; ${headerStyle} border-radius: 20px;">
+                <span style="color: ${textColor}; font-weight: 600; font-size: 12px;">${headerText}</span>
+            </div>
+        `;
+        container.insertBefore(header, insightsGrid);
+    }
 }
 </script>
 
@@ -3125,16 +3314,17 @@ function initOwnerForecastCharts() {
                     // 1. Re-enable the brand dropdown
                     brandSelect.disabled = false;
                     brandSelect.title = 'Filter dashboard data by brand';
+                    // 2. Refresh dashboard data to switch back to historical insights
+                    refreshDashboardData();
                 }
             }
 
-            // Update the forecast title and chart data
+            // Update the forecast title (immediate visual feedback)
             updateForecastTitle();
             
-            // Update the forecast chart data
+            // Update forecast chart data with predictive/historical mode
             const typeSelect = document.getElementById('odash-forecast-type');
             const activeMode = (typeSelect && typeSelect.value) ? typeSelect.value : (window.currentForecastMode || 'sales');
-            
             updateForecast(range, activeMode);
         };
         predictiveToggle.addEventListener('click', () => {
