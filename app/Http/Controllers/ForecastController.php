@@ -23,6 +23,8 @@ class ForecastController extends Controller
         $type = $request->query('type', 'sales');
         $range = $request->query('range', 'day');
         $anchor = $request->query('anchor_date');
+        $brand = $request->query('brand', 'all');
+        
         try {
             $anchorDate = $anchor ? Carbon::parse($anchor) : Carbon::today();
         } catch (\Exception $e) {
@@ -32,9 +34,9 @@ class ForecastController extends Controller
         [$start, $end, $labels, $buckets] = $this->makeWindow($range, $anchorDate);
 
         if ($type === 'demand') {
-            $data = $this->buildDemandData($start, $end, $range, $buckets);
+            $data = $this->buildDemandData($start, $end, $range, $buckets, $brand);
         } else { // default to sales
-            $data = $this->buildSalesData($start, $end, $range, $buckets);
+            $data = $this->buildSalesData($start, $end, $range, $buckets, $brand);
         }
 
         return response()->json([
@@ -122,15 +124,21 @@ class ForecastController extends Controller
     /**
      * Sales revenue series by time bucket and sale_type (pos vs reservation)
      */
-    private function buildSalesData(Carbon $start, Carbon $end, string $range, array $buckets): array
+    private function buildSalesData(Carbon $start, Carbon $end, string $range, array $buckets, string $brand = 'all'): array
     {
         // Build base query on transactions
         $expr = $this->bucketExpression('t.sale_date', $range);
-        $rows = DB::table('transactions as t')
+        $query = DB::table('transactions as t')
             ->selectRaw("t.sale_type as sale_type, {$expr} as bucket, SUM(t.total_amount) as revenue")
-            ->whereBetween('t.sale_date', [$start, $end])
-            ->groupBy('sale_type', 'bucket')
-            ->get();
+            ->whereBetween('t.sale_date', [$start, $end]);
+
+        // Apply brand filter if specified
+        if ($brand && $brand !== 'all') {
+            $query->join('transaction_items as ti', 't.transaction_id', '=', 'ti.transaction_id')
+                  ->where('ti.product_brand', $brand);
+        }
+        
+        $rows = $query->groupBy('sale_type', 'bucket')->get();
 
         // Initialize with zeros
         $pos = array_fill(0, count($buckets), 0.0);
@@ -156,14 +164,20 @@ class ForecastController extends Controller
     /**
      * Demand (units sold) by brand - returns total quantities per brand for horizontal bar chart
      */
-    private function buildDemandData(Carbon $start, Carbon $end, string $range, array $buckets): array
+    private function buildDemandData(Carbon $start, Carbon $end, string $range, array $buckets, string $brand = 'all'): array
     {
         // Get total quantity sold by brand for the entire time period
-        $rows = DB::table('transaction_items as ti')
+        $query = DB::table('transaction_items as ti')
             ->join('transactions as t', 't.transaction_id', '=', 'ti.transaction_id')
             ->selectRaw("COALESCE(ti.product_brand, 'Unknown') as brand, SUM(ti.quantity) as total_qty")
-            ->whereBetween('t.sale_date', [$start, $end])
-            ->groupBy('ti.product_brand')
+            ->whereBetween('t.sale_date', [$start, $end]);
+
+        // Apply brand filter if specified
+        if ($brand && $brand !== 'all') {
+            $query->where('ti.product_brand', $brand);
+        }
+        
+        $rows = $query->groupBy('ti.product_brand')
             ->orderBy('total_qty', 'desc')
             ->get();
 

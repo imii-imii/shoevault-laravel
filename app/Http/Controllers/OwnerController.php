@@ -625,15 +625,9 @@ class OwnerController extends Controller
             $startDate = $request->input('start_date');
             $endDate = $request->input('end_date');
             $range = $request->input('range', 'day');
+            $brand = $request->input('brand', 'all');
             
-            // Debug: Log all incoming requests
-            Log::info('getDashboardData called', [
-                'start_date' => $startDate,
-                'end_date' => $endDate,
-                'range' => $range,
-                'all_inputs' => $request->all()
-            ]);
-            
+
             // Validate dates
             if (!$startDate || !$endDate) {
                 Log::warning('getDashboardData: Missing required dates', [
@@ -646,7 +640,7 @@ class OwnerController extends Controller
                 ], 400);
             }
             
-            $data = $this->getDashboardKPIsByDateRange($startDate, $endDate, $range);
+            $data = $this->getDashboardKPIsByDateRange($startDate, $endDate, $range, $brand);
             
             // Debug: Log the final response data
             Log::info('getDashboardData response', [
@@ -676,16 +670,13 @@ class OwnerController extends Controller
         // Get current date in local timezone for initial dashboard load
         $currentDate = now()->toDateString();
         
-        Log::info('getDashboardKPIs: Using date for initial load', [
-            'date' => $currentDate,
-            'now_utc' => now()->utc()->toDateTimeString(),
-            'today_string' => today()->toDateString()
-        ]);
+
         
         $rangeData = $this->getDashboardKPIsByDateRange(
             $currentDate,
             $currentDate,
-            'day'
+            'day',
+            'all'
         );
         
         // Return data in the format expected by the frontend for initial load
@@ -703,14 +694,27 @@ class OwnerController extends Controller
             'cancelledReservations' => $rangeData['kpis']['cancelled_reservations'],
             'totalValue' => Product::join('product_sizes', 'products.product_id', '=', 'product_sizes.product_id')
                           ->sum(DB::raw('products.price * product_sizes.stock')),
-            'popularProducts' => $this->getPopularProductsByCategory(),
+            'popularProducts' => $rangeData['popular_products'],
         ];
+    }
+
+    /**
+     * Apply brand filter to transaction query if brand is specified
+     */
+    private function applyBrandFilter($query, $brand)
+    {
+        if ($brand && $brand !== 'all') {
+            return $query->whereHas('items', function($subQuery) use ($brand) {
+                $subQuery->where('product_brand', $brand);
+            });
+        }
+        return $query;
     }
 
     /**
      * Get dashboard KPIs for specific date range
      */
-    private function getDashboardKPIsByDateRange($startDate, $endDate, $range)
+    private function getDashboardKPIsByDateRange($startDate, $endDate, $range, $brand = 'all')
     {
         $dateCol = $this->salesDateColumn();
         $amountExpr = $this->salesAmountExpression();
@@ -747,6 +751,8 @@ class OwnerController extends Controller
         $endDateTime = $endDate . ' 23:59:59';
         
         $salesQuery = Transaction::whereBetween($dateCol, [$startDateTime, $endDateTime]);
+        $salesQuery = $this->applyBrandFilter($salesQuery, $brand);
+        
         $totalTransactions = $salesQuery->count();
         $sales = $salesQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
         
@@ -766,9 +772,16 @@ class OwnerController extends Controller
         ]);
             
         // Calculate products sold in the date range
-        $productsSold = TransactionItem::whereHas('transaction', function($query) use ($dateCol, $startDateTime, $endDateTime) {
+        $productsSoldQuery = TransactionItem::whereHas('transaction', function($query) use ($dateCol, $startDateTime, $endDateTime) {
             $query->whereBetween($dateCol, [$startDateTime, $endDateTime]);
-        })->sum('quantity') ?? 0;
+        });
+        
+        // Apply brand filter to products sold
+        if ($brand && $brand !== 'all') {
+            $productsSoldQuery = $productsSoldQuery->where('product_brand', $brand);
+        }
+        
+        $productsSold = $productsSoldQuery->sum('quantity') ?? 0;
         
         Log::info('Products Sold Query Results', [
             'products_sold' => $productsSold
@@ -776,19 +789,39 @@ class OwnerController extends Controller
         
         // Calculate reservations for the date range
         // Completed reservations = transactions with sale_type = 'reservation' (reservations that were fulfilled/sold)
-        $completedReservations = Transaction::where('sale_type', 'reservation')
-            ->whereBetween($dateCol, [$startDateTime, $endDateTime])
-            ->count();
+        $completedReservationsQuery = Transaction::where('sale_type', 'reservation')
+            ->whereBetween($dateCol, [$startDateTime, $endDateTime]);
+        $completedReservationsQuery = $this->applyBrandFilter($completedReservationsQuery, $brand);
+        
+        $completedReservations = $completedReservationsQuery->count();
             
         // Cancelled reservations = reservations with status = 'cancelled' 
-        $cancelledReservations = Reservation::where('status', 'cancelled')
-            ->whereBetween('created_at', [$startDateTime, $endDateTime])
-            ->count();
+        $cancelledReservationsQuery = Reservation::where('status', 'cancelled')
+            ->whereBetween('created_at', [$startDateTime, $endDateTime]);
+        
+        // Apply brand filter to cancelled reservations if brand is specified (JSON search)
+        if ($brand && $brand !== 'all') {
+            $cancelledReservationsQuery = $cancelledReservationsQuery->whereRaw(
+                "JSON_SEARCH(items, 'one', ?, NULL, '$[*].brand') IS NOT NULL", 
+                [$brand]
+            );
+        }
+        
+        $cancelledReservations = $cancelledReservationsQuery->count();
             
         // Pending reservations = reservations with status = 'pending'
-        $pendingReservations = Reservation::where('status', 'pending')
-            ->whereBetween('created_at', [$startDateTime, $endDateTime])
-            ->count();
+        $pendingReservationsQuery = Reservation::where('status', 'pending')
+            ->whereBetween('created_at', [$startDateTime, $endDateTime]);
+            
+        // Apply brand filter to pending reservations if brand is specified (JSON search)
+        if ($brand && $brand !== 'all') {
+            $pendingReservationsQuery = $pendingReservationsQuery->whereRaw(
+                "JSON_SEARCH(items, 'one', ?, NULL, '$[*].brand') IS NOT NULL", 
+                [$brand]
+            );
+        }
+        
+        $pendingReservations = $pendingReservationsQuery->count();
             
         Log::info('Reservation Query Results', [
             'completed_reservations' => $completedReservations . ' (transactions with sale_type=reservation)',
@@ -797,10 +830,10 @@ class OwnerController extends Controller
         ]);
         
         // Generate forecast data based on range
-        $forecast = $this->generateForecastData($startDate, $endDate, $range);
+        $forecast = $this->generateForecastData($startDate, $endDate, $range, $brand);
         
         // Get popular products for the date range
-        $popularProducts = $this->getPopularProductsForDateRange($startDate, $endDate);
+        $popularProducts = $this->getPopularProductsForDateRange($startDate, $endDate, $brand);
         
         return [
             'kpis' => [
@@ -823,7 +856,7 @@ class OwnerController extends Controller
     /**
      * Generate forecast data for chart
      */
-    private function generateForecastData($startDate, $endDate, $range)
+    private function generateForecastData($startDate, $endDate, $range, $brand = 'all')
     {
         $dateCol = $this->salesDateColumn();
         $amountExpr = $this->salesAmountExpression();
@@ -839,22 +872,22 @@ class OwnerController extends Controller
                 $hourEnd = $startDate . ' ' . sprintf('%02d:59:59', $hour);
                 
                 // Get POS transactions (sale_type = 'pos' or transactions without reservation_id)
-                $posRevenue = Transaction::whereBetween($dateCol, [$hourStart, $hourEnd])
+                $posQuery = Transaction::whereBetween($dateCol, [$hourStart, $hourEnd])
                     ->where(function($query) {
                         $query->where('sale_type', 'pos')
                               ->orWhereNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                    });
+                $posQuery = $this->applyBrandFilter($posQuery, $brand);
+                $posRevenue = $posQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
                     
                 // Get reservation transactions (sale_type = 'reservation' or transactions with reservation_id)
-                $resvRevenue = Transaction::whereBetween($dateCol, [$hourStart, $hourEnd])
+                $resvQuery = Transaction::whereBetween($dateCol, [$hourStart, $hourEnd])
                     ->where(function($query) {
                         $query->where('sale_type', 'reservation')
                               ->orWhereNotNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                    });
+                $resvQuery = $this->applyBrandFilter($resvQuery, $brand);
+                $resvRevenue = $resvQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
                 
                 $labels[] = $hour <= 12 ? $hour . ' AM' : ($hour - 12) . ' PM';
                 $posData[] = (float) $posRevenue;
@@ -870,22 +903,22 @@ class OwnerController extends Controller
                 $dayEnd = $current->toDateString() . ' 23:59:59';
                 
                 // Get POS transactions (sale_type = 'pos' or transactions without reservation_id)
-                $posRevenue = Transaction::whereBetween($dateCol, [$dayStart, $dayEnd])
+                $posQuery = Transaction::whereBetween($dateCol, [$dayStart, $dayEnd])
                     ->where(function($query) {
                         $query->where('sale_type', 'pos')
                               ->orWhereNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                    });
+                $posQuery = $this->applyBrandFilter($posQuery, $brand);
+                $posRevenue = $posQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
                     
                 // Get reservation transactions (sale_type = 'reservation' or transactions with reservation_id)
-                $resvRevenue = Transaction::whereBetween($dateCol, [$dayStart, $dayEnd])
+                $resvQuery = Transaction::whereBetween($dateCol, [$dayStart, $dayEnd])
                     ->where(function($query) {
                         $query->where('sale_type', 'reservation')
                               ->orWhereNotNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                    });
+                $resvQuery = $this->applyBrandFilter($resvQuery, $brand);
+                $resvRevenue = $resvQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
                 
                 // Generate proper day labels (e.g., "Mon", "Tue", "Wed")
                 $labels[] = $current->format('D');
@@ -939,22 +972,22 @@ class OwnerController extends Controller
                 $monthEnd = $current->copy()->endOfMonth()->toDateString() . ' 23:59:59';
                 
                 // Get POS transactions (sale_type = 'pos' or transactions without reservation_id)
-                $posRevenue = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
+                $posQuery = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
                     ->where(function($query) {
                         $query->where('sale_type', 'pos')
                               ->orWhereNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                    });
+                $posQuery = $this->applyBrandFilter($posQuery, $brand);
+                $posRevenue = $posQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
                     
                 // Get reservation transactions (sale_type = 'reservation' or transactions with reservation_id)
-                $resvRevenue = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
+                $resvQuery = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
                     ->where(function($query) {
                         $query->where('sale_type', 'reservation')
                               ->orWhereNotNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                    });
+                $resvQuery = $this->applyBrandFilter($resvQuery, $brand);
+                $resvRevenue = $resvQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
                 
                 // Generate quarter-based labels (e.g., "Q1 Jan", "Q1 Feb", "Q1 Mar")
                 $quarter = 'Q' . $current->quarter;
@@ -975,22 +1008,22 @@ class OwnerController extends Controller
                 $monthEnd = $current->copy()->endOfMonth()->toDateString() . ' 23:59:59';
                 
                 // Get POS transactions (sale_type = 'pos' or transactions without reservation_id)
-                $posRevenue = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
+                $posQuery = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
                     ->where(function($query) {
                         $query->where('sale_type', 'pos')
                               ->orWhereNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                    });
+                $posQuery = $this->applyBrandFilter($posQuery, $brand);
+                $posRevenue = $posQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
                     
                 // Get reservation transactions (sale_type = 'reservation' or transactions with reservation_id)
-                $resvRevenue = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
+                $resvQuery = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
                     ->where(function($query) {
                         $query->where('sale_type', 'reservation')
                               ->orWhereNotNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                    });
+                $resvQuery = $this->applyBrandFilter($resvQuery, $brand);
+                $resvRevenue = $resvQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
                 
                 // Generate proper month labels (e.g., "Jan", "Feb", "Mar")
                 $labels[] = $current->format('M');
@@ -1009,22 +1042,22 @@ class OwnerController extends Controller
                 $monthEnd = $current->copy()->endOfMonth()->toDateString() . ' 23:59:59';
                 
                 // Get POS transactions (sale_type = 'pos' or transactions without reservation_id)
-                $posRevenue = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
+                $posQuery = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
                     ->where(function($query) {
                         $query->where('sale_type', 'pos')
                               ->orWhereNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                    });
+                $posQuery = $this->applyBrandFilter($posQuery, $brand);
+                $posRevenue = $posQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
                     
                 // Get reservation transactions (sale_type = 'reservation' or transactions with reservation_id)
-                $resvRevenue = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
+                $resvQuery = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
                     ->where(function($query) {
                         $query->where('sale_type', 'reservation')
                               ->orWhereNotNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                    });
+                $resvQuery = $this->applyBrandFilter($resvQuery, $brand);
+                $resvRevenue = $resvQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
                 
                 $labels[] = $current->format('M Y');
                 $posData[] = (float) $posRevenue;
@@ -1044,28 +1077,38 @@ class OwnerController extends Controller
     /**
      * Get popular products for specific date range
      */
-    private function getPopularProductsForDateRange($startDate, $endDate)
+    private function getPopularProductsForDateRange($startDate, $endDate, $brand = 'all')
     {
         $dateCol = $this->salesDateColumn();
         
         // Get products sold in the date range using product_name directly from transaction_items
-        $popularProducts = DB::table('transaction_items')
+        $query = DB::table('transaction_items')
             ->join('transactions', 'transaction_items.transaction_id', '=', 'transactions.transaction_id')
             ->select(
                 'transaction_items.product_name as name',
                 DB::raw('LOWER(COALESCE(transaction_items.product_category, "")) as category'),
+                DB::raw('COALESCE(transaction_items.product_brand, "Unknown") as brand'),
+                DB::raw('COALESCE(transaction_items.product_color, "Unknown") as color'),
                 DB::raw('SUM(transaction_items.quantity) as total_sold')
             )
-            ->whereBetween("transactions.{$dateCol}", [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
-            ->groupBy('transaction_items.product_name', 'transaction_items.product_category')
+            ->whereBetween("transactions.{$dateCol}", [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+            
+        // Apply brand filter if specified
+        if ($brand && $brand !== 'all') {
+            $query->where('transaction_items.product_brand', $brand);
+        }
+        
+        $popularProducts = $query->groupBy('transaction_items.product_name', 'transaction_items.product_category', 'transaction_items.product_brand', 'transaction_items.product_color')
             ->orderBy('total_sold', 'desc')
-            ->limit(12)
+            ->limit(100)
             ->get();
 
         return $popularProducts->map(function($product) {
             return [
                 'name' => $product->name,
                 'category' => (string) $product->category,
+                'brand' => (string) $product->brand,
+                'color' => (string) $product->color,
                 'sales' => (int) $product->total_sold
             ];
         })->toArray();
@@ -1500,6 +1543,7 @@ class OwnerController extends Controller
             $year = $request->integer('year');
             $limit = max(1, min(100, (int) $request->get('limit', 20)));
             $category = strtolower((string) $request->get('category', 'all'));
+            $brand = $request->get('brand', 'all');
 
             $now = Carbon::now();
             $y = $year ?: (int)$now->year;
@@ -1561,6 +1605,11 @@ class OwnerController extends Controller
             $itemsQuery = DB::table('transaction_items as ti')
                 ->join('transactions as t', 't.transaction_id', '=', 'ti.transaction_id')
                 ->whereBetween("t.$dateCol", [$start, $end]);
+                
+            // Apply brand filter if specified
+            if (!empty($brand) && $brand !== 'all') {
+                $itemsQuery->where('ti.product_brand', $brand);
+            }
                 
             // If a specific category is requested, include category in grouping and selection
             if (!empty($category) && $category !== 'all') {
@@ -2460,6 +2509,32 @@ class OwnerController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to export supply data: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get all unique brands from transaction items
+     */
+    public function getBrands()
+    {
+        try {
+            $brands = TransactionItem::distinct()
+                ->whereNotNull('product_brand')
+                ->where('product_brand', '!=', '')
+                ->orderBy('product_brand')
+                ->pluck('product_brand')
+                ->toArray();
+
+            return response()->json([
+                'success' => true,
+                'brands' => $brands
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch brands: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch brands'
             ], 500);
         }
     }

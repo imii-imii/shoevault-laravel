@@ -158,6 +158,9 @@
             padding:6px 10px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; color:#0f172a; font-size:12px; outline:none;
         }
         .odash-select:focus, .odash-input:focus { border-color:#93c5fd; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+        .odash-select:disabled { 
+            background:#f9fafb; color:#9ca3af; border-color:#e5e7eb; cursor:not-allowed; opacity:0.5;
+        }
         .odash-toggle { display:inline-flex; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; background:#fff; }
         .odash-toggle button { padding:6px 10px; border:none; background:transparent; cursor:pointer; font-size:12px; color:#1e3a8a; font-weight:700; }
         .odash-toggle button.active { background:linear-gradient(135deg,#dbeafe,#bfdbfe); color:#0f172a; }
@@ -352,6 +355,12 @@
                             <option value="monthly">Month</option>
                             <option value="quarterly">Quarter</option>
                             <option value="yearly">Year</option>
+                        </select>
+                        
+                        <label for="dbf-brand" style="font-size:12px;color:#64748b;font-weight:700;margin-left:12px;">Brand</label>
+                        <select id="dbf-brand" class="odash-select" style="min-width:140px;">
+                            <option value="all">All Brands</option>
+                            <!-- Options will be populated dynamically -->
                         </select>
                         <!-- Manual pickers (toggle visibility based on Range) -->
                         <div class="dbf-pickers" style="display:inline-flex; gap:8px; align-items:center;">
@@ -558,7 +567,8 @@ window.laravelData = {
         apiDashboardData: '{{ route("owner.api.dashboard-data") }}',
         apiStockLevels: '{{ route("owner.api.stock-levels") }}',
         apiForecast: '{{ route("owner.api.forecast") }}',
-        settings: '{{ route("owner.settings") }}'
+        settings: '{{ route("owner.settings") }}',
+        brands: '{{ route("owner.api.brands") }}'
     }
 };
 
@@ -632,8 +642,14 @@ document.addEventListener('DOMContentLoaded', function() {
         window.notificationManager = notificationManager; // Make it globally accessible
     }
 
-    // Initialize dashboard with Laravel data
-    initializeDashboardKPIs();
+    // Initialize brand dropdown first, then dashboard data
+    initializeBrandDropdown().then(() => {
+        // Initialize dashboard with Laravel data after brand dropdown is ready
+        initializeDashboardKPIs();
+    }).catch(() => {
+        // If brand initialization fails, still load dashboard with default
+        initializeDashboardKPIs();
+    });
     
     // Initialize mock charts for forecast and reservations
     initOwnerForecastCharts();
@@ -1086,6 +1102,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     predictiveToggle.classList.remove('active');
                     predictiveToggle.setAttribute('aria-pressed', 'false');
 
+                    // Re-enable brand controller when switching out of predictive mode
+                    const brandSelect = document.getElementById('dbf-brand');
+                    if (brandSelect) {
+                        brandSelect.disabled = false;
+                        brandSelect.title = 'Filter dashboard data by brand';
+                    }
+
                     // Update forecast to historical mode
                     updateForecastTitle();
                     const typeSelect = document.getElementById('odash-forecast-type');
@@ -1515,6 +1538,13 @@ async function fetchForecast(range, mode, anchor, abortSignal = null) {
             const m = String(anchor.getMonth()+1).padStart(2,'0');
             const d = String(anchor.getDate()).padStart(2,'0');
             url.searchParams.set('anchor_date', `${y}-${m}-${d}`);
+        }
+        
+        // Add brand filter
+        const brandSelect = document.getElementById('dbf-brand');
+        const selectedBrand = brandSelect ? brandSelect.value : 'all';
+        if (selectedBrand && selectedBrand !== 'all') {
+            url.searchParams.set('brand', selectedBrand);
         }
         
         const fetchOptions = { 
@@ -2062,12 +2092,29 @@ async function performForecastUpdate(range, mode) {
                         backgroundColor: '#1e3a8a',
                         titleColor: '#fff',
                         bodyColor: '#bfdbfe',
+                        footerColor: '#fbbf24',
                         borderColor: '#3b82f6',
                         borderWidth: 1,
                         callbacks: {
                             label: function(context) {
                                 const value = context.parsed.y;
                                 return `${context.dataset.label}: ₱${value.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                            },
+                            footer: function(tooltipItems) {
+                                // Calculate total sales (POS + Reservation) for this data point
+                                let posValue = 0;
+                                let resvValue = 0;
+                                
+                                tooltipItems.forEach(function(tooltipItem) {
+                                    if (tooltipItem.dataset.label === 'POS') {
+                                        posValue = tooltipItem.parsed.y;
+                                    } else if (tooltipItem.dataset.label === 'Reservation') {
+                                        resvValue = tooltipItem.parsed.y;
+                                    }
+                                });
+                                
+                                const total = posValue + resvValue;
+                                return `Total Sales: ₱${total.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                             }
                         }
                     }
@@ -2141,6 +2188,55 @@ function cancelAllRequests() {
 
 // Cancel all requests when page is unloaded
 window.addEventListener('beforeunload', cancelAllRequests);
+
+// Initialize brand dropdown
+async function initializeBrandDropdown() {
+    try {
+        const response = await fetch(window.laravelData?.routes?.brands || '/owner/api/brands', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            const brandSelect = document.getElementById('dbf-brand');
+            
+            if (brandSelect && data.brands) {
+                // Clear existing options except 'All Brands'
+                brandSelect.innerHTML = '<option value="all">All Brands</option>';
+                
+                // Add brand options
+                data.brands.forEach(brand => {
+                    const option = document.createElement('option');
+                    option.value = brand;
+                    option.textContent = brand;
+                    brandSelect.appendChild(option);
+                });
+                
+                // Add change event listener
+                brandSelect.addEventListener('change', function() {
+                    // Refresh dashboard data when brand changes
+                    refreshDashboardData();
+                    // Refresh forecast when brand changes
+                    const rangeSelect = document.getElementById('dbf-range');
+                    const typeSelect = document.getElementById('odash-forecast-type');
+                    if (rangeSelect && typeSelect) {
+                        updateForecast(rangeSelect.value, typeSelect.value);
+                    }
+                });
+                
+                return Promise.resolve();
+            }
+        }
+        throw new Error('Failed to load brand data');
+    } catch (error) {
+        console.error('Failed to load brands:', error);
+        return Promise.reject(error);
+    }
+}
 
 // Initialize dashboard KPIs with Laravel data
 function initializeDashboardKPIs() {
@@ -2282,6 +2378,10 @@ function performDashboardRefresh() {
     const abortController = new AbortController();
     window.currentDashboardRequest = abortController;
 
+    // Get brand filter
+    const brandSelect = document.getElementById('dbf-brand');
+    const selectedBrand = brandSelect ? brandSelect.value : 'all';
+    
     // Make API call to fetch filtered data
     fetch(window.laravelData?.routes?.apiDashboardData || '/api/dashboard-data', {
         method: 'POST',
@@ -2292,7 +2392,8 @@ function performDashboardRefresh() {
         body: JSON.stringify({
             start_date: formatDate(startDate),
             end_date: formatDate(endDate),
-            range: range
+            range: range,
+            brand: selectedBrand
         }),
         signal: abortController.signal
     })
@@ -2439,6 +2540,10 @@ function performKPIRefresh() {
         showDashboardLoading(); // Show full dashboard loading including chart
     }
     
+    // Get brand filter
+    const brandSelect = document.getElementById('dbf-brand');
+    const selectedBrand = brandSelect ? brandSelect.value : 'all';
+    
     // Create AbortController for request cancellation
     const abortController = new AbortController();
     window.currentKPIRequest = abortController;
@@ -2453,7 +2558,8 @@ function performKPIRefresh() {
         body: JSON.stringify({
             start_date: formatDate(startDate),
             end_date: formatDate(endDate),
-            range: range
+            range: range,
+            brand: selectedBrand
         }),
         signal: abortController.signal
     })
@@ -2719,13 +2825,29 @@ function updatePopularProducts(productsData) {
     if (!container || !Array.isArray(productsData)) return;
 
     let html = '';
-    productsData.slice(0, 12).forEach((product, index) => {
+    productsData.forEach((product, index) => {
         const isTop3 = index < 3;
         const rankBadge = isTop3 ? `<span class="odash-product-rank">${index + 1}</span>` : '';
         const itemClass = isTop3 ? 'odash-product-item top-product' : 'odash-product-item';
+        
+        // Format category display
+        const categoryDisplay = product.category ? product.category.charAt(0).toUpperCase() + product.category.slice(1) : '';
+        let categoryBadge = '';
+        if (categoryDisplay) {
+            const categoryClass = product.category.toLowerCase();
+            categoryBadge = `<span class="odash-category-badge ${categoryClass}">${categoryDisplay}</span>`;
+        }
+        
         html += `
             <div class="${itemClass}">
-                <span class="odash-product-name">${rankBadge}${product.name}</span>
+                <div class="odash-product-main">
+                    <span class="odash-product-name">${rankBadge}${product.name}</span>
+                    <div class="odash-product-details">
+                        <span class="odash-product-brand">${product.brand}</span>
+                        <span class="odash-product-color">${product.color}</span>
+                        ${categoryBadge}
+                    </div>
+                </div>
                 <span class="odash-product-sales">${product.sales} sold</span>
             </div>
         `;
@@ -2985,6 +3107,26 @@ function initOwnerForecastCharts() {
             
             predictiveToggle.classList.toggle('active', enabled);
             predictiveToggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+
+            // Handle brand controller when predictive mode changes
+            const brandSelect = document.getElementById('dbf-brand');
+            if (brandSelect) {
+                if (enabled) {
+                    // When turning on predictive mode:
+                    // 1. Reset to "All Brands"
+                    brandSelect.value = 'all';
+                    // 2. Disable the brand dropdown
+                    brandSelect.disabled = true;
+                    brandSelect.title = 'Brand filtering is disabled during predictive mode';
+                    // 3. Refresh dashboard data with "all brands"
+                    refreshDashboardData();
+                } else {
+                    // When turning off predictive mode:
+                    // 1. Re-enable the brand dropdown
+                    brandSelect.disabled = false;
+                    brandSelect.title = 'Filter dashboard data by brand';
+                }
+            }
 
             // Update the forecast title and chart data
             updateForecastTitle();
@@ -3389,7 +3531,7 @@ function initPopularProducts() {
 
     async function fetchPopularFromApi(params) {
         try {
-            const { range, month, year, category, start, end } = params || {};
+            const { range, month, year, category, start, end, brand } = params || {};
 
             const base = window.laravelData?.routes?.popularProducts;
             if (!base) {
@@ -3405,8 +3547,7 @@ function initPopularProducts() {
             if (category && category !== 'all') url.searchParams.set('category', category);
             if (start) url.searchParams.set('start', start);
             if (end) url.searchParams.set('end', end);
-            
-            
+            if (brand && brand !== 'all') url.searchParams.set('brand', brand);
             
             const res = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
             const data = await res.json();
@@ -3431,10 +3572,10 @@ function initPopularProducts() {
         }
     }
 
-    async function getPopularList(range, month, year, category, start, end) {
+    async function getPopularList(range, month, year, category, start, end, brand) {
 
         // Only use API data for the specific filtered date range - no fallback to all-time data
-        const apiList = await fetchPopularFromApi({ range, month, year, category, start, end });
+        const apiList = await fetchPopularFromApi({ range, month, year, category, start, end, brand });
         
         if (Array.isArray(apiList)) {
 
@@ -3450,13 +3591,26 @@ function initPopularProducts() {
                 };
             });
             
-            // If backend didn't filter category, apply client-side filter when requested
+            // Apply client-side filters when backend didn't filter
+            let filteredList = transformedList;
+            
             if (category && category !== 'all') {
-                const filtered = transformedList.filter(i => (i.category||'').toLowerCase() === category);
-                
-                return filtered;
+                filteredList = filteredList.filter(i => (i.category||'').toLowerCase() === category);
             }
-            return transformedList;
+            
+            // Apply brand filter client-side as well (in case backend doesn't support brand filtering yet)
+            const brandSelect = document.getElementById('dbf-brand');
+            const currentBrand = brandSelect ? brandSelect.value : 'all';
+            
+            if (currentBrand && currentBrand !== 'all') {
+                filteredList = filteredList.filter(i => {
+                    const itemBrand = (i.brand || '').toLowerCase();
+                    const targetBrand = currentBrand.toLowerCase();
+                    return itemBrand === targetBrand;
+                });
+            }
+            
+            return filteredList;
         }
 
         // No fallback to avoid showing misleading all-time data when filtering by specific dates
@@ -3572,7 +3726,11 @@ function initPopularProducts() {
         
         
 
-        const list = await getPopularList(range, month, year, category, rangeStartStr, rangeEndStr);
+        // Get current brand selection
+        const brandSelect = document.getElementById('dbf-brand');
+        const currentBrand = brandSelect ? brandSelect.value : 'all';
+        
+        const list = await getPopularList(range, month, year, category, rangeStartStr, rangeEndStr, currentBrand);
 
         if (!list || list.length === 0) {
 
@@ -3650,6 +3808,9 @@ function initPopularProducts() {
         const win = windowFromAnchor(anchor, currentRange);
         currentStart = win.start; currentEnd = win.end;
     } catch (e) { /* noop */ }
+    // Make render function globally accessible for brand filtering
+    window.renderPopularProducts = () => render(currentRange, currentCategory);
+    
     render(currentRange, currentCategory);
     if (catSelect) {
         catSelect.addEventListener('change', () => {

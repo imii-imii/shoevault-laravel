@@ -317,6 +317,7 @@ Route::middleware(['auth', 'role:owner', 'force.password.change'])->prefix('owne
     Route::post('/api/dashboard-data', [OwnerController::class, 'getDashboardData'])->name('api.dashboard-data');
     Route::get('/api/stock-levels', [OwnerController::class, 'getStockLevels'])->name('api.stock-levels');
     Route::get('/api/transaction-date-range', [OwnerController::class, 'getTransactionDateRange'])->name('api.transaction-date-range');
+    Route::get('/api/brands', [OwnerController::class, 'getBrands'])->name('api.brands');
     
     // Export API routes
     Route::get('/api/export-sales', [OwnerController::class, 'exportSales'])->name('api.export-sales');
