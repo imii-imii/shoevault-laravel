@@ -122,9 +122,9 @@ class MockTransactionsSeeder extends Seeder
 
         $sizePool = $sizes->all();
         
-        // Date range: January 1, 2022 to November 7, 2025
+        // Date range: January 1, 2022 to current date
         $startDate = Carbon::createFromDate(2022, 1, 1)->startOfDay();
-        $endDate = Carbon::createFromDate(2025, 11, 21)->endOfDay();
+        $endDate = Carbon::now()->endOfDay();
 
         echo "[MockTransactionsSeeder] Generating transactions and reservations from {$startDate->toDateString()} to {$endDate->toDateString()}...\n";
 

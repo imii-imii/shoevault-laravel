@@ -704,6 +704,8 @@ class OwnerController extends Controller
 
     /**
      * Apply brand filter to transaction query if brand is specified
+     * DEPRECATED: This method includes full transaction amounts for multi-brand transactions
+     * Use getBrandSpecificRevenue() for accurate brand-specific revenue calculation
      */
     private function applyBrandFilter($query, $brand)
     {
@@ -717,6 +719,31 @@ class OwnerController extends Controller
             });
         }
         return $query;
+    }
+
+    /**
+     * Get brand-specific revenue by calculating only the portion from selected brand items
+     */
+    private function getBrandSpecificRevenue($dateCol, $startDate, $endDate, $brand, $saleType = null)
+    {
+        $query = DB::table('transaction_items as ti')
+            ->join('transactions as t', 'ti.transaction_id', '=', 't.transaction_id')
+            ->whereBetween("t.{$dateCol}", [$startDate, $endDate]);
+        
+        // Apply sale type filter if specified
+        if ($saleType) {
+            $query->where('t.sale_type', $saleType);
+        }
+        
+        // Apply brand filter - only include items of the specified brand
+        if ($brand && $brand !== 'all') {
+            $query->where('ti.product_brand', $brand);
+        }
+        
+        // Sum only the subtotal of items matching the brand filter
+        $revenue = $query->sum('ti.subtotal') ?? 0;
+        
+        return (float) $revenue;
     }
 
     /**
@@ -753,16 +780,18 @@ class OwnerController extends Controller
             'recent_transactions_sample' => $recentTransactions->toArray()
         ]);
         
-        // Calculate sales for the date range
+        // Calculate sales for the date range using brand-specific revenue calculation
         // Handle timestamp columns properly by converting dates to full datetime ranges
         $startDateTime = $startDate . ' 00:00:00';
         $endDateTime = $endDate . ' 23:59:59';
         
+        // Use brand-specific revenue calculation instead of transaction-level filtering
+        $sales = $this->getBrandSpecificRevenue($dateCol, $startDateTime, $endDateTime, $brand);
+        
+        // For transaction count, we still use the old method since counting is different from revenue calculation
         $salesQuery = Transaction::whereBetween($dateCol, [$startDateTime, $endDateTime]);
         $salesQuery = $this->applyBrandFilter($salesQuery, $brand);
-        
         $totalTransactions = $salesQuery->count();
-        $sales = $salesQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
         
         // Debug: Check what data exists in the date range
         $sampleTransactions = Transaction::whereBetween($dateCol, [$startDateTime, $endDateTime])
@@ -1288,27 +1317,40 @@ class OwnerController extends Controller
      */
     private function getReservationInsights($startDate, $endDate, $brand = 'all')
     {
-        $query = DB::table('reservations')
-            ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+        $query = Reservation::whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
             
         if ($brand && $brand !== 'all') {
-            $query->whereHas('items', function($q) use ($brand) {
-                $q->where('product_brand', $brand);
+            // Filter by brand in JSON items column using JSON_CONTAINS or similar
+            $query->where(function($q) use ($brand) {
+                $q->whereRaw('JSON_SEARCH(items, "one", ?) IS NOT NULL', [$brand])
+                  ->orWhereRaw('JSON_EXTRACT(items, "$[*].brand") LIKE ?', ['%"' . $brand . '"%']);
             });
         }
         
         $completed = $query->where('status', 'completed')->count();
-        $total = DB::table('reservations')
-            ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
-            ->count();
+        
+        $totalQuery = Reservation::whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+        if ($brand && $brand !== 'all') {
+            $totalQuery->where(function($q) use ($brand) {
+                $q->whereRaw('JSON_SEARCH(items, "one", ?) IS NOT NULL', [$brand])
+                  ->orWhereRaw('JSON_EXTRACT(items, "$[*].brand") LIKE ?', ['%"' . $brand . '"%']);
+            });
+        }
+        $total = $totalQuery->count();
+        
+        $cancelledQuery = Reservation::whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->where('status', 'cancelled');
+        if ($brand && $brand !== 'all') {
+            $cancelledQuery->where(function($q) use ($brand) {
+                $q->whereRaw('JSON_SEARCH(items, "one", ?) IS NOT NULL', [$brand])
+                  ->orWhereRaw('JSON_EXTRACT(items, "$[*].brand") LIKE ?', ['%"' . $brand . '"%']);
+            });
+        }
             
         return [
             'completed' => $completed,
             'total' => $total,
-            'cancelled' => DB::table('reservations')
-                ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
-                ->where('status', 'cancelled')
-                ->count()
+            'cancelled' => $cancelledQuery->count()
         ];
     }
 
@@ -1330,23 +1372,11 @@ class OwnerController extends Controller
                 $hourStart = $startDate . ' ' . sprintf('%02d:00:00', $hour);
                 $hourEnd = $startDate . ' ' . sprintf('%02d:59:59', $hour);
                 
-                // Get POS transactions (sale_type = 'pos' or transactions without reservation_id)
-                $posQuery = Transaction::whereBetween($dateCol, [$hourStart, $hourEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'pos')
-                              ->orWhereNull('reservation_id');
-                    });
-                $posQuery = $this->applyBrandFilter($posQuery, $brand);
-                $posRevenue = $posQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
+                // Get POS revenue (brand-specific calculation)
+                $posRevenue = $this->getBrandSpecificRevenue($dateCol, $hourStart, $hourEnd, $brand, 'pos');
                     
-                // Get reservation transactions (sale_type = 'reservation' or transactions with reservation_id)
-                $resvQuery = Transaction::whereBetween($dateCol, [$hourStart, $hourEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'reservation')
-                              ->orWhereNotNull('reservation_id');
-                    });
-                $resvQuery = $this->applyBrandFilter($resvQuery, $brand);
-                $resvRevenue = $resvQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
+                // Get reservation revenue (brand-specific calculation)
+                $resvRevenue = $this->getBrandSpecificRevenue($dateCol, $hourStart, $hourEnd, $brand, 'reservation');
                 
                 $labels[] = $hour <= 12 ? $hour . ' AM' : ($hour - 12) . ' PM';
                 $posData[] = (float) $posRevenue;
@@ -1361,23 +1391,11 @@ class OwnerController extends Controller
                 $dayStart = $current->toDateString() . ' 00:00:00';
                 $dayEnd = $current->toDateString() . ' 23:59:59';
                 
-                // Get POS transactions (sale_type = 'pos' or transactions without reservation_id)
-                $posQuery = Transaction::whereBetween($dateCol, [$dayStart, $dayEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'pos')
-                              ->orWhereNull('reservation_id');
-                    });
-                $posQuery = $this->applyBrandFilter($posQuery, $brand);
-                $posRevenue = $posQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
+                // Get POS revenue (brand-specific calculation)
+                $posRevenue = $this->getBrandSpecificRevenue($dateCol, $dayStart, $dayEnd, $brand, 'pos');
                     
-                // Get reservation transactions (sale_type = 'reservation' or transactions with reservation_id)
-                $resvQuery = Transaction::whereBetween($dateCol, [$dayStart, $dayEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'reservation')
-                              ->orWhereNotNull('reservation_id');
-                    });
-                $resvQuery = $this->applyBrandFilter($resvQuery, $brand);
-                $resvRevenue = $resvQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
+                // Get reservation revenue (brand-specific calculation)
+                $resvRevenue = $this->getBrandSpecificRevenue($dateCol, $dayStart, $dayEnd, $brand, 'reservation');
                 
                 // Generate proper day labels (e.g., "Mon", "Tue", "Wed")
                 $labels[] = $current->format('D');
@@ -1395,23 +1413,11 @@ class OwnerController extends Controller
                 $weekStart = $current->toDateString() . ' 00:00:00';
                 $weekEnd = $current->copy()->endOfWeek()->toDateString() . ' 23:59:59';
                 
-                // Get POS transactions (sale_type = 'pos' or transactions without reservation_id)
-                $posRevenue = Transaction::whereBetween($dateCol, [$weekStart, $weekEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'pos')
-                              ->orWhereNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                // Get POS revenue (brand-specific calculation)
+                $posRevenue = $this->getBrandSpecificRevenue($dateCol, $weekStart, $weekEnd, $brand, 'pos');
                     
-                // Get reservation transactions (sale_type = 'reservation' or transactions with reservation_id)
-                $resvRevenue = Transaction::whereBetween($dateCol, [$weekStart, $weekEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'reservation')
-                              ->orWhereNotNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                // Get reservation revenue (brand-specific calculation)
+                $resvRevenue = $this->getBrandSpecificRevenue($dateCol, $weekStart, $weekEnd, $brand, 'reservation');
                 
                 // Generate proper week labels (e.g., "Week 1", "Week 2")
                 $weekOfMonth = $current->weekOfMonth;
@@ -1430,23 +1436,11 @@ class OwnerController extends Controller
                 $monthStart = $current->toDateString() . ' 00:00:00';
                 $monthEnd = $current->copy()->endOfMonth()->toDateString() . ' 23:59:59';
                 
-                // Get POS transactions (sale_type = 'pos' or transactions without reservation_id)
-                $posQuery = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'pos')
-                              ->orWhereNull('reservation_id');
-                    });
-                $posQuery = $this->applyBrandFilter($posQuery, $brand);
-                $posRevenue = $posQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
+                // Get POS revenue (brand-specific calculation)
+                $posRevenue = $this->getBrandSpecificRevenue($dateCol, $monthStart, $monthEnd, $brand, 'pos');
                     
-                // Get reservation transactions (sale_type = 'reservation' or transactions with reservation_id)
-                $resvQuery = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'reservation')
-                              ->orWhereNotNull('reservation_id');
-                    });
-                $resvQuery = $this->applyBrandFilter($resvQuery, $brand);
-                $resvRevenue = $resvQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
+                // Get reservation revenue (brand-specific calculation)
+                $resvRevenue = $this->getBrandSpecificRevenue($dateCol, $monthStart, $monthEnd, $brand, 'reservation');
                 
                 // Generate quarter-based labels (e.g., "Q1 Jan", "Q1 Feb", "Q1 Mar")
                 $quarter = 'Q' . $current->quarter;
@@ -1466,23 +1460,11 @@ class OwnerController extends Controller
                 $monthStart = $current->toDateString() . ' 00:00:00';
                 $monthEnd = $current->copy()->endOfMonth()->toDateString() . ' 23:59:59';
                 
-                // Get POS transactions (sale_type = 'pos' or transactions without reservation_id)
-                $posQuery = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'pos')
-                              ->orWhereNull('reservation_id');
-                    });
-                $posQuery = $this->applyBrandFilter($posQuery, $brand);
-                $posRevenue = $posQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
+                // Get POS revenue (brand-specific calculation)
+                $posRevenue = $this->getBrandSpecificRevenue($dateCol, $monthStart, $monthEnd, $brand, 'pos');
                     
-                // Get reservation transactions (sale_type = 'reservation' or transactions with reservation_id)
-                $resvQuery = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'reservation')
-                              ->orWhereNotNull('reservation_id');
-                    });
-                $resvQuery = $this->applyBrandFilter($resvQuery, $brand);
-                $resvRevenue = $resvQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
+                // Get reservation revenue (brand-specific calculation)
+                $resvRevenue = $this->getBrandSpecificRevenue($dateCol, $monthStart, $monthEnd, $brand, 'reservation');
                 
                 // Generate proper month labels (e.g., "Jan", "Feb", "Mar")
                 $labels[] = $current->format('M');
@@ -1500,23 +1482,11 @@ class OwnerController extends Controller
                 $monthStart = $current->toDateString() . ' 00:00:00';
                 $monthEnd = $current->copy()->endOfMonth()->toDateString() . ' 23:59:59';
                 
-                // Get POS transactions (sale_type = 'pos' or transactions without reservation_id)
-                $posQuery = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'pos')
-                              ->orWhereNull('reservation_id');
-                    });
-                $posQuery = $this->applyBrandFilter($posQuery, $brand);
-                $posRevenue = $posQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
+                // Get POS revenue (brand-specific calculation)
+                $posRevenue = $this->getBrandSpecificRevenue($dateCol, $monthStart, $monthEnd, $brand, 'pos');
                     
-                // Get reservation transactions (sale_type = 'reservation' or transactions with reservation_id)
-                $resvQuery = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'reservation')
-                              ->orWhereNotNull('reservation_id');
-                    });
-                $resvQuery = $this->applyBrandFilter($resvQuery, $brand);
-                $resvRevenue = $resvQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
+                // Get reservation revenue (brand-specific calculation)
+                $resvRevenue = $this->getBrandSpecificRevenue($dateCol, $monthStart, $monthEnd, $brand, 'reservation');
                 
                 $labels[] = $current->format('M Y');
                 $posData[] = (float) $posRevenue;

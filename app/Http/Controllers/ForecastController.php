@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use App\Models\Transaction;
 
@@ -32,7 +33,7 @@ class ForecastController extends Controller
             $anchorDate = Carbon::today();
         }
 
-        [$start, $end, $labels, $buckets] = $this->makeWindow($range, $anchorDate);
+        [$start, $end, $labels, $buckets] = $this->makeWindow($range, $anchorDate, $brand);
 
         if ($type === 'demand') {
             $data = $this->buildDemandData($start, $end, $range, $buckets, $brand, $predictive);
@@ -54,7 +55,7 @@ class ForecastController extends Controller
      * Build time window and labels.
      * Returns [start, end, labels[], buckets[]]
      */
-    private function makeWindow(string $range, Carbon $anchor): array
+    private function makeWindow(string $range, Carbon $anchor, string $brand = 'all'): array
     {
         $labels = [];
         $buckets = [];
@@ -108,18 +109,68 @@ class ForecastController extends Controller
             $buckets = range(1, $days); // day of month
             return [$start, $end, $labels, $buckets];
         }
-        // day (hourly) - Business hours: 10am - 7pm
+        // day (hourly) - Dynamic hours based on actual transaction data
         $start = (clone $anchor)->startOfDay();
         $end = (clone $anchor)->endOfDay();
-        // Business hours 10..19 (10am - 7pm)
+        
+        // Get actual hour range from transactions on this day, default to 10am-7pm
+        [$hourStart, $hourEnd] = $this->getDynamicHourRange($start, $end, $brand);
+        
         $labels = array_map(function ($h) {
             // Format 12-hour like "10 AM", "1 PM"
             $ampm = $h < 12 ? 'AM' : 'PM';
             $hour12 = $h % 12; if ($hour12 === 0) $hour12 = 12;
             return $hour12 . ' ' . $ampm;
-        }, range(10, 19));
-        $buckets = range(10, 19); // business hours only
+        }, range($hourStart, $hourEnd));
+        $buckets = range($hourStart, $hourEnd);
         return [$start, $end, $labels, $buckets];
+    }
+
+    /**
+     * Get dynamic hour range for day view based on actual transaction data
+     * Returns [startHour, endHour] with default fallback to business hours (10-19)
+     */
+    private function getDynamicHourRange(Carbon $start, Carbon $end, string $brand = 'all'): array
+    {
+        // Default business hours
+        $defaultStart = 10; // 10 AM
+        $defaultEnd = 19;   // 7 PM
+        
+        // Query to find actual transaction hours for this day
+        $query = DB::table('transactions as t')
+            ->whereBetween('t.sale_date', [$start->toDateTimeString(), $end->toDateTimeString()])
+            ->selectRaw('MIN(HOUR(t.sale_date)) as min_hour, MAX(HOUR(t.sale_date)) as max_hour');
+            
+        // Apply brand filter if specified
+        if ($brand && $brand !== 'all') {
+            $query->join('transaction_items as ti', 't.transaction_id', '=', 'ti.transaction_id')
+                  ->where('ti.product_brand', $brand);
+        }
+        
+        $result = $query->first();
+        
+        // If no transactions found, use default business hours
+        if (!$result || ($result->min_hour === null && $result->max_hour === null)) {
+            return [$defaultStart, $defaultEnd];
+        }
+        
+        $minHour = (int) $result->min_hour;
+        $maxHour = (int) $result->max_hour;
+        
+        // Expand range to include default business hours if actual data is within them
+        $finalStart = min($minHour, $defaultStart);
+        $finalEnd = max($maxHour, $defaultEnd);
+        
+        // Ensure we have at least a few hours span and don't go beyond 24-hour format
+        $finalStart = max(0, $finalStart);
+        $finalEnd = min(23, $finalEnd);
+        
+        // Ensure end is after start
+        if ($finalEnd <= $finalStart) {
+            $finalEnd = $finalStart + 1;
+        }
+        
+        return [$finalStart, $finalEnd];
     }
 
     /**
@@ -127,16 +178,21 @@ class ForecastController extends Controller
      */
     private function buildSalesData(Carbon $start, Carbon $end, string $range, array $buckets, string $brand = 'all', bool $predictive = false): array
     {
-        // Build base query on transactions
+        // Build base query using transaction_items for accurate brand-specific revenue calculation
         $expr = $this->bucketExpression('t.sale_date', $range);
-        $query = DB::table('transactions as t')
-            ->selectRaw("t.sale_type as sale_type, {$expr} as bucket, SUM(t.total_amount) as revenue")
-            ->whereBetween('t.sale_date', [$start, $end]);
-
-        // Apply brand filter if specified
+        
         if ($brand && $brand !== 'all') {
-            $query->join('transaction_items as ti', 't.transaction_id', '=', 'ti.transaction_id')
-                  ->where('ti.product_brand', $brand);
+            // For brand-specific queries, sum transaction_items.subtotal instead of full transaction amounts
+            $query = DB::table('transaction_items as ti')
+                ->join('transactions as t', 'ti.transaction_id', '=', 't.transaction_id')
+                ->selectRaw("t.sale_type as sale_type, {$expr} as bucket, SUM(ti.subtotal) as revenue")
+                ->whereBetween('t.sale_date', [$start, $end])
+                ->where('ti.product_brand', $brand);
+        } else {
+            // For "all brands", use full transaction amounts
+            $query = DB::table('transactions as t')
+                ->selectRaw("t.sale_type as sale_type, {$expr} as bucket, SUM(t.total_amount) as revenue")
+                ->whereBetween('t.sale_date', [$start, $end]);
         }
         
         $rows = $query->groupBy('sale_type', 'bucket')->get();
@@ -313,8 +369,8 @@ class ForecastController extends Controller
             $position = ($index + 1) / count($data);
             $projected = $value * (1 + (($trendFactor - 1) * $position));
             
-            // Ensure non-negative values
-            $adjusted[] = max($projected, 0);
+            // Round to whole numbers for quantities (items can't be fractional)
+            $adjusted[] = max(round($projected), 0);
         }
         
         return $adjusted;

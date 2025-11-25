@@ -183,6 +183,26 @@
             .odash-predictive-btn:focus-visible { outline:2px solid #93c5fd; outline-offset:2px; }
 
         /* Business Insights Styles */
+        .sales-summary { 
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); 
+            border-radius: 12px; 
+            padding: 20px; 
+            margin-bottom: 16px; 
+            color: white;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+        .sales-summary-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .sales-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
+        .sales-item { text-align: center; }
+        .sales-item-label { font-size: 12px; opacity: 0.8; margin-bottom: 4px; }
+        .sales-item-value { font-size: 18px; font-weight: 700; margin-bottom: 2px; }
+        .sales-item.total { 
+            background: rgba(255, 255, 255, 0.15); 
+            padding: 12px; 
+            border-radius: 8px; 
+            backdrop-filter: blur(10px);
+        }
+        .sales-item.total .sales-item-value { font-size: 20px; }
         .insights-container { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
         .insight-card { 
             background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); 
@@ -340,7 +360,7 @@
                             <div class="odash-kpi-icon"><i class="fas fa-peso-sign"></i></div>
                             <div class="odash-kpi-meta">
                                 <div class="odash-kpi-value" id="odash-kpi-revenue">₱0.00</div>
-                                <div class="odash-kpi-label">Total Revenue</div>
+                                <div class="odash-kpi-label">Total Sales</div>
                             </div>
                         </div>
                     </div>
@@ -376,19 +396,19 @@
                 <!-- Global Dashboard Filter Bar (below KPI cards) -->
                 <div class="odash-filter-row" style="margin-top:12px;">
                     <div class="odash-filter-bar">
-                        <label for="dbf-range" style="font-size:12px;color:#64748b;font-weight:700;">Range</label>
+                        <label for="dbf-brand" style="font-size:12px;color:#64748b;font-weight:700;">Brand</label>
+                        <select id="dbf-brand" class="odash-select" style="min-width:140px;">
+                            <option value="all">All Brands</option>
+                            <!-- Options will be populated dynamically -->
+                        </select>
+                        
+                        <label for="dbf-range" style="font-size:12px;color:#64748b;font-weight:700;margin-left:12px;">Range</label>
                         <select id="dbf-range" class="odash-select" style="min-width:160px;">
                             <option value="day">Day</option>
                             <option value="weekly">Week</option>
                             <option value="monthly">Month</option>
                             <option value="quarterly">Quarter</option>
                             <option value="yearly">Year</option>
-                        </select>
-                        
-                        <label for="dbf-brand" style="font-size:12px;color:#64748b;font-weight:700;margin-left:12px;">Brand</label>
-                        <select id="dbf-brand" class="odash-select" style="min-width:140px;">
-                            <option value="all">All Brands</option>
-                            <!-- Options will be populated dynamically -->
                         </select>
                         <!-- Manual pickers (toggle visibility based on Range) -->
                         <div class="dbf-pickers" style="display:inline-flex; gap:8px; align-items:center;">
@@ -484,6 +504,29 @@
                         <div class="odash-subtitle">Historical data analysis and recommendations</div>
                     </div>
                     <div id="insights-container" style="padding: 16px;">
+                        <!-- Sales Summary Box -->
+                        <div id="sales-summary" class="sales-summary" style="display: none;">
+                            <div class="sales-summary-title">
+                                <span>💰</span>
+                                <span>Sales Summary</span>
+                                <span id="sales-period" style="font-size: 12px; opacity: 0.8; font-weight: 400; margin-left: auto;"></span>
+                            </div>
+                            <div class="sales-summary-grid">
+                                <div class="sales-item">
+                                    <div class="sales-item-label">POS Sales</div>
+                                    <div id="pos-sales-value" class="sales-item-value">₱0.00</div>
+                                </div>
+                                <div class="sales-item">
+                                    <div class="sales-item-label">Reservation Sales</div>
+                                    <div id="reservation-sales-value" class="sales-item-value">₱0.00</div>
+                                </div>
+                                <div class="sales-item total">
+                                    <div class="sales-item-label">Total Sales</div>
+                                    <div id="total-sales-value" class="sales-item-value">₱0.00</div>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <!-- Insights will be populated here -->
                         <div class="insights-loading" style="text-align: center; padding: 40px; color: #6b7280;">
                             <div class="loading-spinner" style="margin: 0 auto 16px; width: 24px; height: 24px; border: 2px solid #e5e7eb; border-top: 2px solid #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
@@ -1480,42 +1523,11 @@ async function fetchForecast(range, mode, anchor, abortSignal = null) {
         const predictiveToggle = document.getElementById('odash-predictive-mode');
         const isPredictive = predictiveToggle && predictiveToggle.classList.contains('active');
         
-        if (isPredictive) {
-            // For predictive mode, use ML forecast API
+        if (isPredictive && mode !== 'demand') {
+            // For predictive mode, use ML forecast API (but not for demand mode)
             const mlApiBase = '/owner/api/ml-forecast';
             
-            if (mode === 'demand') {
-                // For demand mode, fetch single demand forecast
-                const url = new URL(`${mlApiBase}?type=demand&range=${range}`, window.location.origin);
-                const fetchOptions = { 
-                    headers: { 'Accept': 'application/json' }
-                };
-                
-                if (abortSignal) {
-                    fetchOptions.signal = abortSignal;
-                }
-                
-                const res = await fetch(url.toString(), fetchOptions);
-                const json = await res.json();
-                
-                if (!res.ok || json.success === false) {
-                    console.error('Demand forecast failed:', json.message || 'Unknown error');
-                    return { 
-                        labels: [], 
-                        datasets: {}, 
-                        error: json.message || 'Failed to load demand forecast data'
-                    };
-                }
-                
-                // Log demand forecast data source information
-                if (json.meta) {
-
-                } else {
-                    console.warn('⚠️  DEMAND FORECAST: No metadata available to determine data source');
-                }
-                
-                return json.data || {}; // { labels, datasets: { brands, quantities } }
-            } else {
+            if (mode === 'sales') {
                 // For sales mode, fetch both POS and Reservation data
                 const promises = [
                     fetch(new URL(`${mlApiBase}?type=${mode}&range=${range}&sale_type=pos`, window.location.origin), { 
@@ -1648,7 +1660,7 @@ function updateForecastTitle(modeOverride) {
         if (mode === 'sales') {
             titleElement.textContent = 'Sales Revenue Across Timelines';
         } else {
-            titleElement.textContent = 'Total items sold per Brand Across Timelines';
+            titleElement.textContent = isPredictive ? 'Predicted Sales per Brand' : 'Items Sold per Brand';
         }
         return;
     } else {
@@ -1842,6 +1854,10 @@ async function performForecastUpdate(range, mode) {
         // Find the brand with highest sales for highlighting (green for top performer)
         const maxIndex = findMaxIndex(quantities);
         
+        // Check if predictive mode is active for dynamic labels
+        const predictiveToggle = document.getElementById('odash-predictive-mode');
+        const isPredictiveMode = predictiveToggle && predictiveToggle.classList.contains('active');
+        
         // Create vibrant, dynamic gradient backgrounds for each bar
         const createGradient = (ctx, chartArea, isTop) => {
             const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
@@ -1883,7 +1899,7 @@ async function performForecastUpdate(range, mode) {
                 data: {
                     labels: brands,
                     datasets: [{
-                        label: 'Items Sold',
+                        label: isPredictiveMode ? 'Predicted Sales' : 'Items Sold',
                         data: quantities,
                         backgroundColor: function(context) {
                             const chart = context.chart;
@@ -1941,7 +1957,8 @@ async function performForecastUpdate(range, mode) {
                                 label: function(context) {
                                     const value = context.parsed.x;
                                     const isTop = context.dataIndex === maxIndex;
-                                    return `${isTop ? '🏆 ' : ''}${value.toLocaleString()} items sold`;
+                                    const labelText = isPredictiveMode ? 'predicted sales' : 'items sold';
+                                    return `${isTop ? '🏆 ' : ''}${value.toLocaleString()} ${labelText}`;
                                 },
                                 labelColor: function(context) {
                                     return {
@@ -1997,10 +2014,14 @@ async function performForecastUpdate(range, mode) {
                 }
             });
             window.forecastChart = forecastChart;
+            
+            // Update sales summary with new data
+            updateSalesSummary(aggregatedPayload);
         } else {
             // Update existing chart
             forecastChart.data.labels = brands;
             forecastChart.data.datasets[0].data = quantities;
+            forecastChart.data.datasets[0].label = isPredictiveMode ? 'Predicted Sales' : 'Items Sold';
             forecastChart.data.datasets[0].backgroundColor = function(context) {
                 const chart = context.chart;
                 const {ctx, chartArea} = chart;
@@ -2027,6 +2048,10 @@ async function performForecastUpdate(range, mode) {
                 forecastChart.update();
                 currentMode = mode;
                 window.currentForecastMode = currentMode;
+                
+                // Update sales summary with new data
+                updateSalesSummary(aggregatedPayload);
+                
                 if (forecastShell) {
                     const scrim = forecastShell.querySelector('.loading-scrim');
                     if (scrim) scrim.remove();
@@ -2193,7 +2218,25 @@ async function performForecastUpdate(range, mode) {
             }
         });
         window.forecastChart = forecastChart;
+        
+        // Update sales summary with new data
+        updateSalesSummary(aggregatedPayload);
     } else {
+        // Check if we need to recreate chart due to different dataset structure
+        const expectedDatasets = 4; // Sales mode needs 4 datasets
+        const currentDatasets = forecastChart.data.datasets ? forecastChart.data.datasets.length : 0;
+        
+        if (currentDatasets !== expectedDatasets) {
+            // Destroy and recreate chart if dataset structure doesn't match
+            forecastChart.destroy();
+            forecastChart = null;
+            window.forecastChart = null;
+            
+            // Recursively call this function to create a new chart
+            performForecastUpdate(range, mode);
+            return;
+        }
+        
         // update existing chart
         forecastChart.data.labels = labels;
         forecastChart.data.datasets[0].data = posValues;
@@ -2210,6 +2253,10 @@ async function performForecastUpdate(range, mode) {
             forecastChart.update();
             currentMode = mode;
             window.currentForecastMode = currentMode;
+            
+            // Update sales summary with new data
+            updateSalesSummary(aggregatedPayload);
+            
             if (forecastShell) {
                 const scrim = forecastShell.querySelector('.loading-scrim');
                 if (scrim) scrim.remove();
@@ -2962,6 +3009,81 @@ function updatePopularProducts(productsData) {
     });
 }
 
+// Function to update sales summary
+function updateSalesSummary(forecastData) {
+    try {
+        const salesSummary = document.getElementById('sales-summary');
+        const periodSpan = document.getElementById('sales-period');
+        const posValue = document.getElementById('pos-sales-value');
+        const reservationValue = document.getElementById('reservation-sales-value');
+        const totalValue = document.getElementById('total-sales-value');
+        
+        if (!salesSummary || !forecastData || !forecastData.datasets) return;
+
+        // Get current date range for display
+        const rangeSelect = document.getElementById('dbf-range');
+        const range = rangeSelect ? rangeSelect.value : 'day';
+        
+        // Check if predictive mode is active
+        const predictiveToggle = document.getElementById('odash-predictive-mode');
+        const isPredictive = predictiveToggle && predictiveToggle.classList.contains('active');
+        
+        let periodText = '';
+        
+        if (isPredictive) {
+            // Predictive mode period text
+            switch(range) {
+                case 'day': periodText = 'Tomorrow'; break;
+                case 'weekly': periodText = 'Next 7 Days'; break;
+                case 'monthly': periodText = 'Next 30 Days'; break;
+                case 'quarterly': periodText = 'Next 3 Months'; break;
+                case 'yearly': periodText = 'Next 12 Months'; break;
+                default: periodText = 'Future Period';
+            }
+        } else {
+            // Historical mode - get period text from window pill (which already has the correct text)
+            const windowPill = document.getElementById('dbf-window-text');
+            
+            if (windowPill && windowPill.textContent) {
+                periodText = windowPill.textContent.trim();
+            } else {
+                // Fallback to simple range-based text
+                switch(range) {
+                    case 'day': periodText = 'Today'; break;
+                    case 'weekly': periodText = 'This Week'; break;
+                    case 'monthly': periodText = 'This Month'; break;
+                    case 'quarterly': periodText = 'This Quarter'; break;
+                    case 'yearly': periodText = 'This Year'; break;
+                    default: periodText = 'Current Period';
+                }
+            }
+        }
+    
+    // Calculate totals from forecast data
+    const posData = forecastData.datasets.pos || [];
+    const reservationData = forecastData.datasets.reservation || [];
+    
+    const posTotal = posData.reduce((sum, value) => sum + (parseFloat(value) || 0), 0);
+    const reservationTotal = reservationData.reduce((sum, value) => sum + (parseFloat(value) || 0), 0);
+    const grandTotal = posTotal + reservationTotal;
+    
+    // Update the display
+    if (periodSpan) periodSpan.textContent = periodText;
+    if (posValue) posValue.textContent = '₱' + posTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (reservationValue) reservationValue.textContent = '₱' + reservationTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (totalValue) totalValue.textContent = '₱' + grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    
+        // Show the summary box
+        salesSummary.style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error in updateSalesSummary:', error);
+        // Hide sales summary on error
+        const salesSummary = document.getElementById('sales-summary');
+        if (salesSummary) salesSummary.style.display = 'none';
+    }
+}
+
 // Function to update business insights
 function updateBusinessInsights(insightsData) {
     console.log('updateBusinessInsights called with:', insightsData);
@@ -2975,8 +3097,12 @@ function updateBusinessInsights(insightsData) {
         return;
     }
 
+    // Find and preserve the sales summary
+    const salesSummary = document.getElementById('sales-summary');
+    const salesSummaryHtml = salesSummary ? salesSummary.outerHTML : '';
+    
     // Clear loading state
-    container.innerHTML = '';
+    container.innerHTML = salesSummaryHtml;
     
     // Check if predictive mode is active
     const isPredictiveMode = isPredictiveModeActive();
