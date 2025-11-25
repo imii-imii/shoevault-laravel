@@ -687,22 +687,17 @@ function openReservationModalFromCard(card) {
             }
             
             // Debug: Log the actual item structure to see what properties are available
-            console.log('Reservation items data:', data.items);
+
             data.items.forEach((item, index) => {
-                console.log(`Item ${index}:`, item);
-                console.log(`Available properties:`, Object.keys(item));
+
+                
             });
             
             list.innerHTML = data.items.map(item => {
                 // The backend returns 'price' property, so use that first
                 const price = item.price || 0;
                 
-                console.log(`Item "${item.name}" price debug:`, {
-                    item_price: item.price,
-                    final_price_used: price,
-                    quantity: item.quantity,
-                    all_item_properties: Object.keys(item)
-                });
+                
                 
                 return `
                 <div style=\"display:flex;justify-content:space-between;gap:12px;border:1px solid #cfd4ff;;border-radius:8px;padding:10px;\">
@@ -728,15 +723,7 @@ function openReservationModalFromCard(card) {
                         }, 0);
                     }
                     
-                    console.log('Total calculation:', {
-                        reservation_total: data.reservation?.total_amount,
-                        calculated_total: total,
-                        items_used_for_calc: data.items.map(i => ({
-                            name: i.name,
-                            price: i.price,
-                            quantity: i.quantity
-                        }))
-                    });
+                    
                     
                     totalEl.textContent = `Total: ₱${total.toLocaleString()}`;
                 }
@@ -784,8 +771,7 @@ function openTransactionModal(reservationId) {
         .then(r => r.json())
         .then(data => {
             const items = data.items || [];
-            console.log('Transaction modal items data:', items);
-            
+
             const total = data.reservation?.total_amount != null
                 ? Number(data.reservation.total_amount)
                 : items.reduce((s,i)=> {
@@ -982,8 +968,7 @@ document.querySelectorAll('.view-reservation-btn').forEach(btn => {
 // Filter functionality
 document.getElementById('reservation-status-filter').addEventListener('change', function(e) {
     const newStatus = e.target.value || 'all';
-    console.log('Status filter changed to:', newStatus);
-    
+
     __invResPageState.status = newStatus;
     __invResPageState.page = 1;
     
@@ -1059,12 +1044,7 @@ function getFilteredInvReservationCards() {
     const status = (__invResPageState.status || 'all');
     const nodes = Array.from(document.querySelectorAll('#reservations-container > .reservation-card'));
     
-    console.log('Filtering reservations:', {
-        totalCards: nodes.length,
-        searchTerm: term,
-        statusFilter: status,
-        cardStatuses: nodes.map(card => card.dataset.status)
-    });
+    
     
     return nodes.filter(card => {
         const matchText = !term || card.textContent.toLowerCase().includes(term);
@@ -1073,13 +1053,7 @@ function getFilteredInvReservationCards() {
         
         const matches = matchText && matchStatus;
         if (!matches) {
-            console.log('Card filtered out:', {
-                cardId: card.dataset.resId,
-                cardStatus: cardStatus,
-                expectedStatus: status,
-                matchText: matchText,
-                matchStatus: matchStatus
-            });
+
         }
         
         return matches;
@@ -1095,12 +1069,7 @@ function applyInvReservationPagination() {
     const start = (__invResPageState.page - 1) * __invResPageState.perPage;
     const end = start + __invResPageState.perPage;
 
-    console.log('Applying pagination:', {
-        totalCards: all.length,
-        currentPage: __invResPageState.page,
-        totalPages: totalPages,
-        showingRange: `${start + 1}-${Math.min(end, total)}`
-    });
+    
 
     // Hide all cards first
     document.querySelectorAll('#reservations-container > .reservation-card').forEach(c => c.style.display = 'none');
@@ -1109,10 +1078,7 @@ function applyInvReservationPagination() {
     const pageCards = all.slice(start, end);
     pageCards.forEach(c => c.style.display = 'block');
     
-    console.log('Cards shown on page:', pageCards.map(c => ({
-        id: c.dataset.resId,
-        status: c.dataset.status
-    })));
+    
 
     const info = document.getElementById('inv-res-page-info');
     if (info) info.textContent = `Page ${__invResPageState.page} of ${totalPages}`;

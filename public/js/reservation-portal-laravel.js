@@ -397,8 +397,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const sizeOptionsContainer = document.getElementById('modalSizeOptions');
         sizeOptionsContainer.innerHTML = '';
 
-        console.log('Populating size options...');
-
         if (sizes && sizes.length > 0) {
             sizes.forEach(sizeData => {
                 const label = document.createElement('label');
@@ -464,9 +462,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const productData = JSON.parse(this.dataset.productData);
         const selectedSizeId = selectedSize.dataset.sizeId;
         const selectedSizeData = productData.sizes.find(s => String(s.id) === String(selectedSizeId));
-        
-        console.log('Processing product selection...');
-        
+
         if (!selectedSizeData) {
             alert('Selected size data not found. Please try again.');
             console.error('Could not find size data for ID:', selectedSize.dataset.sizeId);
@@ -483,9 +479,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const basePrice = parseFloat(productData.price) || 0;
         const sizeAdjustment = parseFloat(selectedSizeData.price_adjustment) || 0;
         const finalPrice = basePrice + sizeAdjustment;
-        
-        console.log('Product added to cart');
-        
+
         addToCart({
             id: productData.id,
             name: productData.name,
@@ -565,8 +559,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function addToCart(data) {
-        console.log('Adding item to cart...');
-        
+
         // Check if user is authenticated before allowing add to cart
         const isAuthenticated = await checkAuthStatus();
         if (!isAuthenticated) {
@@ -615,8 +608,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 maxStock: data.maxStock
             });
         }
-        
-        console.log('Cart updated, saving to storage');
+
         saveCart();
         renderCart();
 

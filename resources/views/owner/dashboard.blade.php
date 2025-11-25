@@ -158,6 +158,9 @@
             padding:6px 10px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; color:#0f172a; font-size:12px; outline:none;
         }
         .odash-select:focus, .odash-input:focus { border-color:#93c5fd; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+        .odash-select:disabled { 
+            background:#f9fafb; color:#9ca3af; border-color:#e5e7eb; cursor:not-allowed; opacity:0.5;
+        }
         .odash-toggle { display:inline-flex; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; background:#fff; }
         .odash-toggle button { padding:6px 10px; border:none; background:transparent; cursor:pointer; font-size:12px; color:#1e3a8a; font-weight:700; }
         .odash-toggle button.active { background:linear-gradient(135deg,#dbeafe,#bfdbfe); color:#0f172a; }
@@ -179,13 +182,60 @@
             .odash-predictive-btn.active::after { opacity:.6; background: linear-gradient(135deg, rgba(255,255,255,.15) 0%, rgba(255,255,255,0) 60%); }
             .odash-predictive-btn:focus-visible { outline:2px solid #93c5fd; outline-offset:2px; }
 
+        /* Business Insights Styles */
+        .sales-summary { 
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); 
+            border-radius: 12px; 
+            padding: 20px; 
+            margin-bottom: 16px; 
+            color: white;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+        .sales-summary-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .sales-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
+        .sales-item { text-align: center; }
+        .sales-item-label { font-size: 12px; opacity: 0.8; margin-bottom: 4px; }
+        .sales-item-value { font-size: 18px; font-weight: 700; margin-bottom: 2px; }
+        .sales-item.total { 
+            background: rgba(255, 255, 255, 0.15); 
+            padding: 12px; 
+            border-radius: 8px; 
+            backdrop-filter: blur(10px);
+        }
+        .sales-item.total .sales-item-value { font-size: 20px; }
+        .insights-container { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+        .insight-card { 
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); 
+            border: 1px solid #e2e8f0; 
+            border-radius: 12px; 
+            padding: 16px; 
+            position: relative; 
+            transition: all 0.3s ease; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .insight-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .insight-card.positive { border-left: 4px solid #10b981; background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%); }
+        .insight-card.negative { border-left: 4px solid #ef4444; background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%); }
+        .insight-card.info { border-left: 4px solid #3b82f6; background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%); }
+        .insight-card.positive .insight-icon { color: #10b981; }
+        .insight-card.negative .insight-icon { color: #ef4444; }
+        .insight-card.info .insight-icon { color: #3b82f6; }
+        .insight-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+        .insight-title { font-size: 14px; font-weight: 700; color: #1f2937; margin: 0; }
+        .insight-icon { font-size: 18px; margin-right: 8px; }
+        .insight-value { font-size: 12px; font-weight: 600; padding: 4px 8px; background: rgba(59, 130, 246, 0.1); color: #1e40af; border-radius: 6px; }
+        .insight-message { font-size: 13px; color: #4b5563; line-height: 1.4; margin: 4px 0; }
+        .insight-action { font-size: 11px; color: #6b7280; font-style: italic; margin-top: 8px; display: block; }
+        .insight-priority-high { border-left-width: 6px; }
+        .insight-priority-high::before { content: "!"; position: absolute; top: 8px; right: 8px; width: 18px; height: 18px; background: #ef4444; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
         /* Futuristic gauge styles (refined for semicircular segmented look) */
         .f-gauge { position: relative; display:flex; align-items:center; justify-content:center; }
         .f-gauge svg { overflow: visible; }
         .f-gauge .g-glow { filter: drop-shadow(0 8px 18px rgba(14, 165, 233, 0.08)); }
         .f-gauge .g-segment { transition: stroke-opacity .25s ease, transform .3s ease; }
         .f-gauge .g-center { transition: transform .25s ease; }
-
 
     /* Opening animations for cards */
         .reveal { opacity: 0; transform: translateY(12px) scale(.98); }
@@ -310,7 +360,7 @@
                             <div class="odash-kpi-icon"><i class="fas fa-peso-sign"></i></div>
                             <div class="odash-kpi-meta">
                                 <div class="odash-kpi-value" id="odash-kpi-revenue">₱0.00</div>
-                                <div class="odash-kpi-label">Total Revenue</div>
+                                <div class="odash-kpi-label">Total Sales</div>
                             </div>
                         </div>
                     </div>
@@ -346,7 +396,13 @@
                 <!-- Global Dashboard Filter Bar (below KPI cards) -->
                 <div class="odash-filter-row" style="margin-top:12px;">
                     <div class="odash-filter-bar">
-                        <label for="dbf-range" style="font-size:12px;color:#64748b;font-weight:700;">Range</label>
+                        <label for="dbf-brand" style="font-size:12px;color:#64748b;font-weight:700;">Brand</label>
+                        <select id="dbf-brand" class="odash-select" style="min-width:140px;">
+                            <option value="all">All Brands</option>
+                            <!-- Options will be populated dynamically -->
+                        </select>
+                        
+                        <label for="dbf-range" style="font-size:12px;color:#64748b;font-weight:700;margin-left:12px;">Range</label>
                         <select id="dbf-range" class="odash-select" style="min-width:160px;">
                             <option value="day">Day</option>
                             <option value="weekly">Week</option>
@@ -441,6 +497,44 @@
                     </div>
                 </div>
 
+                <!-- Business Insights Section -->
+                <div class="odash-card" style="margin-top: 16px;">
+                    <div class="odash-card-header">
+                        <div class="odash-title">📊 Business Insights</div>
+                        <div class="odash-subtitle">Historical data analysis and recommendations</div>
+                    </div>
+                    <div id="insights-container" style="padding: 16px;">
+                        <!-- Sales Summary Box -->
+                        <div id="sales-summary" class="sales-summary" style="display: none;">
+                            <div class="sales-summary-title">
+                                <span>💰</span>
+                                <span>Sales Summary</span>
+                                <span id="sales-period" style="font-size: 12px; opacity: 0.8; font-weight: 400; margin-left: auto;"></span>
+                            </div>
+                            <div class="sales-summary-grid">
+                                <div class="sales-item">
+                                    <div class="sales-item-label">POS Sales</div>
+                                    <div id="pos-sales-value" class="sales-item-value">₱0.00</div>
+                                </div>
+                                <div class="sales-item">
+                                    <div class="sales-item-label">Reservation Sales</div>
+                                    <div id="reservation-sales-value" class="sales-item-value">₱0.00</div>
+                                </div>
+                                <div class="sales-item total">
+                                    <div class="sales-item-label">Total Sales</div>
+                                    <div id="total-sales-value" class="sales-item-value">₱0.00</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Insights will be populated here -->
+                        <div class="insights-loading" style="text-align: center; padding: 40px; color: #6b7280;">
+                            <div class="loading-spinner" style="margin: 0 auto 16px; width: 24px; height: 24px; border: 2px solid #e5e7eb; border-top: 2px solid #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                            <p>Analyzing data for insights...</p>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Popular Products and Stock Levels -->
                 <div class="odash-row-products">
                     <!-- Popular Products List (Scrollable) -->
@@ -495,6 +589,7 @@
                         </div>
                     </div>
                 </div>
+                
             </div>
         </section>
 
@@ -559,7 +654,8 @@ window.laravelData = {
         apiDashboardData: '{{ route("owner.api.dashboard-data") }}',
         apiStockLevels: '{{ route("owner.api.stock-levels") }}',
         apiForecast: '{{ route("owner.api.forecast") }}',
-        settings: '{{ route("owner.settings") }}'
+        settings: '{{ route("owner.settings") }}',
+        brands: '{{ route("owner.api.brands") }}'
     }
 };
 
@@ -568,8 +664,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Ensure we always use the current local date for initialization
     const today = new Date();
     const currentDateString = formatDate(today);
-    console.log('Dashboard initializing...');
-    
+
     // Set the date picker to today's date
     const dateInput = document.getElementById('dbf-date');
     if (dateInput) {
@@ -634,8 +729,14 @@ document.addEventListener('DOMContentLoaded', function() {
         window.notificationManager = notificationManager; // Make it globally accessible
     }
 
-    // Initialize dashboard with Laravel data
-    initializeDashboardKPIs();
+    // Initialize brand dropdown first, then dashboard data
+    initializeBrandDropdown().then(() => {
+        // Initialize dashboard with Laravel data after brand dropdown is ready
+        initializeDashboardKPIs();
+    }).catch(() => {
+        // If brand initialization fails, still load dashboard with default
+        initializeDashboardKPIs();
+    });
     
     // Initialize mock charts for forecast and reservations
     initOwnerForecastCharts();
@@ -738,14 +839,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Populate year dropdown with available years
                 populateYearDropdown(dateRange.earliest, dateRange.latest);
-                
-                console.log('Date picker limits set:', {
-                    earliest: dateRange.earliest,
-                    latest: dateRange.latest,
-                    earliest_week: dateRange.earliest_week,
-                    earliest_month: dateRange.earliest_month
-                });
-                
+
             } catch (error) {
                 console.error('Error fetching transaction date range:', error);
                 
@@ -889,21 +983,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 dateInput.value = dateString;
                 
                 // Debug logging
-                console.log('updateInputsFromAnchor Debug:', {
-                    anchorDate: dateString,
-                    inputValue: dateInput.value,
-                    range: range
-                });
+
             } else if (range === 'weekly') {
                 const weekValue = normalizeWeekValue(anchorDate);
                 weekInput.value = weekValue;
                 
                 // Debug logging for weekly
-                console.log('updateInputsFromAnchor Weekly Debug:', {
-                    anchorDate: anchorDate.toDateString(),
-                    weekValue: weekValue,
-                    inputValue: weekInput.value
-                });
+                
             } else if (range === 'monthly') {
                 monthInput.value = `${anchorDate.getFullYear()}-${String(anchorDate.getMonth()+1).padStart(2,'0')}`;
             } else if (range === 'quarterly') {
@@ -1073,8 +1159,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // Anchor date shifted
-            console.log('Anchor date shifted:', dir > 0 ? 'next' : 'previous');
-            
+
             // Update anchorDate with the new date
             anchorDate = newDate;
             window.forecastAnchorDate = anchorDate; // Sync global state
@@ -1103,7 +1188,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (predictiveToggle && predictiveToggle.classList.contains('active')) {
                     predictiveToggle.classList.remove('active');
                     predictiveToggle.setAttribute('aria-pressed', 'false');
-                    console.log('Predictive mode disabled for day view');
+
+                    // Re-enable brand controller when switching out of predictive mode
+                    const brandSelect = document.getElementById('dbf-brand');
+                    if (brandSelect) {
+                        brandSelect.disabled = false;
+                        brandSelect.title = 'Filter dashboard data by brand';
+                    }
+
                     // Update forecast to historical mode
                     updateForecastTitle();
                     const typeSelect = document.getElementById('odash-forecast-type');
@@ -1143,8 +1235,8 @@ document.addEventListener('DOMContentLoaded', function() {
             updateWindowText(r);
             updateNavigationButtons(r);
             
-            // Refresh KPIs when range changes
-            refreshDashboardKPIs();
+            // Refresh full dashboard data including insights when range changes
+            refreshDashboardData();
             
             document.dispatchEvent(new CustomEvent('odash:filter-range-changed',{ detail:{ range:r, anchorDate }}));
             // Note: Dashboard data refresh is handled by the odash:filter-range-changed event listener
@@ -1153,8 +1245,8 @@ document.addEventListener('DOMContentLoaded', function() {
         prevBtn.addEventListener('click', ()=> {
             if (!prevBtn.disabled) {
                 shiftAnchor(rangeSelect.value, -1);
-                // Update both KPIs and forecast, but preserve forecast mode
-                refreshDashboardKPIs(); // Update KPIs only
+                // Update full dashboard data including insights, but preserve forecast mode
+                refreshDashboardData(); // Update full dashboard data
                 
                 // Check if predictive mode is active
                 const predictiveToggle = document.getElementById('odash-predictive-mode');
@@ -1171,8 +1263,8 @@ document.addEventListener('DOMContentLoaded', function() {
         nextBtn.addEventListener('click', ()=> {
             if (!nextBtn.disabled) {
                 shiftAnchor(rangeSelect.value, 1);
-                // Update both KPIs and forecast, but preserve forecast mode
-                refreshDashboardKPIs(); // Update KPIs only
+                // Update full dashboard data including insights, but preserve forecast mode
+                refreshDashboardData(); // Update full dashboard data
                 
                 // Check if predictive mode is active
                 const predictiveToggle = document.getElementById('odash-predictive-mode');
@@ -1194,8 +1286,8 @@ document.addEventListener('DOMContentLoaded', function() {
             window.forecastAnchorDate = anchorDate; // Sync global state
             updateWindowText('day'); 
             document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:'day', anchorDate }}));
-            // Update KPIs (always needed for historical data)
-            refreshDashboardKPIs();
+            // Update full dashboard data including insights (always needed for historical data)
+            refreshDashboardData();
             
             // Only update forecast if not in predictive mode (predictive mode uses current date)
             const isPredictive = isPredictiveModeActive();
@@ -1227,8 +1319,8 @@ document.addEventListener('DOMContentLoaded', function() {
             window.forecastAnchorDate = anchorDate; // Sync global state
             updateWindowText('weekly'); 
             document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:'weekly', anchorDate }}));
-            // Update KPIs (always needed for historical data)
-            refreshDashboardKPIs();
+            // Update full dashboard data including insights (always needed for historical data)
+            refreshDashboardData();
             
             // Only update forecast if not in predictive mode (predictive mode uses current date)
             const isPredictive = isPredictiveModeActive();
@@ -1246,8 +1338,8 @@ document.addEventListener('DOMContentLoaded', function() {
             window.forecastAnchorDate = anchorDate; // Sync global state
             updateWindowText('monthly'); 
             document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:'monthly', anchorDate }}));
-            // Update KPIs (always needed for historical data)
-            refreshDashboardKPIs();
+            // Update full dashboard data including insights (always needed for historical data)
+            refreshDashboardData();
             
             // Only update forecast if not in predictive mode (predictive mode uses current date)
             const isPredictive = isPredictiveModeActive();
@@ -1268,8 +1360,8 @@ document.addEventListener('DOMContentLoaded', function() {
             window.forecastAnchorDate = anchorDate; // Sync global state
             updateWindowText('quarterly');
             document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:'quarterly', anchorDate }}));
-            // Update KPIs (always needed for historical data)
-            refreshDashboardKPIs();
+            // Update full dashboard data including insights (always needed for historical data)
+            refreshDashboardData();
             
             // Only update forecast if not in predictive mode (predictive mode uses current date)
             const predictiveToggle = document.getElementById('odash-predictive-mode');
@@ -1294,8 +1386,8 @@ document.addEventListener('DOMContentLoaded', function() {
             window.forecastAnchorDate = anchorDate; // Sync global state
             updateWindowText(r);
             document.dispatchEvent(new CustomEvent('odash:filter-window-updated',{ detail:{ range:r, anchorDate }}));
-            // Update KPIs (always needed for historical data)
-            refreshDashboardKPIs();
+            // Update full dashboard data including insights (always needed for historical data)
+            refreshDashboardData();
             
             // Only update forecast if not in predictive mode (predictive mode uses current date)
             const predictiveToggle = document.getElementById('odash-predictive-mode');
@@ -1354,7 +1446,6 @@ document.addEventListener('DOMContentLoaded', function() {
         updateWindowText(initialRange);
         updateNavigationButtons(initialRange);
         
-
 
         // Initialize predictive mode toggle visibility
         const predictiveToggle = document.getElementById('odash-predictive-mode');
@@ -1426,49 +1517,17 @@ function handleForecastError(errorMessage) {
     };
 }
 
-
 // Forecast-related functions (moved outside IIFE for global access)
 async function fetchForecast(range, mode, anchor, abortSignal = null) {
     try {
         const predictiveToggle = document.getElementById('odash-predictive-mode');
         const isPredictive = predictiveToggle && predictiveToggle.classList.contains('active');
         
-        if (isPredictive) {
-            // For predictive mode, use ML forecast API
+        if (isPredictive && mode !== 'demand') {
+            // For predictive mode, use ML forecast API (but not for demand mode)
             const mlApiBase = '/owner/api/ml-forecast';
             
-            if (mode === 'demand') {
-                // For demand mode, fetch single demand forecast
-                const url = new URL(`${mlApiBase}?type=demand&range=${range}`, window.location.origin);
-                const fetchOptions = { 
-                    headers: { 'Accept': 'application/json' }
-                };
-                
-                if (abortSignal) {
-                    fetchOptions.signal = abortSignal;
-                }
-                
-                const res = await fetch(url.toString(), fetchOptions);
-                const json = await res.json();
-                
-                if (!res.ok || json.success === false) {
-                    console.error('Demand forecast failed:', json.message || 'Unknown error');
-                    return { 
-                        labels: [], 
-                        datasets: {}, 
-                        error: json.message || 'Failed to load demand forecast data'
-                    };
-                }
-                
-                // Log demand forecast data source information
-                if (json.meta) {
-                    console.log('Demand forecast data:', json.meta.using_real_data ? 'Using real data' : 'Using fallback data');
-                } else {
-                    console.warn('⚠️  DEMAND FORECAST: No metadata available to determine data source');
-                }
-                
-                return json.data || {}; // { labels, datasets: { brands, quantities } }
-            } else {
+            if (mode === 'sales') {
                 // For sales mode, fetch both POS and Reservation data
                 const promises = [
                     fetch(new URL(`${mlApiBase}?type=${mode}&range=${range}&sale_type=pos`, window.location.origin), { 
@@ -1502,19 +1561,17 @@ async function fetchForecast(range, mode, anchor, abortSignal = null) {
                 
                 // Log POS data info
                 if (posData.meta) {
-                    console.log(`📊 POS Data - Using Real Data: ${posData.meta.using_real_data ? '✅ YES' : '❌ NO (Fallback)'}`);
-                    console.log(`🏪 POS Data - Historical Records: ${posData.meta.historical_records || 'N/A'}`);
-                    console.log(`📈 POS Data - Daily Average: $${posData.meta.base_daily_avg || 'N/A'}`);
+                    
+
                 } else {
                     console.warn('⚠️  POS FORECAST: No metadata available');
                 }
                 
                 // Log Reservation data info
                 if (reservationData.meta) {
-                    console.log('Reservation forecast:', reservationData.meta.using_real_data ? 'Real data' : 'Fallback data');
+
                 }
-                console.log('Combined forecast chart updated');
-                
+
                 // Combine the data for chart display
                 return {
                     labels: posData.data.labels, // Use labels from POS data (should be same for both)
@@ -1539,6 +1596,18 @@ async function fetchForecast(range, mode, anchor, abortSignal = null) {
             url.searchParams.set('anchor_date', `${y}-${m}-${d}`);
         }
         
+        // Add brand filter
+        const brandSelect = document.getElementById('dbf-brand');
+        const selectedBrand = brandSelect ? brandSelect.value : 'all';
+        if (selectedBrand && selectedBrand !== 'all') {
+            url.searchParams.set('brand', selectedBrand);
+        }
+        
+        // Add predictive mode parameter for statistical forecasting
+        if (isPredictive) {
+            url.searchParams.set('predictive', 'true');
+        }
+        
         const fetchOptions = { 
             headers: { 'Accept': 'application/json' }
         };
@@ -1553,7 +1622,7 @@ async function fetchForecast(range, mode, anchor, abortSignal = null) {
         
         // Log historical forecast data source information
         if (json.meta) {
-            console.log('Historical forecast data:', json.meta.using_real_data ? 'Using real data' : 'Using fallback data');
+
         } else {
             console.warn('⚠️  HISTORICAL FORECAST: No metadata available to determine data source');
         }
@@ -1591,7 +1660,7 @@ function updateForecastTitle(modeOverride) {
         if (mode === 'sales') {
             titleElement.textContent = 'Sales Revenue Across Timelines';
         } else {
-            titleElement.textContent = 'Total items sold per Brand Across Timelines';
+            titleElement.textContent = isPredictive ? 'Predicted Sales per Brand' : 'Items Sold per Brand';
         }
         return;
     } else {
@@ -1777,7 +1846,6 @@ async function performForecastUpdate(range, mode) {
     }
 
 
-
     if (mode === 'demand') {
         // Demand mode: horizontal bar chart showing quantities by brand
         const brands = (aggregatedPayload.datasets && Array.isArray(aggregatedPayload.datasets.brands)) ? aggregatedPayload.datasets.brands : [];
@@ -1785,6 +1853,10 @@ async function performForecastUpdate(range, mode) {
         
         // Find the brand with highest sales for highlighting (green for top performer)
         const maxIndex = findMaxIndex(quantities);
+        
+        // Check if predictive mode is active for dynamic labels
+        const predictiveToggle = document.getElementById('odash-predictive-mode');
+        const isPredictiveMode = predictiveToggle && predictiveToggle.classList.contains('active');
         
         // Create vibrant, dynamic gradient backgrounds for each bar
         const createGradient = (ctx, chartArea, isTop) => {
@@ -1827,7 +1899,7 @@ async function performForecastUpdate(range, mode) {
                 data: {
                     labels: brands,
                     datasets: [{
-                        label: 'Items Sold',
+                        label: isPredictiveMode ? 'Predicted Sales' : 'Items Sold',
                         data: quantities,
                         backgroundColor: function(context) {
                             const chart = context.chart;
@@ -1885,7 +1957,8 @@ async function performForecastUpdate(range, mode) {
                                 label: function(context) {
                                     const value = context.parsed.x;
                                     const isTop = context.dataIndex === maxIndex;
-                                    return `${isTop ? '🏆 ' : ''}${value.toLocaleString()} items sold`;
+                                    const labelText = isPredictiveMode ? 'predicted sales' : 'items sold';
+                                    return `${isTop ? '🏆 ' : ''}${value.toLocaleString()} ${labelText}`;
                                 },
                                 labelColor: function(context) {
                                     return {
@@ -1941,10 +2014,14 @@ async function performForecastUpdate(range, mode) {
                 }
             });
             window.forecastChart = forecastChart;
+            
+            // Update sales summary with new data
+            updateSalesSummary(aggregatedPayload);
         } else {
             // Update existing chart
             forecastChart.data.labels = brands;
             forecastChart.data.datasets[0].data = quantities;
+            forecastChart.data.datasets[0].label = isPredictiveMode ? 'Predicted Sales' : 'Items Sold';
             forecastChart.data.datasets[0].backgroundColor = function(context) {
                 const chart = context.chart;
                 const {ctx, chartArea} = chart;
@@ -1966,13 +2043,27 @@ async function performForecastUpdate(range, mode) {
                 }
             }
             
-            forecastChart.update();
-        }
-        currentMode = mode;
-        window.currentForecastMode = currentMode;
-        if (forecastShell) {
-            const scrim = forecastShell.querySelector('.loading-scrim');
-            if (scrim) scrim.remove();
+            // Coordinate chart update with insights for synchronized appearance
+            const updateChartNow = () => {
+                forecastChart.update();
+                currentMode = mode;
+                window.currentForecastMode = currentMode;
+                
+                // Update sales summary with new data
+                updateSalesSummary(aggregatedPayload);
+                
+                if (forecastShell) {
+                    const scrim = forecastShell.querySelector('.loading-scrim');
+                    if (scrim) scrim.remove();
+                }
+            };
+            
+            // If insights are being updated, wait for them to synchronize appearance
+            if (window.insightsReady === false) {
+                document.addEventListener('insights-updated', updateChartNow, { once: true });
+            } else {
+                updateChartNow();
+            }
         }
         
         // Clear the current forecast request reference
@@ -2002,8 +2093,7 @@ async function performForecastUpdate(range, mode) {
     
     const posPeaks = posPeakIndex >= 0 ? [posPeakIndex] : [];
     const resvPeaks = resvPeakIndex >= 0 ? [resvPeakIndex] : [];
-    
-    console.log('Chart peaks calculated');
+
     const posPointRadius = posValues.map((_, i) => posPeaks.includes(i) ? 6 : 3);
     const posPointBackground = posValues.map((_, i) => posPeaks.includes(i) ? '#ef4444' : '#3b82f6');
     const resvPointRadius = resvValues.map((_, i) => resvPeaks.includes(i) ? 6 : 3);
@@ -2086,12 +2176,29 @@ async function performForecastUpdate(range, mode) {
                         backgroundColor: '#1e3a8a',
                         titleColor: '#fff',
                         bodyColor: '#bfdbfe',
+                        footerColor: '#fbbf24',
                         borderColor: '#3b82f6',
                         borderWidth: 1,
                         callbacks: {
                             label: function(context) {
                                 const value = context.parsed.y;
                                 return `${context.dataset.label}: ₱${value.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                            },
+                            footer: function(tooltipItems) {
+                                // Calculate total sales (POS + Reservation) for this data point
+                                let posValue = 0;
+                                let resvValue = 0;
+                                
+                                tooltipItems.forEach(function(tooltipItem) {
+                                    if (tooltipItem.dataset.label === 'POS') {
+                                        posValue = tooltipItem.parsed.y;
+                                    } else if (tooltipItem.dataset.label === 'Reservation') {
+                                        resvValue = tooltipItem.parsed.y;
+                                    }
+                                });
+                                
+                                const total = posValue + resvValue;
+                                return `Total Sales: ₱${total.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                             }
                         }
                     }
@@ -2111,7 +2218,25 @@ async function performForecastUpdate(range, mode) {
             }
         });
         window.forecastChart = forecastChart;
+        
+        // Update sales summary with new data
+        updateSalesSummary(aggregatedPayload);
     } else {
+        // Check if we need to recreate chart due to different dataset structure
+        const expectedDatasets = 4; // Sales mode needs 4 datasets
+        const currentDatasets = forecastChart.data.datasets ? forecastChart.data.datasets.length : 0;
+        
+        if (currentDatasets !== expectedDatasets) {
+            // Destroy and recreate chart if dataset structure doesn't match
+            forecastChart.destroy();
+            forecastChart = null;
+            window.forecastChart = null;
+            
+            // Recursively call this function to create a new chart
+            performForecastUpdate(range, mode);
+            return;
+        }
+        
         // update existing chart
         forecastChart.data.labels = labels;
         forecastChart.data.datasets[0].data = posValues;
@@ -2122,13 +2247,28 @@ async function performForecastUpdate(range, mode) {
         forecastChart.data.datasets[1].pointBackgroundColor = resvPointBackground;
         forecastChart.data.datasets[2].data = posTrend;
         forecastChart.data.datasets[3].data = resvTrend;
-        forecastChart.update();
-    }
-    currentMode = mode;
-    window.currentForecastMode = currentMode;
-    if (forecastShell) {
-        const scrim = forecastShell.querySelector('.loading-scrim');
-        if (scrim) scrim.remove();
+        
+        // Coordinate chart update with insights for synchronized appearance
+        const updateChartNow = () => {
+            forecastChart.update();
+            currentMode = mode;
+            window.currentForecastMode = currentMode;
+            
+            // Update sales summary with new data
+            updateSalesSummary(aggregatedPayload);
+            
+            if (forecastShell) {
+                const scrim = forecastShell.querySelector('.loading-scrim');
+                if (scrim) scrim.remove();
+            }
+        };
+        
+        // If insights are being updated, wait for them to synchronize appearance
+        if (window.insightsReady === false) {
+            document.addEventListener('insights-updated', updateChartNow, { once: true });
+        } else {
+            updateChartNow();
+        }
     }
     
     // Clear the current forecast request reference
@@ -2166,10 +2306,58 @@ function cancelAllRequests() {
 // Cancel all requests when page is unloaded
 window.addEventListener('beforeunload', cancelAllRequests);
 
+// Initialize brand dropdown
+async function initializeBrandDropdown() {
+    try {
+        const response = await fetch(window.laravelData?.routes?.brands || '/owner/api/brands', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            const brandSelect = document.getElementById('dbf-brand');
+            
+            if (brandSelect && data.brands) {
+                // Clear existing options except 'All Brands'
+                brandSelect.innerHTML = '<option value="all">All Brands</option>';
+                
+                // Add brand options
+                data.brands.forEach(brand => {
+                    const option = document.createElement('option');
+                    option.value = brand;
+                    option.textContent = brand;
+                    brandSelect.appendChild(option);
+                });
+                
+                // Add change event listener
+                brandSelect.addEventListener('change', function() {
+                    // Refresh dashboard data when brand changes
+                    refreshDashboardData();
+                    // Refresh forecast when brand changes
+                    const rangeSelect = document.getElementById('dbf-range');
+                    const typeSelect = document.getElementById('odash-forecast-type');
+                    if (rangeSelect && typeSelect) {
+                        updateForecast(rangeSelect.value, typeSelect.value);
+                    }
+                });
+                
+                return Promise.resolve();
+            }
+        }
+        throw new Error('Failed to load brand data');
+    } catch (error) {
+        console.error('Failed to load brands:', error);
+        return Promise.reject(error);
+    }
+}
+
 // Initialize dashboard KPIs with Laravel data
 function initializeDashboardKPIs() {
-    console.log('Initializing KPIs - will fetch fresh data for today');
-    
+
     // Set loading state for KPIs
     const kpiRevenue = document.getElementById('odash-kpi-revenue');
     const kpiSold = document.getElementById('odash-kpi-sold');
@@ -2181,11 +2369,14 @@ function initializeDashboardKPIs() {
     if (kpiCompleted) kpiCompleted.textContent = 'Loading...';
     if (kpiCancelled) kpiCancelled.textContent = 'Loading...';
     
+    // Initialize insights from Laravel data if available
+    if (window.laravelData && window.laravelData.dashboardData && window.laravelData.dashboardData.insights) {
+        updateBusinessInsights(window.laravelData.dashboardData.insights);
+    }
+    
     // Use the existing dashboard refresh function to fetch today's data
     performDashboardRefresh();
 }
-
-
 
 
 
@@ -2225,6 +2416,8 @@ function refreshDashboardData() {
 
 // Actual function that performs the dashboard data refresh
 function performDashboardRefresh() {
+    // Reset insights synchronization flag
+    window.insightsReady = false;
     const rangeSelect = document.getElementById('dbf-range');
     const dateInput = document.getElementById('dbf-date');
     const weekInput = document.getElementById('dbf-week');
@@ -2304,12 +2497,19 @@ function performDashboardRefresh() {
     showDashboardLoading();
     
     // Log that dashboard data is being requested
-    console.log('Requesting dashboard data for date range...');
 
     // Create AbortController for request cancellation
     const abortController = new AbortController();
     window.currentDashboardRequest = abortController;
 
+    // Get brand filter
+    const brandSelect = document.getElementById('dbf-brand');
+    const selectedBrand = brandSelect ? brandSelect.value : 'all';
+    
+    // Get predictive mode status
+    const predictiveToggle = document.getElementById('odash-predictive-mode');
+    const isPredictive = predictiveToggle && predictiveToggle.classList.contains('active');
+    
     // Make API call to fetch filtered data
     fetch(window.laravelData?.routes?.apiDashboardData || '/api/dashboard-data', {
         method: 'POST',
@@ -2320,7 +2520,9 @@ function performDashboardRefresh() {
         body: JSON.stringify({
             start_date: formatDate(startDate),
             end_date: formatDate(endDate),
-            range: range
+            range: range,
+            brand: selectedBrand,
+            predictive: isPredictive
         }),
         signal: abortController.signal
     })
@@ -2333,8 +2535,9 @@ function performDashboardRefresh() {
     .then(data => {
         // Only process the response if this request wasn't cancelled
         if (!abortController.signal.aborted) {
-            console.log('Dashboard API response:', data.success ? 'Success' : 'Failed');
+
             if (data.success) {
+                console.log('Dashboard API response:', data);
                 updateDashboardWithData(data.data);
             } else {
                 console.error('Failed to fetch dashboard data:', data.message);
@@ -2467,6 +2670,13 @@ function performKPIRefresh() {
         showDashboardLoading(); // Show full dashboard loading including chart
     }
     
+    // Get brand filter
+    const brandSelect = document.getElementById('dbf-brand');
+    const selectedBrand = brandSelect ? brandSelect.value : 'all';
+    
+    // Get predictive mode status
+    const isPredictiveKPI = isPredictiveModeActive();
+    
     // Create AbortController for request cancellation
     const abortController = new AbortController();
     window.currentKPIRequest = abortController;
@@ -2481,7 +2691,9 @@ function performKPIRefresh() {
         body: JSON.stringify({
             start_date: formatDate(startDate),
             end_date: formatDate(endDate),
-            range: range
+            range: range,
+            brand: selectedBrand,
+            predictive: isPredictiveKPI
         }),
         signal: abortController.signal
     })
@@ -2494,7 +2706,7 @@ function performKPIRefresh() {
     .then(data => {
         // Only process the response if this request wasn't cancelled
         if (!abortController.signal.aborted) {
-            console.log('KPI-only API response:', data.success ? 'Success' : 'Failed');
+
             if (data.success) {
                 // Update only KPIs and reservation gauge, skip forecast chart
                 updateKPIsOnly(data.data);
@@ -2531,11 +2743,10 @@ function performKPIRefresh() {
 
 // Update only KPIs and reservation gauge (not forecast chart)
 function updateKPIsOnly(data) {
-    console.log('Updating KPIs only...');
-    
+
     // Update KPI values
     if (data.kpis) {
-        console.log('KPI data found and processing');
+
         const kpiRevenue = document.getElementById('odash-kpi-revenue');
         const kpiSold = document.getElementById('odash-kpi-sold');
         const kpiCompleted = document.getElementById('odash-kpi-resv-completed');
@@ -2545,10 +2756,9 @@ function updateKPIsOnly(data) {
         if (kpiSold) kpiSold.textContent = data.kpis.products_sold || 0;
         if (kpiCompleted) kpiCompleted.textContent = data.kpis.completed_reservations || 0;
         if (kpiCancelled) kpiCancelled.textContent = data.kpis.cancelled_reservations || 0;
-        
-        console.log('KPIs updated successfully');
+
     } else {
-        console.log('No KPI data found in response');
+
     }
     
     // Update reservation gauge if data is available
@@ -2562,8 +2772,7 @@ function updateKPIsOnly(data) {
             const pct = (n, d) => (d > 0 ? Math.round((n / d) * 100) : 0);
             
             // Update reservation gauge
-            console.log('Updating reservation gauge...');
-            
+
             // Update the percentage text elements
             document.getElementById('odash-resv-total').textContent = total;
             document.getElementById('odash-resv-completed-pct').textContent = pct(completed, total) + '%';
@@ -2686,11 +2895,10 @@ function hideForecastDebounceIndicator() {
 
 // Update dashboard with new data
 function updateDashboardWithData(data) {
-    console.log('Updating dashboard with data...');
-    
+
     // Update KPI values
     if (data.kpis) {
-        console.log('KPI data found and processing');
+
         const kpiRevenue = document.getElementById('odash-kpi-revenue');
         const kpiSold = document.getElementById('odash-kpi-sold');
         const kpiCompleted = document.getElementById('odash-kpi-resv-completed');
@@ -2700,10 +2908,9 @@ function updateDashboardWithData(data) {
         if (kpiSold) kpiSold.textContent = data.kpis.products_sold || 0;
         if (kpiCompleted) kpiCompleted.textContent = data.kpis.completed_reservations || 0;
         if (kpiCancelled) kpiCancelled.textContent = data.kpis.cancelled_reservations || 0;
-        
-        console.log('KPIs updated successfully');
+
     } else {
-        console.log('No KPI data found in response');
+
     }
     
     // Don't update forecast chart here - it should be handled by the forecast API
@@ -2722,8 +2929,7 @@ function updateDashboardWithData(data) {
             const pct = (n, d) => (d > 0 ? Math.round((n / d) * 100) : 0);
             
             // Update reservation gauge
-            console.log('Updating reservation gauge...');
-            
+
             // Update the text elements
             const totalElement = document.getElementById('odash-resv-total');
             const completedPctElement = document.getElementById('odash-resv-completed-pct');
@@ -2745,24 +2951,50 @@ function updateDashboardWithData(data) {
         updatePopularProducts(data.popular_products);
     }
     
-    console.log('Dashboard data updated for date range');
+    // Update business insights and coordinate with forecast chart timing
+    if (data.insights) {
+        updateBusinessInsights(data.insights);
+        
+        // Signal that insights are ready so forecast chart can sync its appearance
+        window.insightsReady = true;
+        document.dispatchEvent(new CustomEvent('insights-updated'));
+    }
+    
+    // Note: Forecast chart updates are handled by separate forecast API calls
+    // to preserve the current mode (sales vs demand). Timing coordination
+    // is handled through the insights-updated event.
+
 }
 
 // Function to update popular products list
 function updatePopularProducts(productsData) {
     const container = document.getElementById('odash-popular-products');
     if (!container || !Array.isArray(productsData)) return;
-    
-    console.log('Updating popular products...');
-    
+
     let html = '';
-    productsData.slice(0, 12).forEach((product, index) => {
+    productsData.forEach((product, index) => {
         const isTop3 = index < 3;
         const rankBadge = isTop3 ? `<span class="odash-product-rank">${index + 1}</span>` : '';
         const itemClass = isTop3 ? 'odash-product-item top-product' : 'odash-product-item';
+        
+        // Format category display
+        const categoryDisplay = product.category ? product.category.charAt(0).toUpperCase() + product.category.slice(1) : '';
+        let categoryBadge = '';
+        if (categoryDisplay) {
+            const categoryClass = product.category.toLowerCase();
+            categoryBadge = `<span class="odash-category-badge ${categoryClass}">${categoryDisplay}</span>`;
+        }
+        
         html += `
             <div class="${itemClass}">
-                <span class="odash-product-name">${rankBadge}${product.name}</span>
+                <div class="odash-product-main">
+                    <span class="odash-product-name">${rankBadge}${product.name}</span>
+                    <div class="odash-product-details">
+                        <span class="odash-product-brand">${product.brand}</span>
+                        <span class="odash-product-color">${product.color}</span>
+                        ${categoryBadge}
+                    </div>
+                </div>
                 <span class="odash-product-sales">${product.sales} sold</span>
             </div>
         `;
@@ -2775,6 +3007,174 @@ function updatePopularProducts(productsData) {
         el.classList.add('reveal', 'in');
         el.style.transitionDelay = `${i * 30}ms`;
     });
+}
+
+// Function to update sales summary
+function updateSalesSummary(forecastData) {
+    try {
+        const salesSummary = document.getElementById('sales-summary');
+        const periodSpan = document.getElementById('sales-period');
+        const posValue = document.getElementById('pos-sales-value');
+        const reservationValue = document.getElementById('reservation-sales-value');
+        const totalValue = document.getElementById('total-sales-value');
+        
+        if (!salesSummary || !forecastData || !forecastData.datasets) return;
+
+        // Get current date range for display
+        const rangeSelect = document.getElementById('dbf-range');
+        const range = rangeSelect ? rangeSelect.value : 'day';
+        
+        // Check if predictive mode is active
+        const predictiveToggle = document.getElementById('odash-predictive-mode');
+        const isPredictive = predictiveToggle && predictiveToggle.classList.contains('active');
+        
+        let periodText = '';
+        
+        if (isPredictive) {
+            // Predictive mode period text
+            switch(range) {
+                case 'day': periodText = 'Tomorrow'; break;
+                case 'weekly': periodText = 'Next 7 Days'; break;
+                case 'monthly': periodText = 'Next 30 Days'; break;
+                case 'quarterly': periodText = 'Next 3 Months'; break;
+                case 'yearly': periodText = 'Next 12 Months'; break;
+                default: periodText = 'Future Period';
+            }
+        } else {
+            // Historical mode - get period text from window pill (which already has the correct text)
+            const windowPill = document.getElementById('dbf-window-text');
+            
+            if (windowPill && windowPill.textContent) {
+                periodText = windowPill.textContent.trim();
+            } else {
+                // Fallback to simple range-based text
+                switch(range) {
+                    case 'day': periodText = 'Today'; break;
+                    case 'weekly': periodText = 'This Week'; break;
+                    case 'monthly': periodText = 'This Month'; break;
+                    case 'quarterly': periodText = 'This Quarter'; break;
+                    case 'yearly': periodText = 'This Year'; break;
+                    default: periodText = 'Current Period';
+                }
+            }
+        }
+    
+    // Calculate totals from forecast data
+    const posData = forecastData.datasets.pos || [];
+    const reservationData = forecastData.datasets.reservation || [];
+    
+    const posTotal = posData.reduce((sum, value) => sum + (parseFloat(value) || 0), 0);
+    const reservationTotal = reservationData.reduce((sum, value) => sum + (parseFloat(value) || 0), 0);
+    const grandTotal = posTotal + reservationTotal;
+    
+    // Update the display
+    if (periodSpan) periodSpan.textContent = periodText;
+    if (posValue) posValue.textContent = '₱' + posTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (reservationValue) reservationValue.textContent = '₱' + reservationTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (totalValue) totalValue.textContent = '₱' + grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    
+        // Show the summary box
+        salesSummary.style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error in updateSalesSummary:', error);
+        // Hide sales summary on error
+        const salesSummary = document.getElementById('sales-summary');
+        if (salesSummary) salesSummary.style.display = 'none';
+    }
+}
+
+// Function to update business insights
+function updateBusinessInsights(insightsData) {
+    console.log('updateBusinessInsights called with:', insightsData);
+    const container = document.getElementById('insights-container');
+    if (!container) {
+        console.error('insights-container not found');
+        return;
+    }
+    if (!Array.isArray(insightsData)) {
+        console.error('insightsData is not an array:', insightsData);
+        return;
+    }
+
+    // Find and preserve the sales summary
+    const salesSummary = document.getElementById('sales-summary');
+    const salesSummaryHtml = salesSummary ? salesSummary.outerHTML : '';
+    
+    // Clear loading state
+    container.innerHTML = salesSummaryHtml;
+    
+    // Check if predictive mode is active
+    const isPredictiveMode = isPredictiveModeActive();
+
+    if (insightsData.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #6b7280;">
+                <div style="font-size: 24px; margin-bottom: 12px;">📊</div>
+                <p>No insights available for this period.</p>
+                <small>Try selecting a different date range or brand.</small>
+            </div>
+        `;
+        return;
+    }
+
+    // Create insights grid container
+    const insightsGrid = document.createElement('div');
+    insightsGrid.className = 'insights-container';
+
+    insightsData.forEach((insight, index) => {
+        const priorityClass = insight.priority === 'high' ? 'insight-priority-high' : '';
+        const insightCard = document.createElement('div');
+        insightCard.className = `insight-card ${insight.type} ${priorityClass}`;
+        
+        insightCard.innerHTML = `
+            <div class="insight-header">
+                <div style="display: flex; align-items: center;">
+                    <span class="insight-icon">${insight.icon}</span>
+                    <h4 class="insight-title">${insight.title}</h4>
+                </div>
+                ${insight.value ? `<span class="insight-value">${insight.value}</span>` : ''}
+            </div>
+            <p class="insight-message">${insight.message}</p>
+            ${insight.action ? `<small class="insight-action">💡 ${insight.action}</small>` : ''}
+        `;
+        
+        // Add entrance animation
+        insightCard.style.opacity = '0';
+        insightCard.style.transform = 'translateY(20px)';
+        insightsGrid.appendChild(insightCard);
+        
+        // Animate in with staggered delay
+        setTimeout(() => {
+            insightCard.style.transition = 'all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1)';
+            insightCard.style.opacity = '1';
+            insightCard.style.transform = 'translateY(0)';
+        }, index * 100);
+    });
+
+    container.appendChild(insightsGrid);
+    
+    // Add section header if insights exist
+    if (insightsData.length > 0) {
+        const header = document.createElement('div');
+        header.style.cssText = 'margin-bottom: 16px; text-align: center;';
+        
+        // Different header based on predictive mode
+        const headerText = isPredictiveMode 
+            ? `📊 Predictive insights based on statistical forecasting models` 
+            : `🔍 Analyzing ${insightsData.length} key insights from your data`;
+        const headerStyle = isPredictiveMode 
+            ? 'background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border: 1px solid #f59e0b;'
+            : 'background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 1px solid #bae6fd;';
+        const textColor = isPredictiveMode ? '#92400e' : '#0369a1';
+        
+        header.innerHTML = `
+            <div style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; ${headerStyle} border-radius: 20px;">
+                <span style="color: ${textColor}; font-weight: 600; font-size: 12px;">${headerText}</span>
+            </div>
+        `;
+        container.insertBefore(header, insightsGrid);
+    }
 }
 </script>
 
@@ -2802,7 +3202,6 @@ function initOwnerForecastCharts() {
     let currentMode = (typeSelect && typeSelect.value) ? typeSelect.value : 'sales';
     let offset = 0; // relative adjustment from anchor
     let anchorDate = new Date(); // set by filter pickers
-
 
 
     function buildGradient(ctx, canvas) {
@@ -2967,7 +3366,6 @@ function initOwnerForecastCharts() {
     }
 
 
-
     // Initialize with current select value or 'day'; also derive anchor from pickers if set
     const initialRange = rangeSelect && rangeSelect.value ? rangeSelect.value : 'day';
     // Read anchor from pickers
@@ -3018,21 +3416,41 @@ function initOwnerForecastCharts() {
             
             // Prevent predictive mode on day view
             if (range === 'day' && enabled) {
-                console.log('Predictive mode not available in day view');
+
                 return;
             }
             
             predictiveToggle.classList.toggle('active', enabled);
             predictiveToggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
-            
-            console.log('Predictive mode:', enabled ? 'enabled' : 'disabled');
-            // Update the forecast title and chart data
+
+            // Handle brand controller when predictive mode changes
+            const brandSelect = document.getElementById('dbf-brand');
+            if (brandSelect) {
+                if (enabled) {
+                    // When turning on predictive mode:
+                    // 1. Reset to "All Brands"
+                    brandSelect.value = 'all';
+                    // 2. Disable the brand dropdown
+                    brandSelect.disabled = true;
+                    brandSelect.title = 'Brand filtering is disabled during predictive mode';
+                    // 3. Refresh dashboard data with "all brands"
+                    refreshDashboardData();
+                } else {
+                    // When turning off predictive mode:
+                    // 1. Re-enable the brand dropdown
+                    brandSelect.disabled = false;
+                    brandSelect.title = 'Filter dashboard data by brand';
+                    // 2. Refresh dashboard data to switch back to historical insights
+                    refreshDashboardData();
+                }
+            }
+
+            // Update the forecast title (immediate visual feedback)
             updateForecastTitle();
             
-            // Update the forecast chart data
+            // Update forecast chart data with predictive/historical mode
             const typeSelect = document.getElementById('odash-forecast-type');
             const activeMode = (typeSelect && typeSelect.value) ? typeSelect.value : (window.currentForecastMode || 'sales');
-            
             updateForecast(range, activeMode);
         };
         predictiveToggle.addEventListener('click', () => {
@@ -3429,9 +3847,8 @@ function initPopularProducts() {
 
     async function fetchPopularFromApi(params) {
         try {
-            const { range, month, year, category, start, end } = params || {};
-            console.log('Fetching popular products from API...');
-            
+            const { range, month, year, category, start, end, brand } = params || {};
+
             const base = window.laravelData?.routes?.popularProducts;
             if (!base) {
                 console.error('❌ Popular Products API base URL not found');
@@ -3446,18 +3863,11 @@ function initPopularProducts() {
             if (category && category !== 'all') url.searchParams.set('category', category);
             if (start) url.searchParams.set('start', start);
             if (end) url.searchParams.set('end', end);
-            
-            console.log('📡 Popular Products API URL:', url.toString());
+            if (brand && brand !== 'all') url.searchParams.set('brand', brand);
             
             const res = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
             const data = await res.json();
-            
-            console.log('📨 Popular Products API Response:', {
-                status: res.status,
-                ok: res.ok,
-                data: data
-            });
-            
+
             if (!res.ok || data.success === false) throw new Error(data.message || 'Failed');
             const items = Array.isArray(data.items) ? data.items : [];
             
@@ -3469,7 +3879,7 @@ function initPopularProducts() {
                 sales: Number(i.sold ?? i.sales ?? 0) 
             })).sort((a,b)=> b.sales - a.sales);
             
-            console.log('Popular products processed:', processedItems.length, 'item(s)');
+            
             
             return processedItems;
         } catch (e) {
@@ -3478,23 +3888,16 @@ function initPopularProducts() {
         }
     }
 
-    async function getPopularList(range, month, year, category, start, end) {
-        console.log('Getting popular products list...');
-        
+    async function getPopularList(range, month, year, category, start, end, brand) {
+
         // Only use API data for the specific filtered date range - no fallback to all-time data
-        const apiList = await fetchPopularFromApi({ range, month, year, category, start, end });
+        const apiList = await fetchPopularFromApi({ range, month, year, category, start, end, brand });
         
         if (Array.isArray(apiList)) {
-            console.log('✅ API returned data:', apiList.length, 'items');
-            
+
             // Transform the API data to include brand and color information
             const transformedList = apiList.map(item => {
-                console.log('🔍 Processing item:', {
-                    raw: item,
-                    extractedName: item.name || item.product_name,
-                    extractedBrand: item.brand || item.product_brand,
-                    extractedColor: item.color || item.product_color
-                });
+
                 return {
                     name: item.name || item.product_name || 'Unknown',
                     category: item.category || '',
@@ -3504,24 +3907,35 @@ function initPopularProducts() {
                 };
             });
             
-            // If backend didn't filter category, apply client-side filter when requested
+            // Apply client-side filters when backend didn't filter
+            let filteredList = transformedList;
+            
             if (category && category !== 'all') {
-                const filtered = transformedList.filter(i => (i.category||'').toLowerCase() === category);
-                console.log('Category filter applied:', filtered.length, 'item(s) match');
-                return filtered;
+                filteredList = filteredList.filter(i => (i.category||'').toLowerCase() === category);
             }
-            return transformedList;
+            
+            // Apply brand filter client-side as well (in case backend doesn't support brand filtering yet)
+            const brandSelect = document.getElementById('dbf-brand');
+            const currentBrand = brandSelect ? brandSelect.value : 'all';
+            
+            if (currentBrand && currentBrand !== 'all') {
+                filteredList = filteredList.filter(i => {
+                    const itemBrand = (i.brand || '').toLowerCase();
+                    const targetBrand = currentBrand.toLowerCase();
+                    return itemBrand === targetBrand;
+                });
+            }
+            
+            return filteredList;
         }
 
-        console.log('⚠️ No data returned from API, showing empty state');
         // No fallback to avoid showing misleading all-time data when filtering by specific dates
         // If there's no data for the filtered period, show empty state instead
         return [];
     }
 
     async function render(range, category) {
-        console.log('Rendering popular products...');
-        
+
         // We'll extract month/year from the anchor date after we determine it
         let month, year;
         // For Popular Products, always use only the anchor date (not the full range)
@@ -3626,21 +4040,16 @@ function initPopularProducts() {
         const rangeStartStr = formatLocalDate(rangeStart);
         const rangeEndStr = formatLocalDate(rangeEnd);
         
-        console.log('📅 Popular Products Date Range Calculated:', {
-            anchorDate: anchorDate.toISOString(),
-            currentRange,
-            rangeStart: rangeStartStr,
-            rangeEnd: rangeEndStr,
-            month,
-            year,
-            category: category,
-            isQ3_2025: rangeStartStr.includes('2025-07') && rangeEndStr.includes('2025-09')
-        });
+        
 
-        const list = await getPopularList(range, month, year, category, rangeStartStr, rangeEndStr);
+        // Get current brand selection
+        const brandSelect = document.getElementById('dbf-brand');
+        const currentBrand = brandSelect ? brandSelect.value : 'all';
+        
+        const list = await getPopularList(range, month, year, category, rangeStartStr, rangeEndStr, currentBrand);
 
         if (!list || list.length === 0) {
-            console.log('📭 No Popular Products data to display');
+
             container.innerHTML = '<div class="odash-empty" style="padding:12px; color:#6b7280; text-align:center;">No value for this timeline.</div>';
             return;
         }
@@ -3648,18 +4057,7 @@ function initPopularProducts() {
         // Calculate total sales from the list
         const totalSalesFromList = list.reduce((sum, product) => sum + (product.sales || 0), 0);
         
-        console.log('🎯 Rendering Popular Products UI:', {
-            totalItems: list.length,
-            displayedItems: list.length, // Show all items instead of limiting to 12
-            totalSalesFromAllItems: totalSalesFromList,
-            topProducts: list.slice(0, 3).map(p => ({ 
-                name: p.name, 
-                brand: p.brand, 
-                color: p.color, 
-                category: p.category,
-                sales: p.sales 
-            }))
-        });
+        
         
         let html = '';
         list.forEach((product, index) => { // Remove slice(0, 12) to show all products
@@ -3690,9 +4088,7 @@ function initPopularProducts() {
             `;
         });
         container.innerHTML = html;
-        
-        console.log('✨ Popular Products rendered successfully');
-        
+
         // animate items
         Array.from(container.children||[]).forEach((el,i)=> { el.classList.add('reveal','in'); el.style.transitionDelay = `${i*30}ms`; });
     }
@@ -3728,6 +4124,9 @@ function initPopularProducts() {
         const win = windowFromAnchor(anchor, currentRange);
         currentStart = win.start; currentEnd = win.end;
     } catch (e) { /* noop */ }
+    // Make render function globally accessible for brand filtering
+    window.renderPopularProducts = () => render(currentRange, currentCategory);
+    
     render(currentRange, currentCategory);
     if (catSelect) {
         catSelect.addEventListener('change', () => {
@@ -3739,13 +4138,7 @@ function initPopularProducts() {
             
             // Update our local state to match global state
             currentRange = currentGlobalRange;
-            
-            console.log('🔄 Category changed, using current filter state:', {
-                category: currentCategory,
-                range: currentRange,
-                globalRange: currentGlobalRange
-            });
-            
+
             // show skeleton while loading
             container.innerHTML = Array.from({length:8}).map(()=> '<div class="skeleton" style="height:36px; border-radius:8px; margin:8px 0;"></div>').join('');
             render(currentRange, currentCategory);
@@ -3997,7 +4390,6 @@ function initStockLevels() {
     // Initial load
     updateStockList();
 }
-
 
 </script>
 @include('partials.mobile-blocker')

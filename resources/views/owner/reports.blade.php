@@ -1062,7 +1062,6 @@
         }
 
 
-
         function tableToArrays(table){
             const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
             const rows = Array.from(table.querySelectorAll('tbody tr')).map(tr => Array.from(tr.children).map(td => td.textContent.trim()));
@@ -1161,15 +1160,12 @@
 
         // Export functionality with filters (CSV only)
         async function exportWithFilters() {
-            console.log('Exporting filtered data to CSV');
-            
+
             const exportAll = document.getElementById('export-all').checked;
             const startDate = document.getElementById('export-start-date').value;
             const endDate = document.getElementById('export-end-date').value;
             const saleType = document.querySelector('input[name="sale-type"]:checked').value;
             const selectedUsers = Array.from(document.querySelectorAll('.user-checkbox:checked')).map(cb => cb.value);
-            
-            console.log('Export parameters set, processing request...');
 
             // Validate date range if not exporting all
             if (!exportAll && (!startDate || !endDate)) {
@@ -1218,9 +1214,7 @@
                     }
 
                     const data = await response.json();
-                    
-                    console.log('Export API response received');
-                    
+
                     if (!data.success) {
                         throw new Error(data.message || 'Export failed');
                     }
@@ -1229,8 +1223,6 @@
                         alert('No transactions found for the selected criteria.');
                         return;
                     }
-
-                    console.log('Processing transactions for export...');
 
                     // Generate the file content matching the exact table structure
                     const headers = ['Transaction ID', 'Sale Type', 'Processed By', 'Products', 'Subtotal', 'Discount', 'Total', 'Amount Paid', 'Change', 'Date & Time'];
@@ -1300,7 +1292,7 @@
 
         // Open modal
         openModalBtn?.addEventListener('click', () => {
-            console.log('Opening export modal');
+
             exportModal.style.display = 'flex';
             loadUsersForExport();
             
@@ -1330,8 +1322,7 @@
         // Handle export all checkbox
         exportAllCheckbox?.addEventListener('change', (e) => {
             const isChecked = e.target.checked;
-            console.log('Export all checkbox changed:', isChecked);
-            
+
             dateRangeFilter.style.opacity = isChecked ? '0.5' : '1';
             saleTypeFilter.style.opacity = isChecked ? '0.5' : '1';
             processedByFilter.style.opacity = isChecked ? '0.5' : '1';
@@ -1362,7 +1353,6 @@
             const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
             return `ShoeVault_reservation_record_${dateStr}.${ext}`;
         }
-
 
 
         // Export reservations with filters
@@ -1431,8 +1421,6 @@
                     return;
                 }
 
-                console.log('Processing reservations for export...');
-
                 // Generate the file content matching the table structure
                 const headers = ['Reservation ID', 'Reservation Date', 'Customer Name', 'Pickup Date', 'Email', 'Phone', 'Status'];
                 
@@ -1468,8 +1456,6 @@
                 
                 // Close modal
                 reservationExportModal.style.display = 'none';
-                
-                console.log('Reservation export completed successfully');
 
             } catch (error) {
                 console.error('Export error:', error);
@@ -1483,7 +1469,7 @@
 
         // Open reservation export modal
         openReservationModalBtn?.addEventListener('click', () => {
-            console.log('Opening reservation export modal');
+
             reservationExportModal.style.display = 'flex';
             
             // Set default dates (last 30 days)
@@ -1512,8 +1498,7 @@
         // Handle reservation export all checkbox
         reservationExportAllCheckbox?.addEventListener('change', (e) => {
             const isChecked = e.target.checked;
-            console.log('Reservation export all checkbox changed:', isChecked);
-            
+
             reservationDateRangeFilter.style.opacity = isChecked ? '0.5' : '1';
             reservationStatusFilter.style.opacity = isChecked ? '0.5' : '1';
             
@@ -1715,8 +1700,6 @@
                     return;
                 }
 
-                console.log('Processing supply logs for export...');
-
                 // Generate the file content matching the table structure
                 const headers = ['Log ID', 'Supplier', 'Country', 'Brand', 'Size', 'Quantity', 'Received At'];
                 
@@ -1746,8 +1729,6 @@
                 
                 // Close modal
                 supplyExportModal.style.display = 'none';
-                
-                console.log('Supply export completed successfully');
 
             } catch (error) {
                 console.error('Export error:', error);
@@ -1761,7 +1742,7 @@
 
         // Open supply export modal
         openSupplyModalBtn?.addEventListener('click', () => {
-            console.log('Opening supply export modal');
+
             supplyExportModal.style.display = 'flex';
             loadSupplyFiltersData();
             
@@ -1791,8 +1772,7 @@
         // Handle supply export all checkbox
         supplyExportAllCheckbox?.addEventListener('change', (e) => {
             const isChecked = e.target.checked;
-            console.log('Supply export all checkbox changed:', isChecked);
-            
+
             supplyDateRangeFilter.style.opacity = isChecked ? '0.5' : '1';
             supplySupplierFilter.style.opacity = isChecked ? '0.5' : '1';
             supplyBrandFilter.style.opacity = isChecked ? '0.5' : '1';
@@ -1823,7 +1803,7 @@
 // Initialize notifications for reports page
 function initNotifications() {
     if (window.notificationManager) {
-        console.log('notificationManager found, initializing...');
+
         try {
             window.notificationManager.init('{{ auth()->user()->role ?? "owner" }}');
             return true;
@@ -1833,7 +1813,7 @@ function initNotifications() {
     }
     
     // Fallback notification toggle
-    console.log('Using fallback notification system');
+
     document.querySelectorAll('.notification-wrapper').forEach(wrapper => {
         const bell = wrapper.querySelector('.notification-bell');
         if (bell) {
@@ -1858,14 +1838,14 @@ document.addEventListener('DOMContentLoaded', function() {
     function tryInit() {
         attempts++;
         if (initNotifications()) {
-            console.log('Notifications initialized successfully');
+
             return;
         }
         
         if (attempts < maxAttempts) {
             setTimeout(tryInit, retryDelay);
         } else {
-            console.log('Max attempts reached, using fallback');
+
         }
     }
     

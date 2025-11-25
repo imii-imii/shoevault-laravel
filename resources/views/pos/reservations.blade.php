@@ -1000,7 +1000,6 @@
         updateDateTime(); // Initial call
 
 
-
         // Pagination state and helpers
         const __posResPageState = { page: 1, perPage: 10, search: '' };
 
@@ -1506,9 +1505,7 @@
                 // Disable the button immediately to prevent double clicks
                 button.disabled = true;
                 button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-                
-                console.log('Attempting to complete reservation:', reservationId);
-                
+
                 // Make AJAX call to update reservation status
                 fetch('/pos/reservations/' + reservationId + '/status', {
                     method: 'POST',
@@ -1521,7 +1518,7 @@
                     })
                 })
                 .then(response => {
-                    console.log('Complete reservation response received');
+
                     return response.text().then(text => {
                         try {
                             return JSON.parse(text);
@@ -1532,7 +1529,7 @@
                     });
                 })
                 .then(data => {                    
-                    console.log('Response parsed:', data.success ? 'Success' : 'Failed');
+
                     if (data.success) {
                         // Find the status badge in the same row
                         const row = button.closest('tr');
@@ -1647,24 +1644,23 @@
 
         // ===== Header notifications wiring =====
         function initNotifications() {
-            console.log('🎯 POS Reservations: Initializing notifications...');
-            
+
             // Initialize NotificationManager after script loads - let it handle all notification functionality
             setTimeout(() => {
-                console.log('🔍 Checking for NotificationManager...', typeof NotificationManager);
+
                 if (typeof NotificationManager !== 'undefined') {
-                    console.log('✅ NotificationManager found, initializing...');
+
                     window.notificationManager = new NotificationManager();
                     window.notificationManager.init('{{ auth()->user()->role ?? "cashier" }}').catch(error => {
                         console.error('❌ NotificationManager init failed:', error);
                     });
                 } else {
-                    console.log('⏳ NotificationManager not ready, retrying...');
+
                     // Retry after a short delay
                     setTimeout(() => {
-                        console.log('🔍 Retry: Checking for NotificationManager...', typeof NotificationManager);
+
                         if (typeof NotificationManager !== 'undefined') {
-                            console.log('✅ NotificationManager found on retry, initializing...');
+
                             window.notificationManager = new NotificationManager();
                             window.notificationManager.init('{{ auth()->user()->role ?? "cashier" }}').catch(error => {
                                 console.error('❌ NotificationManager init failed on retry:', error);
@@ -1673,19 +1669,19 @@
                             // Fallback: basic dropdown toggle if NotificationManager fails to load
                             console.warn('⚠️ NotificationManager not found after retry, using fallback dropdown');
                             const wrappers = document.querySelectorAll('.notification-wrapper');
-                            console.log('🔍 Found notification wrappers:', wrappers.length);
+
                             wrappers.forEach(wrapper => {
                                 const bell = wrapper.querySelector('.notification-bell');
                                 if (!bell) return;
                                 bell.addEventListener('click', (e) => {
                                     e.stopPropagation();
-                                    console.log('🔔 Fallback: Bell clicked, toggling dropdown');
+
                                     wrapper.classList.toggle('open');
                                 });
                             });
                             document.addEventListener('click', () => {
                                 document.querySelectorAll('.notification-wrapper.open').forEach(w => {
-                                    console.log('🚪 Fallback: Closing dropdown on outside click');
+
                                     w.classList.remove('open');
                                 });
                             });

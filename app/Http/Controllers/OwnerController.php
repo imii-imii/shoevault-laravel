@@ -625,15 +625,10 @@ class OwnerController extends Controller
             $startDate = $request->input('start_date');
             $endDate = $request->input('end_date');
             $range = $request->input('range', 'day');
+            $brand = $request->input('brand', 'all');
+            $predictive = $request->input('predictive', false);
             
-            // Debug: Log all incoming requests
-            Log::info('getDashboardData called', [
-                'start_date' => $startDate,
-                'end_date' => $endDate,
-                'range' => $range,
-                'all_inputs' => $request->all()
-            ]);
-            
+
             // Validate dates
             if (!$startDate || !$endDate) {
                 Log::warning('getDashboardData: Missing required dates', [
@@ -646,12 +641,14 @@ class OwnerController extends Controller
                 ], 400);
             }
             
-            $data = $this->getDashboardKPIsByDateRange($startDate, $endDate, $range);
+            $data = $this->getDashboardKPIsByDateRange($startDate, $endDate, $range, $brand, $predictive);
             
             // Debug: Log the final response data
             Log::info('getDashboardData response', [
                 'kpis' => $data['kpis'] ?? null,
-                'forecast_data_count' => isset($data['forecast']) ? count($data['forecast']) : 0
+                'forecast_data_count' => isset($data['forecast']) ? count($data['forecast']) : 0,
+                'insights_count' => isset($data['insights']) ? count($data['insights']) : 0,
+                'insights_sample' => isset($data['insights']) ? array_slice($data['insights'], 0, 2) : null
             ]);
             
             return response()->json([
@@ -676,16 +673,13 @@ class OwnerController extends Controller
         // Get current date in local timezone for initial dashboard load
         $currentDate = now()->toDateString();
         
-        Log::info('getDashboardKPIs: Using date for initial load', [
-            'date' => $currentDate,
-            'now_utc' => now()->utc()->toDateTimeString(),
-            'today_string' => today()->toDateString()
-        ]);
+
         
         $rangeData = $this->getDashboardKPIsByDateRange(
             $currentDate,
             $currentDate,
-            'day'
+            'day',
+            'all'
         );
         
         // Return data in the format expected by the frontend for initial load
@@ -703,14 +697,59 @@ class OwnerController extends Controller
             'cancelledReservations' => $rangeData['kpis']['cancelled_reservations'],
             'totalValue' => Product::join('product_sizes', 'products.product_id', '=', 'product_sizes.product_id')
                           ->sum(DB::raw('products.price * product_sizes.stock')),
-            'popularProducts' => $this->getPopularProductsByCategory(),
+            'popularProducts' => $rangeData['popular_products'],
+            'insights' => $rangeData['insights'],
         ];
+    }
+
+    /**
+     * Apply brand filter to transaction query if brand is specified
+     * DEPRECATED: This method includes full transaction amounts for multi-brand transactions
+     * Use getBrandSpecificRevenue() for accurate brand-specific revenue calculation
+     */
+    private function applyBrandFilter($query, $brand)
+    {
+        if ($brand && $brand !== 'all') {
+            // For raw database queries, use EXISTS subquery to filter by brand
+            return $query->whereExists(function($subQuery) use ($brand) {
+                $subQuery->select(DB::raw(1))
+                    ->from('transaction_items')
+                    ->whereRaw('transaction_items.transaction_id = transactions.transaction_id')
+                    ->where('transaction_items.product_brand', $brand);
+            });
+        }
+        return $query;
+    }
+
+    /**
+     * Get brand-specific revenue by calculating only the portion from selected brand items
+     */
+    private function getBrandSpecificRevenue($dateCol, $startDate, $endDate, $brand, $saleType = null)
+    {
+        $query = DB::table('transaction_items as ti')
+            ->join('transactions as t', 'ti.transaction_id', '=', 't.transaction_id')
+            ->whereBetween("t.{$dateCol}", [$startDate, $endDate]);
+        
+        // Apply sale type filter if specified
+        if ($saleType) {
+            $query->where('t.sale_type', $saleType);
+        }
+        
+        // Apply brand filter - only include items of the specified brand
+        if ($brand && $brand !== 'all') {
+            $query->where('ti.product_brand', $brand);
+        }
+        
+        // Sum only the subtotal of items matching the brand filter
+        $revenue = $query->sum('ti.subtotal') ?? 0;
+        
+        return (float) $revenue;
     }
 
     /**
      * Get dashboard KPIs for specific date range
      */
-    private function getDashboardKPIsByDateRange($startDate, $endDate, $range)
+    private function getDashboardKPIsByDateRange($startDate, $endDate, $range, $brand = 'all', $predictive = false)
     {
         $dateCol = $this->salesDateColumn();
         $amountExpr = $this->salesAmountExpression();
@@ -741,14 +780,18 @@ class OwnerController extends Controller
             'recent_transactions_sample' => $recentTransactions->toArray()
         ]);
         
-        // Calculate sales for the date range
+        // Calculate sales for the date range using brand-specific revenue calculation
         // Handle timestamp columns properly by converting dates to full datetime ranges
         $startDateTime = $startDate . ' 00:00:00';
         $endDateTime = $endDate . ' 23:59:59';
         
+        // Use brand-specific revenue calculation instead of transaction-level filtering
+        $sales = $this->getBrandSpecificRevenue($dateCol, $startDateTime, $endDateTime, $brand);
+        
+        // For transaction count, we still use the old method since counting is different from revenue calculation
         $salesQuery = Transaction::whereBetween($dateCol, [$startDateTime, $endDateTime]);
+        $salesQuery = $this->applyBrandFilter($salesQuery, $brand);
         $totalTransactions = $salesQuery->count();
-        $sales = $salesQuery->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
         
         // Debug: Check what data exists in the date range
         $sampleTransactions = Transaction::whereBetween($dateCol, [$startDateTime, $endDateTime])
@@ -766,9 +809,16 @@ class OwnerController extends Controller
         ]);
             
         // Calculate products sold in the date range
-        $productsSold = TransactionItem::whereHas('transaction', function($query) use ($dateCol, $startDateTime, $endDateTime) {
+        $productsSoldQuery = TransactionItem::whereHas('transaction', function($query) use ($dateCol, $startDateTime, $endDateTime) {
             $query->whereBetween($dateCol, [$startDateTime, $endDateTime]);
-        })->sum('quantity') ?? 0;
+        });
+        
+        // Apply brand filter to products sold
+        if ($brand && $brand !== 'all') {
+            $productsSoldQuery = $productsSoldQuery->where('product_brand', $brand);
+        }
+        
+        $productsSold = $productsSoldQuery->sum('quantity') ?? 0;
         
         Log::info('Products Sold Query Results', [
             'products_sold' => $productsSold
@@ -776,19 +826,39 @@ class OwnerController extends Controller
         
         // Calculate reservations for the date range
         // Completed reservations = transactions with sale_type = 'reservation' (reservations that were fulfilled/sold)
-        $completedReservations = Transaction::where('sale_type', 'reservation')
-            ->whereBetween($dateCol, [$startDateTime, $endDateTime])
-            ->count();
+        $completedReservationsQuery = Transaction::where('sale_type', 'reservation')
+            ->whereBetween($dateCol, [$startDateTime, $endDateTime]);
+        $completedReservationsQuery = $this->applyBrandFilter($completedReservationsQuery, $brand);
+        
+        $completedReservations = $completedReservationsQuery->count();
             
         // Cancelled reservations = reservations with status = 'cancelled' 
-        $cancelledReservations = Reservation::where('status', 'cancelled')
-            ->whereBetween('created_at', [$startDateTime, $endDateTime])
-            ->count();
+        $cancelledReservationsQuery = Reservation::where('status', 'cancelled')
+            ->whereBetween('created_at', [$startDateTime, $endDateTime]);
+        
+        // Apply brand filter to cancelled reservations if brand is specified (JSON search)
+        if ($brand && $brand !== 'all') {
+            $cancelledReservationsQuery = $cancelledReservationsQuery->whereRaw(
+                "JSON_SEARCH(items, 'one', ?, NULL, '$[*].brand') IS NOT NULL", 
+                [$brand]
+            );
+        }
+        
+        $cancelledReservations = $cancelledReservationsQuery->count();
             
         // Pending reservations = reservations with status = 'pending'
-        $pendingReservations = Reservation::where('status', 'pending')
-            ->whereBetween('created_at', [$startDateTime, $endDateTime])
-            ->count();
+        $pendingReservationsQuery = Reservation::where('status', 'pending')
+            ->whereBetween('created_at', [$startDateTime, $endDateTime]);
+            
+        // Apply brand filter to pending reservations if brand is specified (JSON search)
+        if ($brand && $brand !== 'all') {
+            $pendingReservationsQuery = $pendingReservationsQuery->whereRaw(
+                "JSON_SEARCH(items, 'one', ?, NULL, '$[*].brand') IS NOT NULL", 
+                [$brand]
+            );
+        }
+        
+        $pendingReservations = $pendingReservationsQuery->count();
             
         Log::info('Reservation Query Results', [
             'completed_reservations' => $completedReservations . ' (transactions with sale_type=reservation)',
@@ -797,10 +867,10 @@ class OwnerController extends Controller
         ]);
         
         // Generate forecast data based on range
-        $forecast = $this->generateForecastData($startDate, $endDate, $range);
+        $forecast = $this->generateForecastData($startDate, $endDate, $range, $brand);
         
         // Get popular products for the date range
-        $popularProducts = $this->getPopularProductsForDateRange($startDate, $endDate);
+        $popularProducts = $this->getPopularProductsForDateRange($startDate, $endDate, $brand);
         
         return [
             'kpis' => [
@@ -812,6 +882,7 @@ class OwnerController extends Controller
             ],
             'forecast' => $forecast,
             'popular_products' => $popularProducts,
+            'insights' => $predictive ? $this->generatePredictiveInsights($startDate, $endDate, $range, $brand) : $this->generateBusinessInsights($startDate, $endDate, $range, $brand),
             'date_range' => [
                 'start' => $startDate,
                 'end' => $endDate,
@@ -821,9 +892,472 @@ class OwnerController extends Controller
     }
 
     /**
+     * Generate business insights based on historical data analysis
+     */
+    private function generateBusinessInsights($startDate, $endDate, $range, $brand = 'all')
+    {
+        $insights = [];
+        $dateCol = $this->salesDateColumn();
+        
+
+        
+        // 1. Sales Performance Analysis
+        $currentPeriodSales = $this->calculatePeriodSales($startDate, $endDate, $brand);
+        $previousPeriodDates = $this->getPreviousPeriodDates($startDate, $endDate, $range);
+        $previousPeriodSales = $this->calculatePeriodSales($previousPeriodDates['start'], $previousPeriodDates['end'], $brand);
+        
+
+        
+        if ($previousPeriodSales > 0) {
+            $growthRate = (($currentPeriodSales - $previousPeriodSales) / $previousPeriodSales) * 100;
+            $insights[] = [
+                'type' => $growthRate >= 0 ? 'positive' : 'negative',
+                'icon' => $growthRate >= 0 ? '📈' : '📉',
+                'title' => $growthRate >= 0 ? 'Sales Growth' : 'Sales Decline',
+                'message' => abs(round($growthRate, 1)) . '% ' . ($growthRate >= 0 ? 'increase' : 'decrease') . ' vs previous ' . $range,
+                'value' => '₱' . number_format($currentPeriodSales, 2),
+                'priority' => abs($growthRate) > 10 ? 'high' : 'medium'
+            ];
+        }
+        
+        // 2. Top Performing Products/Brands Analysis
+        if ($brand === 'all') {
+            $topBrand = $this->getTopPerformingBrand($startDate, $endDate);
+            if ($topBrand) {
+                $insights[] = [
+                    'type' => 'info',
+                    'icon' => '👑',
+                    'title' => 'Top Performing Brand',
+                    'message' => $topBrand['brand'] . ' leads with ' . $topBrand['percentage'] . '% of total sales',
+                    'value' => '₱' . number_format($topBrand['sales'], 2),
+                    'priority' => 'medium'
+                ];
+            }
+        }
+        
+
+        
+        // 4. Transaction Volume Analysis
+        $transactionStats = $this->getTransactionStats($startDate, $endDate, $brand);
+        if ($transactionStats['avg_value'] > 0) {
+            $insights[] = [
+                'type' => $transactionStats['avg_value'] > 2000 ? 'positive' : 'info',
+                'icon' => '💰',
+                'title' => 'Transaction Analysis',
+                'message' => 'Average transaction: ₱' . number_format($transactionStats['avg_value'], 2) . ' (' . $transactionStats['total_transactions'] . ' transactions)',
+                'value' => number_format($transactionStats['avg_value'], 2),
+                'priority' => 'medium'
+            ];
+        }
+        
+        // 5. Reservation Performance
+        $reservationStats = $this->getReservationInsights($startDate, $endDate, $brand);
+        if ($reservationStats['total'] > 0) {
+            $conversionRate = ($reservationStats['completed'] / $reservationStats['total']) * 100;
+            $insights[] = [
+                'type' => $conversionRate >= 80 ? 'positive' : ($conversionRate >= 60 ? 'info' : 'negative'),
+                'icon' => '📋',
+                'title' => 'Reservation Performance',
+                'message' => round($conversionRate, 1) . '% completion rate (' . $reservationStats['completed'] . '/' . $reservationStats['total'] . ' reservations)',
+                'value' => round($conversionRate, 1) . '%',
+                'priority' => $conversionRate < 60 ? 'high' : 'medium'
+            ];
+        }
+        
+        // If no insights were generated, add a default message
+        if (empty($insights)) {
+            // Check if there's any data at all in the date range
+            $totalTransactions = DB::table('transactions')
+                ->whereBetween($dateCol, [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+                ->count();
+                
+
+            
+            if ($totalTransactions > 0) {
+                $insights[] = [
+                    'type' => 'info',
+                    'icon' => '📊',
+                    'title' => 'Period Analysis',
+                    'message' => "Found {$totalTransactions} transactions in this period. Data analysis is being processed.",
+                    'value' => "{$totalTransactions} transactions",
+                    'priority' => 'medium'
+                ];
+            } else {
+                $insights[] = [
+                    'type' => 'neutral',
+                    'icon' => '📈',
+                    'title' => 'No Activity',
+                    'message' => 'No transactions found for the selected period.',
+                    'value' => '0 transactions',
+                    'priority' => 'low'
+                ];
+            }
+        }
+
+        
+        return array_slice($insights, 0, 5); // Limit to top 5 insights
+    }
+
+    /**
+     * Generate predictive business insights for forecasting mode
+     */
+    private function generatePredictiveInsights($startDate, $endDate, $range, $brand = 'all')
+    {
+        $insights = [];
+        
+        // For predictive insights, use range-specific data windows to match forecast charts
+        // This ensures insights are based on the same comprehensive data as predictive charts
+        $analysisEndDate = now()->format('Y-m-d');
+        $historicalDays = $this->getHistoricalDaysForPredictiveRange($range);
+        $analysisStartDate = now()->subDays($historicalDays)->format('Y-m-d');
+        $analysisRange = $range; // Use the same range for period comparison
+        
+        // 1. Revenue Trend Forecast (based on comprehensive historical trend)
+        $currentPeriodSales = $this->calculatePeriodSales($analysisStartDate, $analysisEndDate, $brand);
+        $previousPeriodDates = $this->getPreviousPeriodDates($analysisStartDate, $analysisEndDate, $analysisRange);
+        $previousPeriodSales = $this->calculatePeriodSales($previousPeriodDates['start'], $previousPeriodDates['end'], $brand);
+        
+        if ($currentPeriodSales > 0 && $previousPeriodSales > 0) {
+            // Calculate actual growth trend
+            $historicalGrowthRate = (($currentPeriodSales - $previousPeriodSales) / $previousPeriodSales) * 100;
+            
+            // Calculate appropriate projection based on the forecast period
+            $projectedRevenue = $this->calculatePeriodAdjustedProjection($currentPeriodSales, $historicalGrowthRate, $range);
+            
+            $insights[] = [
+                'type' => 'forecast',
+                'icon' => '💰',
+                'title' => 'Revenue Trend Forecast',
+                'message' => "Based on {$this->getAnalysisPeriodDescription($range)}, next {$this->getRangePeriod($analysisRange)} revenue projected: ₱" . number_format($projectedRevenue, 2) . " (" . ($historicalGrowthRate > 0 ? '+' : '') . round($historicalGrowthRate, 1) . "% trend)",
+                'value' => '₱' . number_format($projectedRevenue, 2),
+                'priority' => 'high'
+            ];
+        }
+        
+        // 2. Brand Performance Continuation (using comprehensive data range)
+        if ($brand === 'all') {
+            $topBrand = $this->getTopPerformingBrand($analysisStartDate, $analysisEndDate);
+            if ($topBrand && $topBrand['percentage'] > 30) {
+                $insights[] = [
+                    'type' => 'positive',
+                    'icon' => '👑',
+                    'title' => 'Market Leader Analysis',
+                    'message' => $topBrand['brand'] . ' dominates with ' . $topBrand['percentage'] . '% market share (' . $this->getAnalysisPeriodDescription($range) . ')',
+                    'value' => $topBrand['percentage'] . '%',
+                    'priority' => 'medium'
+                ];
+            }
+        }
+        
+        // 3. Transaction Volume Analysis (using comprehensive data range)
+        $transactionStats = $this->getTransactionStats($analysisStartDate, $analysisEndDate, $brand);
+        if ($transactionStats['total_transactions'] > 0) {
+            $avgTransactionValue = $transactionStats['avg_value'];
+            $insights[] = [
+                'type' => 'info',
+                'icon' => '📊',
+                'title' => 'Transaction Pattern',
+                'message' => $this->getAnalysisPeriodDescription($range) . ' shows ' . $transactionStats['total_transactions'] . ' transactions with ₱' . number_format($avgTransactionValue, 2) . ' average value',
+                'value' => $transactionStats['total_transactions'] . ' transactions',
+                'priority' => 'medium'
+            ];
+        }
+        
+        // 4. Overall Business Performance Summary (based on comprehensive analysis)
+        if ($currentPeriodSales > 0 && $previousPeriodSales > 0) {
+            $salesRatio = $currentPeriodSales / $previousPeriodSales;
+            $performanceType = $salesRatio >= 1.1 ? 'strong' : ($salesRatio >= 0.9 ? 'stable' : 'declining');
+            
+            $insights[] = [
+                'type' => $performanceType === 'strong' ? 'positive' : ($performanceType === 'stable' ? 'info' : 'warning'),
+                'icon' => $performanceType === 'strong' ? '📈' : ($performanceType === 'stable' ? '📊' : '📉'),
+                'title' => 'Overall Performance Trend',
+                'message' => 'Business showing ' . $performanceType . ' performance in recent analysis period',
+                'value' => '₱' . number_format($currentPeriodSales, 2),
+                'priority' => 'medium'
+            ];
+        }
+        
+        return array_slice($insights, 0, 5); // Limit to top 5 insights
+    }
+    
+    /**
+     * Get period description for range
+     */
+    private function getRangePeriod($range)
+    {
+        switch ($range) {
+            case 'weekly': return '7 days';
+            case 'monthly': return '30 days';
+            case 'quarterly': return '3 months';
+            case 'yearly': return '12 months';
+            default: return 'period';
+        }
+    }
+    
+    /**
+     * Get historical days for predictive analysis based on range
+     * Matches the data windows used in forecast charts
+     */
+    private function getHistoricalDaysForPredictiveRange($range)
+    {
+        switch ($range) {
+            case 'weekly': return 90;     // 3 months for weekly predictions
+            case 'monthly': return 365;   // 1 year for monthly predictions  
+            case 'quarterly': return 730; // 2 years for quarterly predictions
+            case 'yearly': return 1095;   // 3 years for yearly predictions
+            default: return 90;
+        }
+    }
+    
+    /**
+     * Get analysis period description for user-friendly messaging
+     */
+    private function getAnalysisPeriodDescription($range)
+    {
+        switch ($range) {
+            case 'weekly': return '3-month analysis';
+            case 'monthly': return '1-year analysis';
+            case 'quarterly': return '2-year analysis'; 
+            case 'yearly': return '3-year analysis';
+            default: return '3-month analysis';
+        }
+    }
+    
+    /**
+     * Calculate period-adjusted projection that represents the next forecast period
+     * rather than applying multi-year growth to multi-year totals
+     */
+    private function calculatePeriodAdjustedProjection($historicalTotal, $growthRate, $range)
+    {
+        switch ($range) {
+            case 'weekly':
+                // Historical: 3 months total, Forecast: next 7 days
+                // Convert 3-month total to weekly average, then apply growth
+                $weeklyAverage = $historicalTotal / (90 / 7); // 90 days ÷ 7 days per week
+                return $weeklyAverage * (1 + ($growthRate / 100));
+                
+            case 'monthly':
+                // Historical: 1 year total, Forecast: next 30 days  
+                // Convert 1-year total to monthly average, then apply growth
+                $monthlyAverage = $historicalTotal / 12; // 12 months
+                return $monthlyAverage * (1 + ($growthRate / 100));
+                
+            case 'quarterly':
+                // Historical: 2 years total, Forecast: next 3 months
+                // Convert 2-year total to quarterly average, then apply growth
+                $quarterlyAverage = $historicalTotal / 8; // 8 quarters in 2 years
+                return $quarterlyAverage * (1 + ($growthRate / 100));
+                
+            case 'yearly':
+                // Historical: 3 years total, Forecast: next 12 months
+                // Convert 3-year total to yearly average, then apply growth
+                $yearlyAverage = $historicalTotal / 3; // 3 years
+                return $yearlyAverage * (1 + ($growthRate / 100));
+                
+            default:
+                // Fallback: simple growth application
+                return $historicalTotal * (1 + ($growthRate / 100));
+        }
+    }
+
+    /**
+     * Calculate sales for a specific period
+     */
+    private function calculatePeriodSales($startDate, $endDate, $brand = 'all')
+    {
+        $dateCol = $this->salesDateColumn();
+        $amountExpr = $this->salesAmountExpression();
+        
+        $query = DB::table('transactions')
+            ->whereBetween($dateCol, [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+            
+        $this->applyBrandFilter($query, $brand);
+        
+        return $query->select(DB::raw("SUM($amountExpr) as total"))->value('total') ?? 0;
+    }
+    
+    /**
+     * Get previous period dates based on current date range
+     */
+    private function getPreviousPeriodDates($startDate, $endDate, $range)
+    {
+        $start = new \DateTime($startDate);
+        $end = new \DateTime($endDate);
+        $diff = $start->diff($end)->days + 1;
+        
+        $previousStart = clone $start;
+        $previousEnd = clone $end;
+        
+        switch ($range) {
+            case 'day':
+                $previousStart->modify('-1 day');
+                $previousEnd->modify('-1 day');
+                break;
+            case 'weekly':
+                $previousStart->modify('-1 week');
+                $previousEnd->modify('-1 week');
+                break;
+            case 'monthly':
+                $previousStart->modify('-1 month');
+                $previousEnd->modify('-1 month');
+                break;
+            case 'quarterly':
+                $previousStart->modify('-3 months');
+                $previousEnd->modify('-3 months');
+                break;
+            case 'yearly':
+                $previousStart->modify('-1 year');
+                $previousEnd->modify('-1 year');
+                break;
+            default:
+                $previousStart->modify("-{$diff} days");
+                $previousEnd->modify("-{$diff} days");
+        }
+        
+        return [
+            'start' => $previousStart->format('Y-m-d'),
+            'end' => $previousEnd->format('Y-m-d')
+        ];
+    }
+    
+    /**
+     * Get top performing brand for the period
+     */
+    private function getTopPerformingBrand($startDate, $endDate)
+    {
+        $dateCol = $this->salesDateColumn();
+        
+        $brandSales = DB::table('transaction_items')
+            ->join('transactions', 'transaction_items.transaction_id', '=', 'transactions.transaction_id')
+            ->whereBetween("transactions.{$dateCol}", [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->select('transaction_items.product_brand as brand', 
+                    DB::raw('SUM(transaction_items.unit_price * transaction_items.quantity) as sales'))
+            ->groupBy('transaction_items.product_brand')
+            ->orderBy('sales', 'desc')
+            ->get();
+            
+        if ($brandSales->count() > 0) {
+            $totalSales = $brandSales->sum('sales');
+            $topBrand = $brandSales->first();
+            $percentage = ($topBrand->sales / $totalSales) * 100;
+            
+            return [
+                'brand' => $topBrand->brand ?: 'Unknown',
+                'sales' => $topBrand->sales,
+                'percentage' => round($percentage, 1)
+            ];
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Get peak sales hour
+     */
+    private function getPeakSalesHour($startDate, $endDate, $brand = 'all')
+    {
+        $dateCol = $this->salesDateColumn();
+        $amountExpr = $this->salesAmountExpression();
+        
+        $query = DB::table('transactions')
+            ->whereBetween($dateCol, [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+            
+        $this->applyBrandFilter($query, $brand);
+        
+        $hourlySales = $query->select(
+                DB::raw("HOUR({$dateCol}) as hour"),
+                DB::raw("SUM({$amountExpr}) as sales")
+            )
+            ->groupBy('hour')
+            ->orderBy('sales', 'desc')
+            ->first();
+            
+        if ($hourlySales) {
+            $hour = $hourlySales->hour;
+            $hourFormatted = ($hour == 0) ? '12 AM' : (($hour < 12) ? $hour . ' AM' : (($hour == 12) ? '12 PM' : ($hour - 12) . ' PM'));
+            
+            return [
+                'hour' => $hourFormatted,
+                'sales' => $hourlySales->sales
+            ];
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Get transaction statistics
+     */
+    private function getTransactionStats($startDate, $endDate, $brand = 'all')
+    {
+        $dateCol = $this->salesDateColumn();
+        $amountExpr = $this->salesAmountExpression();
+        
+        $query = DB::table('transactions')
+            ->whereBetween($dateCol, [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+            
+        $this->applyBrandFilter($query, $brand);
+        
+        $stats = $query->select(
+                DB::raw("COUNT(*) as total_transactions"),
+                DB::raw("AVG({$amountExpr}) as avg_value"),
+                DB::raw("SUM({$amountExpr}) as total_value")
+            )->first();
+            
+        return [
+            'total_transactions' => $stats->total_transactions ?? 0,
+            'avg_value' => $stats->avg_value ?? 0,
+            'total_value' => $stats->total_value ?? 0
+        ];
+    }
+    
+    /**
+     * Get reservation insights
+     */
+    private function getReservationInsights($startDate, $endDate, $brand = 'all')
+    {
+        $query = Reservation::whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+            
+        if ($brand && $brand !== 'all') {
+            // Filter by brand in JSON items column using JSON_CONTAINS or similar
+            $query->where(function($q) use ($brand) {
+                $q->whereRaw('JSON_SEARCH(items, "one", ?) IS NOT NULL', [$brand])
+                  ->orWhereRaw('JSON_EXTRACT(items, "$[*].brand") LIKE ?', ['%"' . $brand . '"%']);
+            });
+        }
+        
+        $completed = $query->where('status', 'completed')->count();
+        
+        $totalQuery = Reservation::whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+        if ($brand && $brand !== 'all') {
+            $totalQuery->where(function($q) use ($brand) {
+                $q->whereRaw('JSON_SEARCH(items, "one", ?) IS NOT NULL', [$brand])
+                  ->orWhereRaw('JSON_EXTRACT(items, "$[*].brand") LIKE ?', ['%"' . $brand . '"%']);
+            });
+        }
+        $total = $totalQuery->count();
+        
+        $cancelledQuery = Reservation::whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->where('status', 'cancelled');
+        if ($brand && $brand !== 'all') {
+            $cancelledQuery->where(function($q) use ($brand) {
+                $q->whereRaw('JSON_SEARCH(items, "one", ?) IS NOT NULL', [$brand])
+                  ->orWhereRaw('JSON_EXTRACT(items, "$[*].brand") LIKE ?', ['%"' . $brand . '"%']);
+            });
+        }
+            
+        return [
+            'completed' => $completed,
+            'total' => $total,
+            'cancelled' => $cancelledQuery->count()
+        ];
+    }
+
+    /**
      * Generate forecast data for chart
      */
-    private function generateForecastData($startDate, $endDate, $range)
+    private function generateForecastData($startDate, $endDate, $range, $brand = 'all')
     {
         $dateCol = $this->salesDateColumn();
         $amountExpr = $this->salesAmountExpression();
@@ -838,23 +1372,11 @@ class OwnerController extends Controller
                 $hourStart = $startDate . ' ' . sprintf('%02d:00:00', $hour);
                 $hourEnd = $startDate . ' ' . sprintf('%02d:59:59', $hour);
                 
-                // Get POS transactions (sale_type = 'pos' or transactions without reservation_id)
-                $posRevenue = Transaction::whereBetween($dateCol, [$hourStart, $hourEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'pos')
-                              ->orWhereNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                // Get POS revenue (brand-specific calculation)
+                $posRevenue = $this->getBrandSpecificRevenue($dateCol, $hourStart, $hourEnd, $brand, 'pos');
                     
-                // Get reservation transactions (sale_type = 'reservation' or transactions with reservation_id)
-                $resvRevenue = Transaction::whereBetween($dateCol, [$hourStart, $hourEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'reservation')
-                              ->orWhereNotNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                // Get reservation revenue (brand-specific calculation)
+                $resvRevenue = $this->getBrandSpecificRevenue($dateCol, $hourStart, $hourEnd, $brand, 'reservation');
                 
                 $labels[] = $hour <= 12 ? $hour . ' AM' : ($hour - 12) . ' PM';
                 $posData[] = (float) $posRevenue;
@@ -869,23 +1391,11 @@ class OwnerController extends Controller
                 $dayStart = $current->toDateString() . ' 00:00:00';
                 $dayEnd = $current->toDateString() . ' 23:59:59';
                 
-                // Get POS transactions (sale_type = 'pos' or transactions without reservation_id)
-                $posRevenue = Transaction::whereBetween($dateCol, [$dayStart, $dayEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'pos')
-                              ->orWhereNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                // Get POS revenue (brand-specific calculation)
+                $posRevenue = $this->getBrandSpecificRevenue($dateCol, $dayStart, $dayEnd, $brand, 'pos');
                     
-                // Get reservation transactions (sale_type = 'reservation' or transactions with reservation_id)
-                $resvRevenue = Transaction::whereBetween($dateCol, [$dayStart, $dayEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'reservation')
-                              ->orWhereNotNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                // Get reservation revenue (brand-specific calculation)
+                $resvRevenue = $this->getBrandSpecificRevenue($dateCol, $dayStart, $dayEnd, $brand, 'reservation');
                 
                 // Generate proper day labels (e.g., "Mon", "Tue", "Wed")
                 $labels[] = $current->format('D');
@@ -903,23 +1413,11 @@ class OwnerController extends Controller
                 $weekStart = $current->toDateString() . ' 00:00:00';
                 $weekEnd = $current->copy()->endOfWeek()->toDateString() . ' 23:59:59';
                 
-                // Get POS transactions (sale_type = 'pos' or transactions without reservation_id)
-                $posRevenue = Transaction::whereBetween($dateCol, [$weekStart, $weekEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'pos')
-                              ->orWhereNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                // Get POS revenue (brand-specific calculation)
+                $posRevenue = $this->getBrandSpecificRevenue($dateCol, $weekStart, $weekEnd, $brand, 'pos');
                     
-                // Get reservation transactions (sale_type = 'reservation' or transactions with reservation_id)
-                $resvRevenue = Transaction::whereBetween($dateCol, [$weekStart, $weekEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'reservation')
-                              ->orWhereNotNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                // Get reservation revenue (brand-specific calculation)
+                $resvRevenue = $this->getBrandSpecificRevenue($dateCol, $weekStart, $weekEnd, $brand, 'reservation');
                 
                 // Generate proper week labels (e.g., "Week 1", "Week 2")
                 $weekOfMonth = $current->weekOfMonth;
@@ -938,23 +1436,11 @@ class OwnerController extends Controller
                 $monthStart = $current->toDateString() . ' 00:00:00';
                 $monthEnd = $current->copy()->endOfMonth()->toDateString() . ' 23:59:59';
                 
-                // Get POS transactions (sale_type = 'pos' or transactions without reservation_id)
-                $posRevenue = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'pos')
-                              ->orWhereNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                // Get POS revenue (brand-specific calculation)
+                $posRevenue = $this->getBrandSpecificRevenue($dateCol, $monthStart, $monthEnd, $brand, 'pos');
                     
-                // Get reservation transactions (sale_type = 'reservation' or transactions with reservation_id)
-                $resvRevenue = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'reservation')
-                              ->orWhereNotNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                // Get reservation revenue (brand-specific calculation)
+                $resvRevenue = $this->getBrandSpecificRevenue($dateCol, $monthStart, $monthEnd, $brand, 'reservation');
                 
                 // Generate quarter-based labels (e.g., "Q1 Jan", "Q1 Feb", "Q1 Mar")
                 $quarter = 'Q' . $current->quarter;
@@ -974,23 +1460,11 @@ class OwnerController extends Controller
                 $monthStart = $current->toDateString() . ' 00:00:00';
                 $monthEnd = $current->copy()->endOfMonth()->toDateString() . ' 23:59:59';
                 
-                // Get POS transactions (sale_type = 'pos' or transactions without reservation_id)
-                $posRevenue = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'pos')
-                              ->orWhereNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                // Get POS revenue (brand-specific calculation)
+                $posRevenue = $this->getBrandSpecificRevenue($dateCol, $monthStart, $monthEnd, $brand, 'pos');
                     
-                // Get reservation transactions (sale_type = 'reservation' or transactions with reservation_id)
-                $resvRevenue = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'reservation')
-                              ->orWhereNotNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                // Get reservation revenue (brand-specific calculation)
+                $resvRevenue = $this->getBrandSpecificRevenue($dateCol, $monthStart, $monthEnd, $brand, 'reservation');
                 
                 // Generate proper month labels (e.g., "Jan", "Feb", "Mar")
                 $labels[] = $current->format('M');
@@ -1008,23 +1482,11 @@ class OwnerController extends Controller
                 $monthStart = $current->toDateString() . ' 00:00:00';
                 $monthEnd = $current->copy()->endOfMonth()->toDateString() . ' 23:59:59';
                 
-                // Get POS transactions (sale_type = 'pos' or transactions without reservation_id)
-                $posRevenue = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'pos')
-                              ->orWhereNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                // Get POS revenue (brand-specific calculation)
+                $posRevenue = $this->getBrandSpecificRevenue($dateCol, $monthStart, $monthEnd, $brand, 'pos');
                     
-                // Get reservation transactions (sale_type = 'reservation' or transactions with reservation_id)
-                $resvRevenue = Transaction::whereBetween($dateCol, [$monthStart, $monthEnd])
-                    ->where(function($query) {
-                        $query->where('sale_type', 'reservation')
-                              ->orWhereNotNull('reservation_id');
-                    })
-                    ->select(DB::raw("SUM($amountExpr) as total"))
-                    ->value('total') ?? 0;
+                // Get reservation revenue (brand-specific calculation)
+                $resvRevenue = $this->getBrandSpecificRevenue($dateCol, $monthStart, $monthEnd, $brand, 'reservation');
                 
                 $labels[] = $current->format('M Y');
                 $posData[] = (float) $posRevenue;
@@ -1044,28 +1506,38 @@ class OwnerController extends Controller
     /**
      * Get popular products for specific date range
      */
-    private function getPopularProductsForDateRange($startDate, $endDate)
+    private function getPopularProductsForDateRange($startDate, $endDate, $brand = 'all')
     {
         $dateCol = $this->salesDateColumn();
         
         // Get products sold in the date range using product_name directly from transaction_items
-        $popularProducts = DB::table('transaction_items')
+        $query = DB::table('transaction_items')
             ->join('transactions', 'transaction_items.transaction_id', '=', 'transactions.transaction_id')
             ->select(
                 'transaction_items.product_name as name',
                 DB::raw('LOWER(COALESCE(transaction_items.product_category, "")) as category'),
+                DB::raw('COALESCE(transaction_items.product_brand, "Unknown") as brand'),
+                DB::raw('COALESCE(transaction_items.product_color, "Unknown") as color'),
                 DB::raw('SUM(transaction_items.quantity) as total_sold')
             )
-            ->whereBetween("transactions.{$dateCol}", [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
-            ->groupBy('transaction_items.product_name', 'transaction_items.product_category')
+            ->whereBetween("transactions.{$dateCol}", [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+            
+        // Apply brand filter if specified
+        if ($brand && $brand !== 'all') {
+            $query->where('transaction_items.product_brand', $brand);
+        }
+        
+        $popularProducts = $query->groupBy('transaction_items.product_name', 'transaction_items.product_category', 'transaction_items.product_brand', 'transaction_items.product_color')
             ->orderBy('total_sold', 'desc')
-            ->limit(12)
+            ->limit(100)
             ->get();
 
         return $popularProducts->map(function($product) {
             return [
                 'name' => $product->name,
                 'category' => (string) $product->category,
+                'brand' => (string) $product->brand,
+                'color' => (string) $product->color,
                 'sales' => (int) $product->total_sold
             ];
         })->toArray();
@@ -1500,6 +1972,7 @@ class OwnerController extends Controller
             $year = $request->integer('year');
             $limit = max(1, min(100, (int) $request->get('limit', 20)));
             $category = strtolower((string) $request->get('category', 'all'));
+            $brand = $request->get('brand', 'all');
 
             $now = Carbon::now();
             $y = $year ?: (int)$now->year;
@@ -1561,6 +2034,11 @@ class OwnerController extends Controller
             $itemsQuery = DB::table('transaction_items as ti')
                 ->join('transactions as t', 't.transaction_id', '=', 'ti.transaction_id')
                 ->whereBetween("t.$dateCol", [$start, $end]);
+                
+            // Apply brand filter if specified
+            if (!empty($brand) && $brand !== 'all') {
+                $itemsQuery->where('ti.product_brand', $brand);
+            }
                 
             // If a specific category is requested, include category in grouping and selection
             if (!empty($category) && $category !== 'all') {
@@ -2460,6 +2938,32 @@ class OwnerController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to export supply data: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get all unique brands from transaction items
+     */
+    public function getBrands()
+    {
+        try {
+            $brands = TransactionItem::distinct()
+                ->whereNotNull('product_brand')
+                ->where('product_brand', '!=', '')
+                ->orderBy('product_brand')
+                ->pluck('product_brand')
+                ->toArray();
+
+            return response()->json([
+                'success' => true,
+                'brands' => $brands
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch brands: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch brands'
             ], 500);
         }
     }
