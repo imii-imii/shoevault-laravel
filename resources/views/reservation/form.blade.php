@@ -293,7 +293,6 @@
 
     function renderItems(){
       const cart = loadCart();
-      console.log('Rendering cart with', cart.length, 'item(s)');
       itemsEl.innerHTML = '';
       if(!cart.length){
         itemsEl.innerHTML = '<div class="empty-note">No items reserved yet. Return to the catalog to add products.</div>';
@@ -307,8 +306,6 @@
                          parseFloat(typeof item.priceNumber === 'string' ? item.priceNumber.replace(/[₱,]/g, '') : item.price || 0);
         const itemTotal = itemPrice * item.qty;
         sum += itemTotal;
-        
-        console.log('Item added to cart view');
         
         const div = document.createElement('div');
         div.className = 'res-item';
@@ -398,11 +395,6 @@
       const data = new FormData(e.target);
       const cart = loadCart();
       
-      // Enhanced debug logging
-      console.log('Cart data loaded from localStorage');
-      console.log('Form validation passed');
-      console.log('Cart contains', cart.length, 'item(s)');
-      
       // Check if cart is empty and warn user
       if (!cart || cart.length === 0) {
         alert('Your cart is empty! Please add items to your cart before making a reservation.');
@@ -467,9 +459,6 @@
         total: items.reduce((s, i) => s + (i.priceNumber * i.qty), 0)
       };
       
-      console.log('Processed', items.length, 'item(s) for reservation');
-      console.log('Reservation payload prepared');
-      
       try {
         // Show loading state
         confirmBtn.disabled = true;
@@ -485,8 +474,7 @@
         });
         
         const result = await response.json();
-        console.log('Reservation response:', result.success ? 'Success' : 'Failed');
-        
+
         if (result.success) {
           // Clear cart
           localStorage.removeItem(cartKey);

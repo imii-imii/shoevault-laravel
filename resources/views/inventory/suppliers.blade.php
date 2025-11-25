@@ -12,7 +12,6 @@
 .logout-btn i{font-size:1rem}
 /* Scoped modal styles to avoid global .modal conflicts */
 
-
 #add-supplier-modal.show{ display:flex !important; }
 #add-supplier-modal .modal-content{max-width:100%; display:flex; flex-direction:column; justify-content:flex-start;}
 
@@ -414,7 +413,7 @@ function closeModal(modalId) {
 
 function deleteSupplier(supplierId) {
     if (confirm('Are you sure you want to delete this supplier?')) {
-        console.log('Deleting supplier...');
+
         // Implement delete supplier functionality
     }
 }

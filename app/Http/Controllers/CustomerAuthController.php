@@ -99,6 +99,72 @@ class CustomerAuthController extends Controller
             ], 401);
         }
 
+        // Check if customer account is restricted or locked
+        if ($customer->isRestricted()) {
+            $isLocked = $customer->isLocked();
+            
+            if ($isLocked) {
+                // Handle locked accounts
+                if ($customer->restricted_until) {
+                    // Temporarily locked
+                    $restrictedUntil = $customer->restricted_until->format('M d, Y g:i A');
+                    $message = "Your account has been temporarily locked until {$restrictedUntil}";
+                } else {
+                    // Permanently locked
+                    $message = "Your account has been locked permanently";
+                }
+                
+                // Add reason for locks
+                if ($customer->restriction_reason) {
+                    $reason = $customer->restriction_reason;
+                    // Remove [LOCKED] prefix for display
+                    if (str_starts_with($reason, '[LOCKED]')) {
+                        $reason = trim(substr($reason, 8));
+                    }
+                    $message .= ".\nReason: " . $reason;
+                }
+            } else {
+                // Handle non-lock restrictions
+                $message = 'Your account has been restricted';
+                
+                if ($customer->restricted_until) {
+                    $daysRemaining = $customer->days_remaining;
+                    $restrictedUntil = $customer->restricted_until->format('M d, Y');
+                    $message .= " until {$restrictedUntil}";
+                    if ($daysRemaining > 0) {
+                        $message .= " ({$daysRemaining} days remaining)";
+                    }
+                } else {
+                    $message .= " permanently";
+                }
+                
+                if ($customer->restriction_reason) {
+                    $message .= ". Reason: " . $customer->restriction_reason;
+                }
+            }
+            
+            $message .= ".\nPlease contact support if you believe this is an error.";
+            
+            return response()->json([
+                'success' => false,
+                'message' => $message,
+                'is_restricted' => true,
+                'restriction_details' => [
+                    'until' => $customer->restricted_until?->format('Y-m-d H:i:s'),
+                    'reason' => $customer->restriction_reason,
+                    'days_remaining' => $customer->days_remaining
+                ]
+            ], 403);
+        }
+
+        // Check if user account is deactivated
+        if (!$customer->user->is_active) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Your account has been deactivated. Please contact support for assistance.',
+            ], 403);
+        }
+
         // Manually log in the customer with remember me option
         $rememberMe = $request->filled('remember') && $request->boolean('remember');
         Auth::guard('customer')->login($customer, $rememberMe);

@@ -490,8 +490,16 @@
               window.location.href = returnUrl;
             }, 2200);
           } else {
+            // Check if account is restricted
+            if (data.is_restricted) {
+              showMessage(data.message, 'error');
+              // Could add additional UI elements for restriction details here
+              if (data.restriction_details) {
+                // Restriction details available for UI display
+              }
+            }
             // Check if email verification is needed
-            if (data.needs_email_verification) {
+            else if (data.needs_email_verification) {
               showMessage(data.message);
               showEmailVerificationStep(data.email);
             }
@@ -864,7 +872,7 @@
           return;
         }
 
-        console.log('Sending verification request...'); // Email and code not logged for security
+         // Email and code not logged for security
 
         const submitBtn = e.target.querySelector('button[type="submit"]');
         const originalText = submitBtn.textContent;
@@ -881,10 +889,7 @@
             body: JSON.stringify({ email, code }),
           });
 
-          console.log('Verification response received with status:', response.status);
-          
           const data = await response.json();
-          console.log('Verification response:', data.success ? 'Success' : 'Failed');
 
           if (response.ok && data.success) {
             showMessage('Email verified successfully! You can now login with your email and password.');
@@ -897,7 +902,7 @@
             
             // If it's a validation error, show field errors
             if (data.errors) {
-              console.log('Validation errors found for', Object.keys(data.errors).length, 'field(s)');
+              
             }
           }
         } catch (error) {

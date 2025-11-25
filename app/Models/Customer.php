@@ -39,6 +39,11 @@ class Customer extends Authenticatable
         'email_verification_code',
         'email_verification_code_expires_at',
         'email_verified_at',
+        'is_restricted',
+        'restricted_until',
+        'restriction_reason',
+        'restricted_by',
+        'restricted_at',
     ];
 
     protected $hidden = [
@@ -48,6 +53,9 @@ class Customer extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'email_verification_code_expires_at' => 'datetime',
+        'restricted_until' => 'datetime',
+        'restricted_at' => 'datetime',
+        'is_restricted' => 'boolean',
     ];
 
     /**
@@ -185,5 +193,116 @@ class Customer extends Authenticatable
         if ($this->email) $info[] = $this->email;
         if ($this->phone_number) $info[] = $this->phone_number;
         return implode(' • ', $info);
+    }
+
+    /**
+     * Check if customer account is currently restricted
+     */
+    public function isRestricted()
+    {
+        if (!$this->is_restricted) {
+            return false;
+        }
+
+        // If restricted_until is null, it's a permanent restriction
+        if (is_null($this->restricted_until)) {
+            return true;
+        }
+
+        // Check if restriction period has expired
+        if ($this->restricted_until->isPast()) {
+            // Auto-lift expired restrictions
+            $this->liftRestriction();
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Restrict customer account
+     */
+    public function restrict($days = null, $reason = null, $restrictedBy = null)
+    {
+        $this->is_restricted = true;
+        $this->restricted_until = $days ? now()->addDays($days) : null;
+        $this->restriction_reason = $reason;
+        $this->restricted_by = $restrictedBy;
+        $this->restricted_at = now();
+        $this->save();
+    }
+
+    /**
+     * Lift restriction from customer account
+     */
+    public function liftRestriction()
+    {
+        $this->is_restricted = false;
+        $this->restricted_until = null;
+        $this->restriction_reason = null;
+        $this->restricted_by = null;
+        $this->restricted_at = null;
+        $this->save();
+    }
+
+    /**
+     * Get days remaining in restriction
+     */
+    public function getDaysRemainingAttribute()
+    {
+        if (!$this->isRestricted() || is_null($this->restricted_until)) {
+            return null;
+        }
+
+        return max(0, now()->diffInDays($this->restricted_until, false));
+    }
+
+    /**
+     * Scope for non-restricted customers
+     */
+    public function scopeNotRestricted($query)
+    {
+        return $query->where(function($q) {
+            $q->where('is_restricted', false)
+              ->orWhere('restricted_until', '<', now());
+        });
+    }
+
+    /**
+     * Scope for restricted customers
+     */
+    public function scopeRestricted($query)
+    {
+        return $query->where('is_restricted', true)
+                    ->where(function($q) {
+                        $q->whereNull('restricted_until')
+                          ->orWhere('restricted_until', '>=', now());
+                    });
+    }
+
+    /**
+     * Check if customer account is temporarily locked
+     */
+    public function isLocked()
+    {
+        return $this->isRestricted() && 
+               $this->restriction_reason && 
+               str_starts_with($this->restriction_reason, '[LOCKED]');
+    }
+
+    /**
+     * Get lock status for UI display
+     */
+    public function getLockStatusAttribute()
+    {
+        if ($this->isLocked()) {
+            if ($this->restricted_until) {
+                $daysRemaining = $this->days_remaining;
+                return "Locked for {$daysRemaining} more days";
+            } else {
+                return "Permanently locked";
+            }
+        }
+        return null;
     }
 }

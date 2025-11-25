@@ -288,6 +288,45 @@
 						</div>
 					</div>
 
+					<!-- Customer Restriction Modal -->
+					<div id="restriction-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center;">
+						<div style="background:white; border-radius:12px; padding:24px; width:90%; max-width:500px; box-shadow:0 20px 40px rgba(0,0,0,0.15);">
+							<div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+								<div style="width:48px; height:48px; background:#fee2e2; border-radius:50%; display:flex; align-items:center; justify-content:center;">
+									<i class="fas fa-ban" style="color:#dc2626; font-size:20px;"></i>
+								</div>
+								<div>
+									<h3 style="margin:0; color:#111827; font-size:18px; font-weight:700;">Restrict Customer Account</h3>
+									<p style="margin:4px 0 0 0; color:#6b7280; font-size:14px;" id="restriction-customer-name"></p>
+								</div>
+							</div>
+							
+							<form id="restriction-form">
+								<div style="margin-bottom:16px;">
+									<label style="display:block; margin-bottom:8px; font-weight:600; color:#374151;">Restriction Duration</label>
+									<div style="display:flex; gap:12px; align-items:center;">
+										<input type="number" id="restriction-days" min="1" max="365" placeholder="7" style="width:80px; padding:8px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:14px;">
+										<span style="color:#6b7280;">days</span>
+										<label style="display:flex; align-items:center; gap:8px; color:#374151;">
+											<input type="checkbox" id="permanent-restriction" style="margin:0;">
+											<span style="font-size:14px;">Permanent restriction</span>
+										</label>
+									</div>
+								</div>
+								
+								<div style="margin-bottom:24px;">
+									<label for="restriction-reason" style="display:block; margin-bottom:8px; font-weight:600; color:#374151;">Reason for Restriction</label>
+									<textarea id="restriction-reason" rows="4" placeholder="Explain the reason for restricting this customer account..." style="width:100%; padding:12px; border:1px solid #d1d5db; border-radius:6px; font-size:14px; resize:vertical; box-sizing:border-box;"></textarea>
+								</div>
+								
+								<div style="display:flex; gap:12px; justify-content:flex-end;">
+									<button type="button" id="cancel-restriction" style="padding:10px 20px; background:#f3f4f6; color:#374151; border:1px solid #d1d5db; border-radius:6px; font-weight:600; cursor:pointer;">Cancel</button>
+									<button type="submit" style="padding:10px 20px; background:#dc2626; color:white; border:none; border-radius:6px; font-weight:600; cursor:pointer;">Apply Restriction</button>
+								</div>
+							</form>
+						</div>
+					</div>
+
 					<!-- Profile -->
 					<div class="settings-panel" id="settings-panel-profile">
 						<div class="settings-grid">
@@ -546,7 +585,6 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 
-
 	<!-- Add User Modal -->
 	@php 
 		$userIndexRoute = \Illuminate\Support\Facades\Route::has('owner.users.index') ? route('owner.users.index') : null; 
@@ -670,7 +708,6 @@ document.addEventListener('DOMContentLoaded', function() {
 	const customerToggleUrl = @json($customerToggleRoute ?? '');
 
 	// URLs configured for user and customer management
-	console.log('User and customer management URLs loaded');
 
 	// Global variables to ensure they're accessible everywhere
 	window.customerIndexUrl = customerIndexUrl;
@@ -998,6 +1035,227 @@ document.addEventListener('DOMContentLoaded', function() {
 			});
 		}
 
+		// Customer restriction functions
+		function showRestrictionModal(customer) {
+			const modal = document.getElementById('restriction-modal');
+			const customerName = document.getElementById('restriction-customer-name');
+			const form = document.getElementById('restriction-form');
+			const daysInput = document.getElementById('restriction-days');
+			const permanentCheck = document.getElementById('permanent-restriction');
+			const reasonText = document.getElementById('restriction-reason');
+			
+			customerName.textContent = `${customer.name} (@${customer.username})`;
+			daysInput.value = '';
+			permanentCheck.checked = false;
+			reasonText.value = '';
+			
+			modal.style.display = 'flex';
+			
+			// Handle permanent restriction toggle
+			permanentCheck.addEventListener('change', function() {
+				daysInput.disabled = this.checked;
+				if (this.checked) daysInput.value = '';
+			});
+			
+			// Handle form submission
+			form.onsubmit = async function(e) {
+				e.preventDefault();
+				const days = permanentCheck.checked ? null : parseInt(daysInput.value) || 7;
+				const reason = reasonText.value.trim();
+				
+				if (!reason) {
+					alert('Please provide a reason for the restriction.');
+					return;
+				}
+				
+				if (!permanentCheck.checked && (!days || days < 1)) {
+					alert('Please enter a valid number of days (1-365).');
+					return;
+				}
+				
+				await handleRestriction(customer.id, true, days, reason);
+				modal.style.display = 'none';
+			};
+		}
+		
+		async function handleRestriction(customerId, restrict, days = null, reason = null) {
+			try {
+				const response = await fetch('/api/customers/restrict', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+					},
+					body: JSON.stringify({
+						customer_id: customerId,
+						restrict: restrict,
+						days: days,
+						reason: reason
+					})
+				});
+				
+				const result = await response.json();
+				
+				if (!response.ok) {
+					throw new Error(result.message || 'Failed to update restriction');
+				}
+				
+				// Reload customers to reflect changes
+				await loadCustomers();
+				
+				const action = restrict ? 'restricted' : 'unrestricted';
+				alert(`Customer has been ${action} successfully.`);
+				
+			} catch (error) {
+				console.error('Restriction error:', error);
+				alert('Failed to update customer restriction: ' + error.message);
+			}
+		}
+
+		// Customer lock functions
+		function showLockModal(customer, lockInput, badge, card) {
+			const modal = document.getElementById('lock-modal') || createLockModal();
+			const customerName = document.getElementById('lock-customer-name');
+			const form = document.getElementById('lock-form');
+			const daysInput = document.getElementById('lock-days');
+			const permanentCheck = document.getElementById('permanent-lock');
+			const reasonText = document.getElementById('lock-reason');
+			
+			if (customerName) customerName.textContent = `${customer.name} (@${customer.username})`;
+			if (daysInput) daysInput.value = '7'; // Default 7 days
+			if (permanentCheck) permanentCheck.checked = false;
+			if (reasonText) reasonText.value = '';
+			
+			if (modal) {
+				modal.style.display = 'flex';
+			}
+			
+			// Handle permanent lock toggle
+			permanentCheck.addEventListener('change', function() {
+				daysInput.disabled = this.checked;
+				if (this.checked) {
+					daysInput.value = '';
+					daysInput.style.opacity = '0.5';
+				} else {
+					daysInput.value = '7';
+					daysInput.style.opacity = '1';
+				}
+			});
+			
+			// Handle form submission
+			form.onsubmit = async function(e) {
+				e.preventDefault();
+				
+				let days;
+				if (permanentCheck.checked) {
+					days = null; // Permanent lock
+				} else {
+					days = parseInt(daysInput.value);
+					if (!days || days < 1 || days > 365) {
+						alert('Please enter a valid number of days between 1 and 365.');
+						return;
+					}
+				}
+				
+				const reason = reasonText.value.trim() || 'Account locked by admin';
+
+				try {
+					// First set the toggle to checked since we're about to lock
+					if (lockInput) lockInput.checked = true;
+					
+					await handleLockToggle(customer.id, true, days, reason, lockInput, badge, card);
+					
+					// Update the card's original lock state
+					card.dataset.wasLocked = 'true';
+					
+					modal.style.display = 'none';
+				} catch (error) {
+					console.error('Error locking customer:', error);
+					// Revert toggle on error
+					if (lockInput) lockInput.checked = false;
+					alert('Failed to lock customer: ' + error.message);
+				}
+			};
+		}
+
+		function createLockModal() {
+			const modalHTML = `
+				<div id="lock-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;align-items:center;justify-content:center;">
+					<div style="background:white;border-radius:12px;padding:24px;max-width:500px;width:90%;max-height:90vh;overflow-y:auto;">
+						<div style="display:flex;align-items:center;margin-bottom:20px;">
+							<i class="fas fa-lock" style="color:#f59e0b;font-size:20px;margin-right:12px;"></i>
+							<h3 style="margin:0;color:#111827;font-size:1.25rem;font-weight:700;">Lock Customer Account</h3>
+						</div>
+						
+						<p style="margin:0 0 16px 0;color:#6b7280;font-size:0.95rem;">
+							Temporarily lock access for: <strong id="lock-customer-name"></strong>
+						</p>
+						
+						<form id="lock-form">
+							<div style="margin-bottom:16px;">
+								<label style="display:block;margin-bottom:8px;font-weight:600;color:#374151;">Lock Duration</label>
+								<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+									<input type="number" id="lock-days" min="1" max="365" placeholder="Enter days (1-365)" 
+										style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9rem;" value="7">
+									<span style="color:#6b7280;font-size:0.85rem;">days</span>
+								</div>
+								<label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;color:#374151;">
+									<input type="checkbox" id="permanent-lock" style="margin:0;">
+									<span>Permanent lock (until manually unlocked)</span>
+								</label>
+							</div>
+							
+							<div style="margin-bottom:20px;">
+								<label for="lock-reason" style="display:block;margin-bottom:8px;font-weight:600;color:#374151;">Reason for Lock</label>
+								<textarea id="lock-reason" rows="3" placeholder="Enter reason for locking this account..." 
+									style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9rem;resize:vertical;"></textarea>
+							</div>
+							
+							<div style="display:flex;gap:12px;justify-content:flex-end;">
+								<button type="button" id="cancel-lock" 
+									style="padding:8px 16px;background:#6b7280;color:white;border:none;border-radius:6px;font-size:0.9rem;cursor:pointer;">
+									Cancel
+								</button>
+								<button type="submit" 
+									style="padding:8px 16px;background:#f59e0b;color:white;border:none;border-radius:6px;font-size:0.9rem;cursor:pointer;font-weight:600;">
+									<i class="fas fa-lock"></i> Lock Account
+								</button>
+							</div>
+						</form>
+					</div>
+				</div>
+			`;
+			
+			document.body.insertAdjacentHTML('beforeend', modalHTML);
+			const modal = document.getElementById('lock-modal');
+			
+			// Close handlers
+			document.getElementById('cancel-lock').addEventListener('click', function() {
+				modal.style.display = 'none';
+				// Toggle is already reset, no need to do anything else
+			});
+			
+			modal.addEventListener('click', function(e) {
+				if (e.target === this) {
+					this.style.display = 'none';
+					// Toggle is already reset, no need to do anything else
+				}
+			});
+			
+			return modal;
+		}
+
+		// Modal close handlers
+		document.getElementById('cancel-restriction')?.addEventListener('click', function() {
+			document.getElementById('restriction-modal').style.display = 'none';
+		});
+		
+		document.getElementById('restriction-modal')?.addEventListener('click', function(e) {
+			if (e.target === this) {
+				this.style.display = 'none';
+			}
+		});
+
 		// Load customers from API
 		async function loadCustomers(search = '') {
 			const custIndexUrl = window.customerIndexUrl || customerIndexUrl;
@@ -1041,8 +1299,11 @@ document.addEventListener('DOMContentLoaded', function() {
 			card.className = 'odash-list-item odash-card';
 			card.dataset.customerId = c.id;
 			
-			const isLocked = !c.is_active;
-			const isBanned = c.status === 'banned'; // Future enhancement
+			// Check if customer is locked (either through is_locked field or through restriction with [LOCKED] prefix)
+			const isLocked = c.is_locked || (c.is_restricted && c.restriction_reason && c.restriction_reason.startsWith('[LOCKED]'));
+			const isBanned = c.status === 'banned';
+			
+			card.dataset.wasLocked = isLocked ? 'true' : 'false'; // Track original lock state
 			
 			if (isLocked) card.classList.add('is-locked');
 			if (isBanned) card.classList.add('is-banned');
@@ -1055,6 +1316,21 @@ document.addEventListener('DOMContentLoaded', function() {
 				'border:1px solid #e5e7eb','border-radius:12px','background:#fff','box-shadow:0 2px 8px rgba(0,0,0,0.04)','position:relative'
 			].join(';');
 			
+			const isRestricted = c.is_restricted && (c.restricted_until === null || new Date(c.restricted_until) > new Date());
+			
+			// Determine what status message to show
+			let statusMessage = '';
+			if (isLocked && c.restricted_until) {
+				// Show lock expiration date
+				const expirationDate = new Date(c.restricted_until).toLocaleDateString();
+				const daysRemaining = c.days_remaining || Math.ceil((new Date(c.restricted_until) - new Date()) / (1000 * 60 * 60 * 24));
+				statusMessage = `Suspended until ${expirationDate}`;
+			} else if (isLocked) {
+				statusMessage = 'Permanently locked';
+			} else if (isRestricted) {
+				statusMessage = c.restricted_until ? `Suspended until ${new Date(c.restricted_until).toLocaleDateString()}` : 'Permanently restricted';
+			}
+
 			card.innerHTML = `
 				<div class="odash-status-badge ${badgeClass}">${badgeText}</div>
 				<div style="flex:0 0 auto;display:flex;justify-content:center;width:100%;margin-top:8px;">
@@ -1065,10 +1341,11 @@ document.addEventListener('DOMContentLoaded', function() {
 					<div class="sub" style="color:#6b7280;font-size:0.85rem;">@${c.username}</div>
 				</div>
 				<div style="flex:0 0 auto;text-align:center;margin-top:8px;color:#6b7280;font-size:0.85rem;">${c.email || 'N/A'}</div>
+				${statusMessage ? `<div style="text-align:center;margin-top:4px;padding:4px 8px;background:#fef3c7;color:#92400e;border-radius:6px;font-size:0.75rem;font-weight:600;">${statusMessage}</div>` : ''}
 				<div style="flex:1 1 auto"></div>
-				<div style="flex:0 0 auto;margin-top:8px;display:flex;flex-direction:column;align-items:center;gap:10px;">
-					<div style="display:flex;align-items:center;gap:10px;">
-						<label class="odash-switch" title="Lock account">
+				<div style="flex:0 0 auto;margin-top:8px;display:flex;justify-content:center;width:100%;">
+					<div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+						<label class="odash-switch" title="Lock account temporarily">
 							<input type="checkbox" class="odash-switch-input cust-lock" ${isLocked ? 'checked' : ''} ${isBanned ? 'disabled' : ''}>
 							<span class="odash-switch-track"></span>
 						</label>
@@ -1082,40 +1359,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
 			lockInput?.addEventListener('change', async ()=>{
 				const wantLocked = lockInput.checked;
-				const custToggleUrl = window.customerToggleUrl || customerToggleUrl;
+				const wasLocked = card.dataset.wasLocked === 'true';
 				
-				if (custToggleUrl && card.dataset.customerId) {
-					try {
-						const resp = await fetch(custToggleUrl, {
-							method: 'POST',
-							headers: { 
-								'Content-Type': 'application/json', 
-								'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content 
-							},
-							body: JSON.stringify({ 
-								id: card.dataset.customerId, 
-								action: 'lock',
-								enabled: wantLocked 
-							})
-						});
-						
-						const result = await resp.json().catch(()=>({}));
-						if (!resp.ok || result.success === false) {
-							throw new Error(result.message || 'Failed to update customer status');
+				if (wantLocked && !wasLocked) {
+					// User is trying to lock - show modal but reset toggle first
+					lockInput.checked = false; // Reset toggle immediately
+					showLockModal(c, lockInput, badge, card);
+				} else if (!wantLocked && wasLocked) {
+					// User is trying to unlock
+					if (confirm(`Are you sure you want to remove the lock on ${c.name}?`)) {
+						try {
+							await handleLockToggle(card.dataset.customerId, false, null, null, lockInput, badge, card);
+						} catch (error) {
+							console.error('Error unlocking customer:', error);
+							lockInput.checked = true; // Revert if error
 						}
-						
-						// Update UI
-						card.classList.toggle('is-locked', wantLocked);
-						const state = wantLocked ? 'Locked' : 'Active';
-						const cls = wantLocked ? 'locked' : 'active';
-						badge.textContent = state;
-						badge.className = 'odash-status-badge ' + cls;
-						
-					} catch(err) {
-						console.error(err);
-						// Revert checkbox on error
-						lockInput.checked = !wantLocked;
-						alert('Failed to update customer status: ' + err.message);
+					} else {
+						lockInput.checked = true; // Revert if cancelled
 					}
 				}
 			});
@@ -1134,6 +1394,74 @@ document.addEventListener('DOMContentLoaded', function() {
 			renderCustomers(rows);
 		}
 
+		async function handleLockToggle(customerId, wantLocked, days, reason, lockInput, badge, card) {
+			const custToggleUrl = window.customerToggleUrl || customerToggleUrl;
+			
+			if (!custToggleUrl || !customerId) {
+				if (lockInput) lockInput.checked = !wantLocked;
+				throw new Error('Missing toggle URL or customer ID');
+			}
+			
+			try {
+				const requestBody = {
+					id: customerId,
+					action: 'lock',
+					enabled: wantLocked
+				};
+				
+				if (wantLocked) {
+					requestBody.days = days;
+					requestBody.reason = reason;
+				}
+
+				const resp = await fetch(custToggleUrl, {
+					method: 'POST',
+					headers: { 
+						'Content-Type': 'application/json', 
+						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content 
+					},
+					body: JSON.stringify(requestBody)
+				});
+				
+				const responseText = await resp.text();
+				
+				let result;
+				try {
+					result = JSON.parse(responseText);
+				} catch (e) {
+					throw new Error('Invalid server response');
+				}
+				
+				if (!resp.ok || result.success === false) {
+					throw new Error(result.message || `HTTP ${resp.status}: Failed to update customer status`);
+				}
+				
+				// Update UI elements
+				card.classList.toggle('is-locked', wantLocked);
+				const state = wantLocked ? 'Locked' : 'Active';
+				const cls = wantLocked ? 'locked' : 'active';
+				badge.textContent = state;
+				badge.className = 'odash-status-badge ' + cls;
+				
+				// Update lock toggle switch
+				if (lockInput) lockInput.checked = wantLocked;
+				
+				// Update the card's lock state tracking
+				card.dataset.wasLocked = wantLocked ? 'true' : 'false';
+				
+				// Refresh customer list to update lock status display
+				setTimeout(() => {
+					loadCustomers();
+				}, 500);
+				
+			} catch(err) {
+				console.error(err);
+				// Revert UI on error
+				if (lockInput) lockInput.checked = !wantLocked;
+				alert('Failed to update customer status: ' + err.message);
+			}
+		}
+
 		let ct;
 		customerSearchEl?.addEventListener('input', ()=>{ 
 			clearTimeout(ct); 
@@ -1148,12 +1476,10 @@ document.addEventListener('DOMContentLoaded', function() {
 		const maxSize = 2048 * 1024; // 2MB
 		
 		if (file.size <= maxSize) {
-			console.log('File size OK, no compression needed');
+
 			return file;
 		}
-		
-		console.log('Compressing file...');
-		
+
 		return new Promise((resolve) => {
 			const canvas = document.createElement('canvas');
 			const ctx = canvas.getContext('2d');
@@ -1188,15 +1514,14 @@ document.addEventListener('DOMContentLoaded', function() {
 				
 				const tryCompress = (q) => {
 					canvas.toBlob((blob) => {
-						console.log(`Compression quality: ${q}`);
-						
+
 						if (blob.size <= maxSize || q <= 0.1) {
 							// Create a new File object
 							compressedFile = new File([blob], file.name, {
 								type: 'image/jpeg',
 								lastModified: Date.now()
 							});
-							console.log('File compression completed');
+
 							resolve(compressedFile);
 						} else {
 							// Try with lower quality
@@ -1230,8 +1555,7 @@ document.addEventListener('DOMContentLoaded', function() {
 				const phoneInput = document.getElementById('settings-phone');
 				
 				// Values are already populated from Blade template, but we can refresh them
-				console.log('Profile form loaded');
-				
+
 			} catch (err) {
 				console.error('Failed to load profile:', err);
 			}
@@ -1307,14 +1631,11 @@ document.addEventListener('DOMContentLoaded', function() {
 				formData.append('username', usernameInput.value);
 				formData.append('email', emailInput.value);
 				formData.append('phone', phoneInput.value || '');
-				
-				console.log('Preparing profile update form data');
-				
+
 				// Add profile picture if selected
 				if (avatarInput?.files[0]) {
 					const file = avatarInput.files[0];
-					console.log('Profile picture selected for upload');
-					
+
 					const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'];
 					if (!allowedTypes.includes(file.type)) {
 						alert('Invalid file type. Please select a JPEG, PNG, GIF, or WebP image.');
@@ -1324,11 +1645,9 @@ document.addEventListener('DOMContentLoaded', function() {
 					// Compress image if needed
 					const processedFile = await compressImageIfNeeded(file);
 					formData.append('profile_picture', processedFile);
-					console.log('Profile picture added to form data');
+
 				}
-				
-				console.log('Sending profile update request...');
-				
+
 				const response = await fetch('{{ route('owner.profile.update') }}', {
 					method: 'POST',
 					headers: {
@@ -1336,12 +1655,9 @@ document.addEventListener('DOMContentLoaded', function() {
 					},
 					body: formData
 				});
-				
-				console.log('Profile update response received with status:', response.status);
-				
+
 				const result = await response.json();
-				console.log('Profile update:', result.success ? 'Success' : 'Failed');
-				
+
 				if (result.success) {
 					alert('Profile updated successfully!');
 					
@@ -1413,8 +1729,7 @@ document.addEventListener('DOMContentLoaded', function() {
 				});
 				
 				const result = await response.json();
-				console.log('Password update:', result.success ? 'Success' : 'Failed');
-				
+
 				if (result.success) {
 					alert('Password updated successfully!');
 					passwordForm.reset();
@@ -1488,7 +1803,6 @@ document.addEventListener('DOMContentLoaded', function() {
 				confirmBtn.style.cursor = isValid ? 'pointer' : 'not-allowed';
 			}
 		}
-
 
 
 		// Event listeners
@@ -1909,7 +2223,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Initialize notifications for settings page
 function initNotifications() {
     if (window.notificationManager) {
-        console.log('Initializing notification manager...');
+
         try {
             window.notificationManager.init('{{ auth()->user()->role ?? "owner" }}');
             return true;
@@ -1919,7 +2233,7 @@ function initNotifications() {
     }
     
     // Fallback notification toggle
-    console.log('Using fallback notification system');
+
     document.querySelectorAll('.notification-wrapper').forEach(wrapper => {
         const bell = wrapper.querySelector('.notification-bell');
         if (bell) {
@@ -1944,14 +2258,14 @@ document.addEventListener('DOMContentLoaded', function() {
     function tryInit() {
         attempts++;
         if (initNotifications()) {
-            console.log('Notifications initialized');
+
             return;
         }
         
         if (attempts < maxAttempts) {
             setTimeout(tryInit, retryDelay);
         } else {
-            console.log('Max attempts reached, using fallback');
+
         }
     }
     

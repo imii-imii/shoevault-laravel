@@ -21,8 +21,7 @@
     
     // Apply performance optimizations
     function applyPerformanceOptimizations() {
-        console.log('Performance optimizations applied');
-        
+
         // Reduce animation durations
         const style = document.createElement('style');
         style.textContent = `

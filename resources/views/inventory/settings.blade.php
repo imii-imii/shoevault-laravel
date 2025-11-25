@@ -428,12 +428,10 @@ document.getElementById('settings-profile-save').addEventListener('click', async
         // Handle profile picture if selected
         if (profilePictureInput.files && profilePictureInput.files[0]) {
             const originalFile = profilePictureInput.files[0];
-            console.log('Original file size:', originalFile.size, 'bytes');
-            
+
             // Compress image if needed
             const compressedFile = await compressImageIfNeeded(originalFile);
-            console.log('Compressed file size:', compressedFile.size, 'bytes');
-            
+
             formData.append('profile_picture', compressedFile);
         }
         

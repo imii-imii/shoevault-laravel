@@ -496,7 +496,6 @@
         }
 
 
-
         .search-box i {
             position: absolute;
             left: var(--spacing-md);
@@ -1345,7 +1344,6 @@
         /* small description next to button */
         .void-desc { color: #374151; font-size: 0.82rem; font-weight:600; }
 
-
         .quick-amount-btn {
             flex: 1;
             padding: var(--spacing-sm);
@@ -1845,7 +1843,6 @@ async function loadProducts(category = 'all', brand = 'all', sortBy = 'name-asc'
         const response = await fetch('{{ route("pos.products") }}?' + params.toString());
         const data = await response.json();        if (data.success) {
             allProducts = data.products;
-            console.log('Loaded', allProducts.length, 'product(s)');
             
             // Populate brand filter on first load
             if (category === 'all' && brand === 'all') {
@@ -1871,7 +1868,7 @@ async function loadProducts(category = 'all', brand = 'all', sortBy = 'name-asc'
                 const imageUrl = product.image_url || product.image || '';
                 const sizeButtons = (product.sizes || []).map(sz => {
                     const disabled = !sz.is_available || sz.stock <= 0;
-                    console.log('Creating size button...');
+
                     // Use data attributes instead of onclick for safer event handling
                     return `<button class="size-btn" ${disabled ? 'disabled' : ''} data-product-id="${product.id}" data-size="${sz.size}">${sz.size}</button>`;
                 }).join('');
@@ -1951,7 +1948,7 @@ async function loadProducts(category = 'all', brand = 'all', sortBy = 'name-asc'
                     e.preventDefault();
                     const productId = this.getAttribute('data-product-id');
                     const size = this.getAttribute('data-size');
-                    console.log('Size button clicked');
+
                     addToCartWithSize(productId, size);
                 });
             });
@@ -2024,8 +2021,7 @@ document.getElementById('sort-filter').addEventListener('change', function() {
 // Add to cart function
 // Add to cart with selected size
 function addToCartWithSize(productId, size) {
-    console.log('Adding product with size to cart...');
-    
+
     if (!productId) {
         console.error('No product ID provided');
         alert('Invalid product ID');
@@ -2034,8 +2030,7 @@ function addToCartWithSize(productId, size) {
     
     // Convert both to strings for reliable comparison
     const product = allProducts.find(p => String(p.id) === String(productId));
-    console.log('Product found:', product ? 'Yes' : 'No');
-    
+
     if (!product) { 
         console.error('Product not found with ID:', productId);
         alert('Product not found'); 
@@ -2044,8 +2039,7 @@ function addToCartWithSize(productId, size) {
     
     // Convert both to strings for reliable comparison  
     const sizeInfo = (product.sizes || []).find(s => String(s.size) === String(size));
-    console.log('Size info found:', sizeInfo ? 'Yes' : 'No');
-    
+
     if (!sizeInfo) { 
         console.error('Size not found:', size, 'Available sizes:', product.sizes);
         alert('Selected size not available for this product'); 
@@ -2103,8 +2097,7 @@ function addToCartWithSize(productId, size) {
             stock: productStock, // Already converted to integer
             quantity: 1
         };
-        
-        console.log('Adding item to cart...');
+
         cart.push(item);
     }
     updateCartDisplay();
@@ -2517,7 +2510,7 @@ function openReceiptPreview({ summary, paymentAmount }) {
 
 async function processSaleAndPrint(summary, paymentAmount) {
     // First, validate cart items before processing
-    console.log('Processing', cart.length, 'cart item(s)...');
+    
     
     const processedItems = cart.map((item, index) => {
         
@@ -2566,7 +2559,7 @@ async function processSaleAndPrint(summary, paymentAmount) {
     };
     
     try {
-        console.log('Processing sale with', processedItems.length, 'item(s)...');
+        
         
         const response = await fetch('{{ route("pos.process-sale") }}', {
             method: 'POST',
@@ -2586,8 +2579,7 @@ async function processSaleAndPrint(summary, paymentAmount) {
         }
         
         const result = await response.json();
-        console.log('Sale response:', result.success ? 'Success' : 'Failed');
-        
+
         if (!result.success) { 
             let errorMessage = 'Error processing sale: ' + result.message;
             if (result.errors) {

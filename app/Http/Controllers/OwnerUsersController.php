@@ -114,14 +114,23 @@ class OwnerUsersController extends Controller
         
         // Transform customer data to match expected format
         $customers = $customerData->map(function ($customer) {
+            $isLocked = $customer->isLocked();
+            $isBanned = !($customer->user->is_active ?? true);
+            
             return [
                 'id' => $customer->customer_id,
                 'name' => $customer->fullname,
                 'username' => $customer->user->username ?? '',
                 'email' => $customer->email,
                 'phone' => $customer->phone_number,
-                'status' => $customer->user->is_active ?? true ? 'active' : 'locked',
+                'status' => $isBanned ? 'banned' : ($isLocked ? 'locked' : 'active'),
                 'is_active' => $customer->user->is_active ?? true,
+                'is_locked' => $isLocked,
+                'is_restricted' => $customer->isRestricted(),
+                'restricted_until' => $customer->restricted_until,
+                'restriction_reason' => $customer->restriction_reason,
+                'lock_status' => $customer->lock_status,
+                'days_remaining' => $customer->days_remaining,
                 'created_at' => $customer->created_at,
             ];
         });
@@ -138,6 +147,8 @@ class OwnerUsersController extends Controller
             'id' => ['required','string'], // Customer ID
             'action' => ['required','string','in:lock,ban'], // lock or ban
             'enabled' => ['required','boolean'],
+            'days' => ['nullable','integer','min:1','max:365'], // Duration for temporary lock
+            'reason' => ['nullable','string','max:500'] // Optional reason
         ]);
 
         $customer = Customer::with('user')->where('customer_id', $validated['id'])->first();
@@ -149,24 +160,42 @@ class OwnerUsersController extends Controller
             ], 404);
         }
 
-        $user = $customer->user;
-
-        // For now, we'll use is_active to represent both lock and ban
-        // In the future, you might want to add separate fields for banned vs locked
-        if ($validated['action'] === 'lock' || $validated['action'] === 'ban') {
-            $user->is_active = !$validated['enabled']; // If enabling lock/ban, set active to false
+        if ($validated['action'] === 'lock') {
+            if ($validated['enabled']) {
+                // Apply lock using restriction system (temporary or permanent)
+                $days = $validated['days']; // Keep null for permanent locks
+                $reason = $validated['reason'] ?? 'Account locked by admin';
+                $restrictedBy = Auth::user()->username ?? 'System Admin';
+                
+                $customer->restrict($days, "[LOCKED] {$reason}", $restrictedBy);
+                
+                // Force logout the customer
+                if ($customer->user) {
+                    $this->forceLogoutUserSessions($customer->user);
+                }
+                
+                $message = $days ? "Customer locked for {$days} days" : "Customer permanently locked";
+            } else {
+                // Unlock by lifting restriction if it's a lock
+                if ($customer->isRestricted() && $customer->restriction_reason && str_starts_with($customer->restriction_reason, '[LOCKED]')) {
+                    $customer->liftRestriction();
+                    $message = "Customer unlocked";
+                } else {
+                    $message = "Customer was not locked";
+                }
+            }
+        } elseif ($validated['action'] === 'ban') {
+            // Keep ban functionality using is_active for permanent bans
+            $user = $customer->user;
+            $user->is_active = !$validated['enabled'];
             $user->save();
 
-            // Force logout if locked/banned
             if ($validated['enabled']) {
                 $this->forceLogoutUserSessions($user);
             }
+            
+            $message = $validated['enabled'] ? "Customer banned" : "Customer unbanned";
         }
-
-        $actionText = $validated['action'] === 'ban' ? 'banned' : 'locked';
-        $message = $validated['enabled'] 
-            ? "Customer {$actionText}" 
-            : "Customer un{$actionText}";
 
         return response()->json([
             'success' => true,
@@ -333,10 +362,11 @@ class OwnerUsersController extends Controller
 
         $q = trim((string) $request->get('search', ''));
         
-        // Get customers with their user data
+        // Get customers with their user data including restriction fields
         $customerQuery = Customer::with(['user' => function($query) {
             $query->select('user_id', 'username', 'role', 'is_active', 'created_at');
-        }])->select(['customer_id', 'fullname', 'email', 'phone_number', 'user_id', 'created_at']);
+        }])->select(['customer_id', 'fullname', 'email', 'phone_number', 'user_id', 'created_at', 
+                    'is_restricted', 'restricted_until', 'restriction_reason', 'restricted_by', 'restricted_at']);
         
         if ($q !== '') {
             $customerQuery->where(function($w) use ($q){
@@ -375,6 +405,11 @@ class OwnerUsersController extends Controller
                 'role' => $customer->user->role ?? 'customer',
                 'is_active' => $customer->user->is_active ?? true,
                 'created_at' => $customer->user->created_at ?? $customer->created_at,
+                'is_restricted' => $customer->is_restricted ?? false,
+                'restricted_until' => $customer->restricted_until,
+                'restriction_reason' => $customer->restriction_reason,
+                'restricted_by' => $customer->restricted_by,
+                'restricted_at' => $customer->restricted_at,
             ]);
         });
         
@@ -443,6 +478,56 @@ class OwnerUsersController extends Controller
         return response()->json([
             'success' => true,
             'message' => $validated['enabled'] ? 'Customer enabled' : 'Customer disabled (will be logged out)',
+        ]);
+    }
+
+    // POST /api/customers/restrict
+    public function restrictCustomer(Request $request)
+    {
+        $this->authorizeOwner();
+
+        $validated = $request->validate([
+            'customer_id' => ['required', 'string'],
+            'restrict' => ['required', 'boolean'],
+            'days' => ['nullable', 'integer', 'min:1', 'max:365'],
+            'reason' => ['nullable', 'string', 'max:1000']
+        ]);
+
+        $customer = Customer::where('customer_id', $validated['customer_id'])->first();
+        
+        if (!$customer) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Customer not found'
+            ], 404);
+        }
+
+        if ($validated['restrict']) {
+            // Apply restriction
+            $days = $validated['days'];
+            $reason = $validated['reason'] ?? 'No reason provided';
+            $restrictedBy = Auth::user()->username ?? 'System Admin';
+            
+            $customer->restrict($days, $reason, $restrictedBy);
+            
+            // Force logout the customer if they have active sessions
+            if ($customer->user) {
+                $this->forceLogoutUserSessions($customer->user);
+            }
+            
+            $message = $days 
+                ? "Customer restricted for {$days} days" 
+                : "Customer permanently restricted";
+                
+        } else {
+            // Lift restriction
+            $customer->liftRestriction();
+            $message = "Customer restriction lifted";
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $message
         ]);
     }
 

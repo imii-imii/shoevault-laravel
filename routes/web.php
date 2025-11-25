@@ -272,136 +272,6 @@ Route::middleware(['auth', 'role:cashier', 'force.password.change', 'operating.h
 // Inventory routes (for managers only)
 Route::middleware(['auth', 'role:manager', 'force.password.change', 'operating.hours'])->prefix('inventory')->name('inventory.')->group(function () {
     Route::get('/dashboard', [InventoryController::class, 'dashboard'])->name('dashboard');
-    Route::get('/enhanced', function() {
-        // Hard-coded products data for UI testing
-        $products = collect([
-            (object)[
-                'id' => 1,
-                'name' => 'Nike Air Max 270',
-                'brand' => 'Nike',
-                'category' => 'Men',
-                'price' => 8499,
-                'image' => null,
-                'sizes' => collect([
-                    (object)['size' => '7', 'stock' => 3],
-                    (object)['size' => '8', 'stock' => 5],
-                    (object)['size' => '9', 'stock' => 2],
-                    (object)['size' => '10', 'stock' => 2]
-                ])
-            ],
-            (object)[
-                'id' => 2,
-                'name' => 'Adidas Ultraboost 22',
-                'brand' => 'Adidas',
-                'category' => 'Men',
-                'price' => 12999,
-                'image' => null,
-                'sizes' => collect([
-                    (object)['size' => '8', 'stock' => 2],
-                    (object)['size' => '9', 'stock' => 3],
-                    (object)['size' => '10', 'stock' => 2],
-                    (object)['size' => '11', 'stock' => 1]
-                ])
-            ],
-            (object)[
-                'id' => 3,
-                'name' => 'Converse Chuck Taylor',
-                'brand' => 'Converse',
-                'category' => 'Accessories',
-                'price' => 3999,
-                'image' => null,
-                'sizes' => collect([
-                    (object)['size' => '6', 'stock' => 5],
-                    (object)['size' => '7', 'stock' => 5],
-                    (object)['size' => '8', 'stock' => 5],
-                    (object)['size' => '9', 'stock' => 5]
-                ])
-            ]
-        ]);
-        
-        // Hard-coded suppliers data
-        $suppliers = collect([
-            (object)[
-                'id' => 1,
-                'name' => 'Nike Philippines',
-                'contact_person' => 'John Smith',
-                'brand' => 'Nike',
-                'total_stock' => 100,
-                'country' => 'Philippines',
-                'available_sizes' => '7-12',
-                'email' => 'supplier@nike.com.ph',
-                'phone' => '+63 2 123 4567',
-                'status' => 'active'
-            ],
-            (object)[
-                'id' => 2,
-                'name' => 'Adidas Distributor',
-                'contact_person' => 'Jane Doe',
-                'brand' => 'Adidas',
-                'total_stock' => 85,
-                'country' => 'Philippines',
-                'available_sizes' => '6-11',
-                'email' => 'contact@adidas-ph.com',
-                'phone' => '+63 2 987 6543',
-                'status' => 'active'
-            ]
-        ]);
-        
-        // Hard-coded reservations data
-        $reservations = collect([
-            (object)[
-                'id' => 1,
-                'reservation_id' => 'REV-ABC123',
-                'status' => 'pending',
-                'created_at' => now()->subDays(1),
-                'pickup_date' => now()->addDays(2),
-                'customer' => (object)[
-                    'name' => 'John Doe',
-                    'email' => 'john.doe@email.com'
-                ],
-                'product' => (object)[
-                    'name' => 'Nike Air Max 270'
-                ]
-            ],
-            (object)[
-                'id' => 2,
-                'reservation_id' => 'REV-DEF456',
-                'status' => 'confirmed',
-                'created_at' => now()->subDays(2),
-                'pickup_date' => now()->addDay(),
-                'customer' => (object)[
-                    'name' => 'Jane Smith',
-                    'email' => 'jane.smith@email.com'
-                ],
-                'product' => (object)[
-                    'name' => 'Adidas Ultraboost 22'
-                ]
-            ],
-            (object)[
-                'id' => 3,
-                'reservation_id' => 'REV-GHI789',
-                'status' => 'completed',
-                'created_at' => now()->subDays(3),
-                'pickup_date' => now()->subDay(),
-                'customer' => (object)[
-                    'name' => 'Mike Johnson',
-                    'email' => 'mike.j@email.com'
-                ],
-                'product' => (object)[
-                    'name' => 'Converse Chuck Taylor'
-                ]
-            ]
-        ]);
-        
-        // Hard-coded reservation statistics
-        $reservationStats = [
-            'incomplete' => 24,
-            'expiring_soon' => 8,
-            'expiring_today' => 3
-        ];
-        
-        return view('inventory.dashboard', compact('products', 'suppliers', 'reservations', 'reservationStats'));
-    })->name('enhanced');
     Route::get('/suppliers', [InventoryController::class, 'suppliers'])->name('suppliers');
     Route::post('/suppliers', [InventoryController::class, 'storeSupplier'])->name('suppliers.store');
     // Supplier CRUD and Supply Logs
@@ -472,7 +342,8 @@ Route::middleware(['auth', 'role:owner', 'force.password.change'])->prefix('owne
     
     // Customer management APIs
     Route::get('/customers', [OwnerUsersController::class, 'customersIndex'])->name('customers.index');
-    Route::post('/customers/toggle', [OwnerUsersController::class, 'customersToggle'])->name('customers.toggle');
+    Route::post('/customers/toggle', [OwnerUsersController::class, 'toggleCustomer'])->name('customers.toggle');
+    Route::post('/api/customers/restrict', [OwnerUsersController::class, 'restrictCustomer'])->name('customers.restrict');
     
     // Operating hours management APIs
     Route::get('/operating-hours', [OwnerController::class, 'getOperatingHoursSettings'])->name('operating-hours.get');
