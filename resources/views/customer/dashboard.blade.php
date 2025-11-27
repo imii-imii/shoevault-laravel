@@ -827,6 +827,17 @@
                   <p><i class="fas fa-clock"></i> Pickup: {{ $reservation->pickup_date->format('M d, Y') }} at {{ \Carbon\Carbon::createFromFormat('H:i:s', $reservation->pickup_time)->format('g:i A') }}</p>
                 @endif
                 <p><i class="fas fa-peso-sign"></i> Total: ₱{{ number_format($reservation->total_amount, 2) }}</p>
+                @php
+                  $reasonText = null;
+                  if (!empty($reservation->notes)) {
+                    $reasonText = \Illuminate\Support\Str::startsWith($reservation->notes, '[CANCELLED]')
+                      ? \Illuminate\Support\Str::replaceFirst('[CANCELLED] ', '', $reservation->notes)
+                      : $reservation->notes;
+                  }
+                @endphp
+                @if($reasonText)
+                  <p><i class="fas fa-comment-dots"></i> Reason: {{ $reasonText }}</p>
+                @endif
                 
                 <!-- Collapsible Items Toggle -->
                 <div class="reservation-items-toggle" onclick="toggleReservationItems('{{ $reservation->reservation_id }}')"
@@ -912,6 +923,19 @@
                   <p><i class="fas fa-clock"></i> Pickup: {{ $reservation->pickup_date->format('M d, Y') }} at {{ \Carbon\Carbon::createFromFormat('H:i:s', $reservation->pickup_time)->format('g:i A') }}</p>
                 @endif
                 <p><i class="fas fa-peso-sign"></i> Total: ₱{{ number_format($reservation->total_amount, 2) }}</p>
+                @if($reservation->status === 'cancelled')
+                  @php
+                    $reasonText = null;
+                    if (!empty($reservation->notes)) {
+                      $reasonText = \Illuminate\Support\Str::startsWith($reservation->notes, '[CANCELLED]')
+                        ? \Illuminate\Support\Str::replaceFirst('[CANCELLED] ', '', $reservation->notes)
+                        : $reservation->notes;
+                    }
+                  @endphp
+                  @if($reasonText)
+                    <p><i class="fas fa-comment-dots"></i> Reason: {{ $reasonText }}</p>
+                  @endif
+                @endif
                 
                 <!-- Collapsible Items Toggle -->
                 <div class="reservation-items-toggle" onclick="toggleReservationItems('{{ $reservation->reservation_id }}-pending')"
