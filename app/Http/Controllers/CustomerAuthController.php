@@ -524,6 +524,8 @@ class CustomerAuthController extends Controller
     {
         try {
             $customer = Auth::guard('customer')->user();
+            $reasonCode = (string) $request->input('reason_code', '');
+            $reasonText = trim((string) $request->input('reason', ''));
             
             // Find the reservation and verify it belongs to the customer
             $reservation = $customer->reservations()
@@ -559,8 +561,27 @@ class CustomerAuthController extends Controller
                 }
             }
 
-            // Update reservation status to cancelled
+            // Compose cancellation reason
+            $finalReason = '';
+            if ($reasonCode === 'other') {
+                $finalReason = $reasonText ?: 'Other (unspecified)';
+            } elseif ($reasonCode) {
+                $map = [
+                    'change_of_plans' => 'Change of plans',
+                    'found_better_price' => 'Found a better price',
+                    'ordered_by_mistake' => 'Ordered by mistake',
+                    'schedule_issue' => 'Issue with pickup schedule',
+                    'duplicate_reservation' => 'Duplicate reservation',
+                ];
+                $finalReason = $map[$reasonCode] ?? $reasonCode;
+            }
+
+            // Update reservation status to cancelled and store reason in notes
             $reservation->status = 'cancelled';
+            if (!empty($finalReason)) {
+                $prefix = '[CANCELLED] ';
+                $reservation->notes = $prefix . $finalReason;
+            }
             $reservation->save();
             
             // Create notification for staff about cancellation
@@ -569,19 +590,23 @@ class CustomerAuthController extends Controller
                 'title' => 'Reservation Cancelled by Customer',
                 'message' => "Reservation {$reservation->reservation_id} has been cancelled by the customer.",
                 'target_role' => 'all', // Notify all staff members
-                'data' => json_encode([
+                'data' => [
                     'reservation_id' => $reservation->reservation_id,
                     'customer_name' => $customer->fullname,
                     'customer_email' => $customer->email,
-                    'cancelled_at' => now()->toISOString()
-                ]),
+                    'cancelled_at' => now()->toISOString(),
+                    'reason_code' => $reasonCode ?: null,
+                    'reason' => $finalReason ?: null
+                ],
                 'is_read' => false
             ]);
             
             Log::info('Customer cancelled reservation', [
                 'reservation_id' => $reservation->reservation_id,
                 'customer_id' => $customer->customer_id,
-                'customer_email' => $customer->email
+                'customer_email' => $customer->email,
+                'reason_code' => $reasonCode ?: null,
+                'reason' => $finalReason ?: null
             ]);
             
             return response()->json([

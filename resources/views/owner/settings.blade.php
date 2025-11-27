@@ -307,10 +307,7 @@
 									<div style="display:flex; gap:12px; align-items:center;">
 										<input type="number" id="restriction-days" min="1" max="365" placeholder="7" style="width:80px; padding:8px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:14px;">
 										<span style="color:#6b7280;">days</span>
-										<label style="display:flex; align-items:center; gap:8px; color:#374151;">
-											<input type="checkbox" id="permanent-restriction" style="margin:0;">
-											<span style="font-size:14px;">Permanent restriction</span>
-										</label>
+										<!-- Permanent restriction checkbox removed; use Ban button on card instead -->
 									</div>
 								</div>
 								
@@ -539,6 +536,39 @@
 					</div>
 				</div>
 			</div>
+
+			<!-- Customer Ban Modal -->
+			<div id="ban-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:10050; align-items:center; justify-content:center;">
+				<div style="background:#fff; border-radius:14px; width:90%; max-width:520px; padding:26px 28px; box-shadow:0 24px 54px rgba(0,0,0,.25); position:relative;">
+					<div style="display:flex; align-items:flex-start; gap:16px;">
+						<div style="width:56px; height:56px; background:#fee2e2; border-radius:16px; display:flex; align-items:center; justify-content:center;">
+							<i class="fas fa-skull-crossbones" style="color:#dc2626; font-size:26px;"></i>
+						</div>
+						<div style="flex:1;">
+							<h3 style="margin:0 0 4px 0; font-size:1.15rem; font-weight:800; color:#111827;">Ban Customer Account</h3>
+							<p id="ban-customer-name" style="margin:0; font-size:0.85rem; color:#6b7280;"></p>
+						</div>
+						<button id="ban-close" style="background:none;border:0;font-size:1.2rem;line-height:1;cursor:pointer;color:#6b7280;">&times;</button>
+					</div>
+					<form id="ban-form" style="margin-top:18px; display:grid; gap:16px;">
+						<div>
+							<label for="ban-reason" style="display:block; font-weight:700; font-size:0.85rem; letter-spacing:.03em; color:#374151; margin-bottom:6px;">Ban Reason (required)</label>
+							<textarea id="ban-reason" rows="5" placeholder="Describe why this account is being permanently banned..." style="width:100%; padding:12px 14px; border:1px solid #d1d5db; border-radius:10px; font-size:0.85rem; resize:vertical; background:#f8fafc;"></textarea>
+							<small id="ban-reason-error" style="display:none;color:#dc2626;font-weight:600;margin-top:4px;">Reason is required.</small>
+						</div>
+						<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+							<div style="font-size:0.7rem; color:#6b7280; display:flex; align-items:center; gap:6px;">
+								<i class="fas fa-info-circle"></i>
+								<span>Ban cannot be undone here. Requires admin data intervention.</span>
+							</div>
+							<div style="display:flex; gap:10px;">
+								<button type="button" id="ban-cancel" style="padding:10px 16px; background:#f3f4f6; color:#374151; border:1px solid #e5e7eb; border-radius:8px; font-weight:700; font-size:0.75rem; letter-spacing:.05em; cursor:pointer;">Cancel</button>
+								<button type="submit" id="ban-confirm" style="padding:10px 18px; background:#dc2626; color:#fff; border:1px solid #b91c1c; border-radius:8px; font-weight:800; font-size:0.75rem; letter-spacing:.06em; box-shadow:0 6px 18px rgba(220,38,38,.35); cursor:pointer;">Confirm Ban</button>
+							</div>
+						</div>
+					</form>
+				</div>
+			</div>
 		</section>
 	</div>
 </main>
@@ -585,11 +615,14 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 
-	<!-- Add User Modal -->
+	<!-- Add User & Customer Routes -->
 	@php 
 		$userIndexRoute = \Illuminate\Support\Facades\Route::has('owner.users.index') ? route('owner.users.index') : null; 
 		$userStoreRoute = \Illuminate\Support\Facades\Route::has('owner.users.store') ? route('owner.users.store') : null; 
 		$userToggleRoute = \Illuminate\Support\Facades\Route::has('owner.users.toggle') ? route('owner.users.toggle') : null; 
+		$customerIndexRoute = \Illuminate\Support\Facades\Route::has('owner.customers.index') ? route('owner.customers.index') : null; 
+		$customerToggleRoute = \Illuminate\Support\Facades\Route::has('owner.customers.toggle') ? route('owner.customers.toggle') : null; 
+		$customerRestrictRoute = \Illuminate\Support\Facades\Route::has('owner.customers.restrict') ? route('owner.customers.restrict') : null; 
 	@endphp
 	<div id="add-user-modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;z-index:10000;"></div>
 	<div id="add-user-modal" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:12px;box-shadow:0 20px 40px rgba(0,0,0,.2);width:min(520px,94vw);max-height:90vh;overflow:auto;display:none;z-index:10001;">
@@ -1009,6 +1042,8 @@ document.addEventListener('DOMContentLoaded', function() {
 		const cust = document.getElementById('customer-management');
 		const customerListEl = document.getElementById('customer-list');
 		const customerSearchEl = document.getElementById('customer-search');
+		// Expose restrict route
+		window.customerRestrictUrl = window.customerRestrictUrl || @json($customerRestrictRoute ?? '');
 		
 		let cachedCustomers = { list: [] };
 		
@@ -1041,34 +1076,24 @@ document.addEventListener('DOMContentLoaded', function() {
 			const customerName = document.getElementById('restriction-customer-name');
 			const form = document.getElementById('restriction-form');
 			const daysInput = document.getElementById('restriction-days');
-			const permanentCheck = document.getElementById('permanent-restriction');
 			const reasonText = document.getElementById('restriction-reason');
 			
 			customerName.textContent = `${customer.name} (@${customer.username})`;
 			daysInput.value = '';
-			permanentCheck.checked = false;
 			reasonText.value = '';
 			
 			modal.style.display = 'flex';
-			
-			// Handle permanent restriction toggle
-			permanentCheck.addEventListener('change', function() {
-				daysInput.disabled = this.checked;
-				if (this.checked) daysInput.value = '';
-			});
-			
 			// Handle form submission
 			form.onsubmit = async function(e) {
 				e.preventDefault();
-				const days = permanentCheck.checked ? null : parseInt(daysInput.value) || 7;
+				const days = parseInt(daysInput.value) || 7; // Always a temporary restriction via modal
 				const reason = reasonText.value.trim();
 				
 				if (!reason) {
 					alert('Please provide a reason for the restriction.');
 					return;
 				}
-				
-				if (!permanentCheck.checked && (!days || days < 1)) {
+				if (!days || days < 1) {
 					alert('Please enter a valid number of days (1-365).');
 					return;
 				}
@@ -1299,9 +1324,9 @@ document.addEventListener('DOMContentLoaded', function() {
 			card.className = 'odash-list-item odash-card';
 			card.dataset.customerId = c.id;
 			
-			// Check if customer is locked (either through is_locked field or through restriction with [LOCKED] prefix)
-			const isLocked = c.is_locked || (c.is_restricted && c.restriction_reason && c.restriction_reason.startsWith('[LOCKED]'));
-			const isBanned = c.status === 'banned';
+			// Determine states from restriction flags and reason prefixes
+			const isLocked = c.is_restricted && c.restriction_reason && c.restriction_reason.startsWith('[LOCKED]');
+			const isBanned = c.is_restricted && c.restriction_reason && c.restriction_reason.startsWith('[BANNED]');
 			
 			card.dataset.wasLocked = isLocked ? 'true' : 'false'; // Track original lock state
 			
@@ -1341,9 +1366,9 @@ document.addEventListener('DOMContentLoaded', function() {
 					<div class="sub" style="color:#6b7280;font-size:0.85rem;">@${c.username}</div>
 				</div>
 				<div style="flex:0 0 auto;text-align:center;margin-top:8px;color:#6b7280;font-size:0.85rem;">${c.email || 'N/A'}</div>
-				${statusMessage ? `<div style="text-align:center;margin-top:4px;padding:4px 8px;background:#fef3c7;color:#92400e;border-radius:6px;font-size:0.75rem;font-weight:600;">${statusMessage}</div>` : ''}
+				${statusMessage ? `<div style=\"text-align:center;margin-top:4px;padding:4px 8px;background:#fef3c7;color:#92400e;border-radius:6px;font-size:0.75rem;font-weight:600;\">${statusMessage}</div>` : ''}
 				<div style="flex:1 1 auto"></div>
-				<div style="flex:0 0 auto;margin-top:8px;display:flex;justify-content:center;width:100%;">
+				<div style="flex:0 0 auto;margin-top:8px;display:flex;justify-content:center;width:100%;gap:14px;">
 					<div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
 						<label class="odash-switch" title="Lock account temporarily">
 							<input type="checkbox" class="odash-switch-input cust-lock" ${isLocked ? 'checked' : ''} ${isBanned ? 'disabled' : ''}>
@@ -1351,11 +1376,21 @@ document.addEventListener('DOMContentLoaded', function() {
 						</label>
 						<span style="font-size:0.8rem;color:#374151;font-weight:700;">Lock</span>
 					</div>
+					<button type="button" class="ban-btn" style="display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:0;padding:0;${isBanned ? 'cursor:not-allowed;opacity:.6;' : 'cursor:pointer;'}" ${isBanned ? 'disabled' : ''}>
+						<span style="display:inline-block;padding:8px 12px;border-radius:8px;background:#dc2626;color:#fff;font-size:0.7rem;font-weight:700;letter-spacing:.05em;box-shadow:0 4px 12px rgba(220,38,38,.35);transition:.2s;">Ban</span>
+						<span style="font-size:0.65rem;color:#6b7280;font-weight:600;">Permanent</span>
+					</button>
 				</div>
 			`;
 
 			const badge = card.querySelector('.odash-status-badge');
 			const lockInput = card.querySelector('.cust-lock');
+			const banBtn = card.querySelector('.ban-btn');
+
+			banBtn?.addEventListener('click', ()=>{
+				if (isBanned) return;
+				openBanModal({ id: c.id, name: c.name, username: c.username }, badge, lockInput, card, banBtn);
+			});
 
 			lockInput?.addEventListener('change', async ()=>{
 				const wantLocked = lockInput.checked;
@@ -1460,6 +1495,67 @@ document.addEventListener('DOMContentLoaded', function() {
 				if (lockInput) lockInput.checked = !wantLocked;
 				alert('Failed to update customer status: ' + err.message);
 			}
+		}
+
+		// Ban handler: permanent restriction
+		async function handleBan(customerId, reason, badge, lockInput, card, banBtn) {
+			const restrictUrl = window.customerRestrictUrl;
+			if (!restrictUrl) throw new Error('Restrict URL unavailable');
+			const payload = {
+				customer_id: customerId,
+				restrict: true,
+				days: null,
+				reason: `[BANNED] ${reason || 'No reason provided'}`
+			};
+			const resp = await fetch(restrictUrl, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+				},
+				body: JSON.stringify(payload)
+			});
+			const text = await resp.text();
+			let data; try { data = JSON.parse(text); } catch { throw new Error('Invalid server response'); }
+			if (!resp.ok || data.success === false) throw new Error(data.message || 'Ban failed');
+			// Update UI
+			badge.textContent = 'Banned';
+			badge.className = 'odash-status-badge banned';
+			card.classList.add('is-banned');
+			if (lockInput) { lockInput.checked = false; lockInput.disabled = true; }
+			if (banBtn) { banBtn.disabled = true; banBtn.style.cursor='not-allowed'; banBtn.style.opacity='.6'; }
+			// Refresh list to reflect server state
+			setTimeout(()=> loadCustomers(customerSearchEl?.value || ''), 400);
+		}
+		// Ban modal wiring
+		function openBanModal(customer, badge, lockInput, card, banBtn){
+			const modal = document.getElementById('ban-modal');
+			const nameEl = document.getElementById('ban-customer-name');
+			const form = document.getElementById('ban-form');
+			const reasonEl = document.getElementById('ban-reason');
+			const errorEl = document.getElementById('ban-reason-error');
+			const closeBtn = document.getElementById('ban-close');
+			const cancelBtn = document.getElementById('ban-cancel');
+			if (!modal) return;
+			nameEl.textContent = `${customer.name} (@${customer.username})`;
+			reasonEl.value='';
+			errorEl.style.display='none';
+			modal.style.display='flex';
+			function close(){ modal.style.display='none'; }
+			closeBtn.onclick = cancelBtn.onclick = close;
+			modal.onclick = (e)=>{ if(e.target===modal) close(); };
+			form.onsubmit = async (e)=>{
+				e.preventDefault();
+				const reason = reasonEl.value.trim();
+				if(!reason){ errorEl.style.display='block'; return; }
+				try {
+					await handleBan(customer.id, reason, badge, lockInput, card, banBtn);
+					close();
+				} catch(err){
+					errorEl.textContent = err.message;
+					errorEl.style.display='block';
+				}
+			};
 		}
 
 		let ct;

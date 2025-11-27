@@ -514,7 +514,7 @@
                   }
                   @media (max-width: 1160px) {
                     .brands-dropdown { width: calc(100vw - 50px); margin: 0; max-width: unset; }
-                    .brands-dropdown-btn { width: 102%; }
+                    .brands-dropdown-btn { width: 100%; }
                     .brands-dropdown-list { width: 100%; min-width: 0; }
                   }
               </style>
