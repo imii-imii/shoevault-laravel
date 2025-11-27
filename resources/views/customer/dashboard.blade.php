@@ -1159,10 +1159,28 @@
         <h3 class="cancel-modal-title">Cancel Reservation</h3>
       </div>
       <p class="cancel-modal-text">
-        Are you sure you want to cancel this reservation? This action cannot be undone.
+        Are you sure you want to cancel this reservation? This action cannot be undone. Please tell us why you're cancelling so we can improve the experience.
       </p>
       <div class="cancel-modal-reservation" id="modalReservationInfo">
         <!-- Reservation details will be inserted here -->
+      </div>
+      <!-- Cancellation reason selector -->
+      <div class="cancel-reason-block" style="margin-bottom:1rem;">
+        <label for="cancelReasonSelect" style="display:block;font-weight:700;color:#2d3748;margin-bottom:.35rem;">Reason for cancellation</label>
+        <select id="cancelReasonSelect" style="width:100%;padding:.6rem .8rem;border:1px solid #e2e8f0;border-radius:10px;background:#f7fafc;font-weight:600;color:#2d3748;">
+          <option value="" selected disabled>Choose a reason...</option>
+          <option value="change_of_plans">Change of plans</option>
+          <option value="found_better_price">Found a better price</option>
+          <option value="ordered_by_mistake">Ordered by mistake</option>
+          <option value="schedule_issue">Issue with pickup schedule</option>
+          <option value="duplicate_reservation">Duplicate reservation</option>
+          <option value="other">Other</option>
+        </select>
+        <div id="cancelOtherContainer" style="display:none;margin-top:.65rem;">
+          <label for="cancelOtherReason" style="display:block;font-weight:700;color:#2d3748;margin-bottom:.35rem;">Please specify</label>
+          <textarea id="cancelOtherReason" rows="4" placeholder="Type your reason..." style="width:100%;padding:.7rem .8rem;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;"></textarea>
+        </div>
+        <small id="cancelReasonError" style="display:none;color:#e53e3e;font-weight:700;margin-top:.35rem;">Please select a reason. If 'Other', please provide details.</small>
       </div>
       <div class="cancel-modal-actions">
         <button class="modal-btn modal-btn-cancel" onclick="closeCancelModal()">
@@ -1215,6 +1233,21 @@
     async function confirmCancellation() {
       if (!currentReservationId) return;
       
+      // Gather reason
+      const reasonSelect = document.getElementById('cancelReasonSelect');
+      const reasonError = document.getElementById('cancelReasonError');
+      const otherContainer = document.getElementById('cancelOtherContainer');
+      const otherInput = document.getElementById('cancelOtherReason');
+      const reasonCode = reasonSelect?.value || '';
+      const reasonText = (reasonCode === 'other') ? (otherInput?.value || '').trim() : '';
+
+      // Validate reason
+      if (!reasonCode || (reasonCode === 'other' && !reasonText)) {
+        reasonError.style.display = 'block';
+        return;
+      }
+      reasonError.style.display = 'none';
+
       const confirmBtn = document.getElementById('confirmCancelBtn');
       const originalText = confirmBtn.innerHTML;
       
@@ -1228,7 +1261,8 @@
           headers: {
             'Content-Type': 'application/json',
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-          }
+          },
+          body: JSON.stringify({ reason_code: reasonCode, reason: reasonText })
         });
         
         const data = await response.json();
@@ -1332,6 +1366,21 @@
       
       // Confirm cancellation
       confirmBtn.addEventListener('click', confirmCancellation);
+
+      // Wire reason selection UI
+      const reasonSelect = document.getElementById('cancelReasonSelect');
+      const otherContainer = document.getElementById('cancelOtherContainer');
+      const reasonError = document.getElementById('cancelReasonError');
+      if (reasonSelect) {
+        reasonSelect.addEventListener('change', function(){
+          reasonError.style.display = 'none';
+          if (this.value === 'other') {
+            otherContainer.style.display = 'block';
+          } else {
+            otherContainer.style.display = 'none';
+          }
+        });
+      }
     });
 
     // User menu dropdown functionality (matching portal behavior)
