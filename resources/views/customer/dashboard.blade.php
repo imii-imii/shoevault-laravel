@@ -817,7 +817,7 @@
         <div class="tab-content active" id="pending-content">
           @if(count($pendingReservations) > 0)
             @foreach($pendingReservations as $reservation)
-              <div class="reservation-item {{ $reservation->status }}">
+              <div class="reservation-item {{ $reservation->status }}" data-reservation-id="{{ $reservation->reservation_id }}">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                   <strong>{{ $reservation->reservation_id }}</strong>
                   <span class="status-badge status-{{ $reservation->status }}">{{ ucfirst(str_replace('_', ' ', $reservation->status)) }}</span>
@@ -902,7 +902,7 @@
         <div class="tab-content" id="all-content">
           @if(count($allReservations) > 0)
             @foreach($allReservations as $reservation)
-              <div class="reservation-item">
+              <div class="reservation-item" data-reservation-id="{{ $reservation->reservation_id }}">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                   <strong>{{ $reservation->reservation_id }}</strong>
                   <span class="status-badge status-{{ $reservation->status }}">{{ ucfirst(str_replace('_', ' ', $reservation->status)) }}</span>
@@ -987,7 +987,7 @@
         <div class="tab-content" id="completed-content">
           @if(count($completedReservations) > 0)
             @foreach($completedReservations as $reservation)
-              <div class="reservation-item completed">
+              <div class="reservation-item completed" data-reservation-id="{{ $reservation->reservation_id }}">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                   <strong>{{ $reservation->reservation_id }}</strong>
                   <span class="status-badge status-completed">Completed</span>
@@ -1063,7 +1063,7 @@
         <div class="tab-content" id="cancelled-content">
           @if(count($cancelledReservations) > 0)
             @foreach($cancelledReservations as $reservation)
-              <div class="reservation-item cancelled">
+              <div class="reservation-item cancelled" data-reservation-id="{{ $reservation->reservation_id }}">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                   <strong>{{ $reservation->reservation_id }}</strong>
                   <span class="status-badge status-cancelled">Cancelled</span>
@@ -1177,6 +1177,7 @@
 
   <script>
     let currentReservationId = null;
+    let isCancelling = false; // Flag to prevent duplicate calls
 
     function cancelReservation(reservationId) {
       currentReservationId = reservationId;
@@ -1213,14 +1214,17 @@
     }
 
     async function confirmCancellation() {
-      if (!currentReservationId) return;
+      if (!currentReservationId || isCancelling) return;
+      
+      // Set flag to prevent duplicate calls
+      isCancelling = true;
       
       const confirmBtn = document.getElementById('confirmCancelBtn');
       const originalText = confirmBtn.innerHTML;
       
-      // Show loading state
-      confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cancelling...';
+      // Show loading state and disable button immediately
       confirmBtn.disabled = true;
+      confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cancelling...';
       
       try {
         const response = await fetch(`/customer/reservations/${currentReservationId}/cancel`, {
@@ -1231,26 +1235,67 @@
           }
         });
         
+        // Check if response is ok
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        // Check if response has JSON content type
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error('Server returned non-JSON response');
+        }
+        
         const data = await response.json();
         
         if (data.success) {
+          // Close modal first
+          closeCancelModal();
+          
           // Show success state briefly
           confirmBtn.innerHTML = '<i class="fas fa-check"></i> Cancelled!';
           confirmBtn.style.background = 'linear-gradient(135deg, #38a169 0%, #2f855a 100%)';
           
+          // Update the UI immediately instead of reloading
+          const reservationCards = document.querySelectorAll(`[data-reservation-id="${currentReservationId}"]`);
+          let cardRemoved = false;
+          reservationCards.forEach(card => {
+            card.remove();
+            cardRemoved = true;
+          });
+          
+          // If no cards were removed, fallback to page reload
+          if (!cardRemoved) {
+            setTimeout(() => {
+              location.reload();
+            }, 1000);
+            return;
+          }
+          
+          // Optional: Show success message
+          const successMessage = document.createElement('div');
+          successMessage.className = 'alert alert-success';
+          successMessage.innerHTML = '<i class="fas fa-check-circle"></i> Reservation cancelled successfully!';
+          successMessage.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 10000; padding: 12px 20px; border-radius: 8px; background: #d4edda; border: 1px solid #c3e6cb; color: #155724;';
+          document.body.appendChild(successMessage);
+          
           setTimeout(() => {
-            location.reload();
-          }, 1000);
+            successMessage.remove();
+          }, 3000);
+          
         } else {
           throw new Error(data.message || 'Failed to cancel reservation.');
         }
       } catch (error) {
         console.error('Error:', error);
-        alert('An error occurred while cancelling the reservation: ' + error.message);
+        alert('An error occurred while cancelling the reservation. Please try again.');
         
         // Reset button
         confirmBtn.innerHTML = originalText;
         confirmBtn.disabled = false;
+      } finally {
+        // Always reset the flag
+        isCancelling = false;
       }
     }
     
@@ -1330,7 +1375,8 @@
         }
       });
       
-      // Confirm cancellation
+      // Confirm cancellation - remove any existing listeners first
+      confirmBtn.removeEventListener('click', confirmCancellation);
       confirmBtn.addEventListener('click', confirmCancellation);
     });
 

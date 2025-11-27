@@ -568,6 +568,7 @@ class CustomerAuthController extends Controller
                 'type' => 'reservation_cancelled',
                 'title' => 'Reservation Cancelled by Customer',
                 'message' => "Reservation {$reservation->reservation_id} has been cancelled by the customer.",
+                'target_role' => 'all', // Notify all staff members
                 'data' => json_encode([
                     'reservation_id' => $reservation->reservation_id,
                     'customer_name' => $customer->fullname,
